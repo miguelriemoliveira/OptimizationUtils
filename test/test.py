@@ -16,7 +16,7 @@ This is a long, multiline description
 #-------------------------------------------------------------------------------
 import argparse  #to read command line arguments
 
-import opt_utils.opt_utils as opt_utils
+import OptimizationUtils.OptimizationUtils as OU
 
 #-------------------------------------------------------------------------------
 #--- HEADER
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     #---------------------------------------
     #--- INITIALIZATION
     #---------------------------------------
-    optimizer = opt_utils.Optimizer()
+    optimizer = OU.Optimizer()
 
 
 

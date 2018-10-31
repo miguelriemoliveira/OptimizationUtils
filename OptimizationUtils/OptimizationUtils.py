@@ -47,6 +47,6 @@ class Optimizer():
               None for now 
         """
 
-    def setStaticData(data):
+    def setStaticData(self, data):
         self.data = data
 
