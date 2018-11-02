@@ -46,7 +46,22 @@ class Optimizer():
            Returns:
               None for now 
         """
+        self.static_data = {}
+        self.test_var = 5
 
-    def setStaticData(self, data):
-        self.data = data
+    def addStaticData(self, name, data):
+        """ Should be a dictionary containing every static data to be used by the cost function"""
+        print('Adding new data "' + name + '" to static data')
+        self.static_data[name] = data
+
+    def setObjectiveFunction(self, handle):
+        self.objective_function = handle
+
+
+    def callObjectiveFuction(self, handle):
+        pass
+
+
+
+
 
