@@ -5,7 +5,7 @@ A set of utilities for using the python scipy optimizer functions
 
 There are several examples. Here is how to launch them:
 
-### test_ocdataset_color_correction
+### Color Correction using an OC dataset
 
 Uses the OCDatasetLoader to load an OC dataset and runs a color balancing optimization using images from the first three cameras.
 
