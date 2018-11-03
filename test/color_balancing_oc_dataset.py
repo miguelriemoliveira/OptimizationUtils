@@ -65,6 +65,7 @@ if __name__ == "__main__":
     #---------------------------------------
     dataset_loader = OCDatasetLoader.Loader(args)
     dataset = dataset_loader.loadDataset()
+    num_cameras = len(dataset.cameras)
 
     # ---------------------------------------
     # --- PREPARE OPTIMIZATION
@@ -72,6 +73,18 @@ if __name__ == "__main__":
     print('Initializing optimizer')
     opt = OptimizationUtils.Optimizer()
     opt.addStaticData('dataset', dataset)
+
+    #A vector containing the bias for the cameras
+    bias = [0] * len(dataset.cameras)
+    bias[0] = 150      #brighten the first camera
+    bias[1] = -140     #darken the second camera
+
+    for i, b in enumerate(bias):
+        opt.pushScalarParam('bias' + str(i), b)
+
+    print(opt.params)
+
+    exit(0)
 
     # ---------------------------------------
     # --- SET THE OBJECTIVE FUNCTION
@@ -122,10 +135,7 @@ if __name__ == "__main__":
     #---------------------------------------
     #--- Create X0 (First Guess)
     #---------------------------------------
-    x0 = [0] * len(dataset.cameras)
-    x0[0] = 150      #brighten the first camera
-    x0[1] = -140     #darken the second camera
-   
+       
     #objectiveFunction(x0, dataset)
 
     opt.callObjectiveFunction(x0)

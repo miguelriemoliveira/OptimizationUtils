@@ -23,6 +23,8 @@ from scipy.optimize import least_squares
 # ------------------------
 ##   DATA STRUCTURES   ##
 # ------------------------
+from collections import namedtuple
+ParamT = namedtuple('ParamT', 'idx binding')
 
 # ------------------------
 ## FUNCTION DEFINITION ##
@@ -47,10 +49,16 @@ class Optimizer():
               None for now 
         """
         self.static_data = {}
-        self.test_var = 5
+        self.params = {}    
+        self.x0 = []
 
-    #def setXVector(self, )
+    def pushScalarParam(self, name, binding):
+        self.params[name] = ParamT(len(self.x0), binding)
+        self.x0.append(self.params[name].binding)
 
+    #def fromX(self):
+        #for key, value in self.params.iteritems():
+            
 
     def addStaticData(self, name, data):
         """ Should be a dictionary containing every static data to be used by the cost function"""
