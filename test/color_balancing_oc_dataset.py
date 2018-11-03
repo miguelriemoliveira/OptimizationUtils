@@ -16,19 +16,6 @@ import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
 #-------------------------------------------------------------------------------
-#--- HEADER
-#-------------------------------------------------------------------------------
-__author__ = "Miguel Riem de Oliveira"
-__date__ = "2018"
-__copyright__ = "Miguel Riem de Oliveira"
-__credits__ = ["Miguel Riem de Oliveira"]
-__license__ = ""
-__version__ = "1.0"
-__maintainer__ = "Miguel Oliveira"
-__email__ = "m.riem.oliveira@gmail.com"
-__status__ = "Development"
-
-#-------------------------------------------------------------------------------
 #--- FUNCTIONS
 #-------------------------------------------------------------------------------
 
@@ -80,63 +67,68 @@ if __name__ == "__main__":
     dataset = dataset_loader.loadDataset()
 
     # ---------------------------------------
-    # --- Compute the list of points that will be used by the cost function
-    # ---------------------------------------
-
-    
-    # ---------------------------------------
     # --- PREPARE OPTIMIZATION
     # ---------------------------------------
-
     print('Initializing optimizer')
     opt = OptimizationUtils.Optimizer()
-
     opt.addStaticData('dataset', dataset)
 
     # ---------------------------------------
     # --- SET THE OBJECTIVE FUNCTION
     # ---------------------------------------
+    def addSafe(i_in, val):
+        """Avoids saturation when adding to uint8 images"""
+        i_out = i_in.astype(np.float) #Convert the i to type float 
+        i_out = np.add(i_out, val) #Perform the adding of parameters to the i
+        i_out = np.maximum(i_out, 0)   #underflow
+        i_out = np.minimum(i_out, 255) #overflow
+        return i_out.astype(np.uint8) #Convert back to uint8 and return
 
-    #Define the objective function
     def objectiveFunction(x, static_data, show=False):
 
-        #cameras = static_data['cameras']
-        cameras = static_data.cameras
+        #Get the static data from the dictionary
+        dataset = static_data['dataset']
+        cameras = dataset.cameras
+        num_cameras = len(cameras)
 
-        #Get value of first pixel of first camera
-        pix0 = np.average(cameras[0].rgb.image[:][:][:])
-        pix1 = np.average(cameras[1].rgb.image[:][:][:])
-        pix2 = np.average(cameras[2].rgb.image[:][:][:])
+        #Apply changes to all camera images using parameter vector
+        changed_images = []
+        for i in range(0,num_cameras):
+            changed_images.append(addSafe(cameras[i].rgb.image, x[i]))
 
-        print("pix0 = " + str(pix0))
-        print("pix1 = " + str(pix1))
-        print("pix2 = " + str(pix2))
+        #Compute averages for initial and changed images
+        initial_avgs = np.zeros((num_cameras))
+        changed_avgs = np.zeros((num_cameras))
+        for i in range(0,num_cameras):
+            initial_avgs[i] = np.average(cameras[i].rgb.image)
+            changed_avgs[i] = np.average(changed_images[i])
 
-        image0 = np.add(cameras[0].rgb.image, x[0])
-        
-        print((cameras[0].rgb.image.dtype ))
+        #Compute error as the sum of differences between initial and changed averages. Error is a scalar in this example, hence the sum
+        error = np.sum(initial_avgs - changed_avgs)
 
-        print(np.average(image0))
-
-        cv2.namedWindow('cam0_orig', cv2.WINDOW_NORMAL)
-        cv2.imshow('cam0_orig', cameras[0].rgb.image)
-        cv2.namedWindow('cam0', cv2.WINDOW_NORMAL)
-        cv2.imshow('cam0', image0)
-
+        #Visualization
+        for i in range(0,num_cameras):
+            cv2.namedWindow('Initial Cam ' + str(i), cv2.WINDOW_NORMAL)
+            cv2.imshow('Initial Cam ' + str(i), cameras[i].rgb.image)
+            cv2.namedWindow('Changed Cam ' + str(i), cv2.WINDOW_NORMAL)
+            cv2.imshow('Changed Cam ' + str(i), changed_images[i])
         cv2.waitKey(0)
 
-        #print('visualization in ' + str(time.time() - t) + ' secs')
-        e = [pix0-pix1, pix0-pix1, pix1-pix2]
-        return e
+        return error
+    # -----------OBJECTIVE FUNCTION FINISHED ------------------
+    
+    opt.setObjectiveFunction(objectiveFunction)
 
-    #opt.setObjectiveFunction(objectiveFunction)
+    #---------------------------------------
+    #--- Create X0 (First Guess)
+    #---------------------------------------
+    x0 = [0] * len(dataset.cameras)
+    x0[0] = 150      #brighten the first camera
+    x0[1] = -140     #darken the second camera
+   
+    #objectiveFunction(x0, dataset)
 
-
-    objectiveFunction([-200, 0, 0], dataset)
-
-#---------------------------------------
-#--- USING THE USER INTERFACE
-#---------------------------------------
+    opt.callObjectiveFunction(x0)
 
 
     #---------------------------------------

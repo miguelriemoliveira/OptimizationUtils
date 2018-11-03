@@ -49,17 +49,19 @@ class Optimizer():
         self.static_data = {}
         self.test_var = 5
 
+    #def setXVector(self, )
+
+
     def addStaticData(self, name, data):
         """ Should be a dictionary containing every static data to be used by the cost function"""
         print('Adding new data "' + name + '" to static data')
         self.static_data[name] = data
 
-    def setObjectiveFunction(self, handle):
-        self.objective_function = handle
+    def setObjectiveFunction(self, function_handle):
+        self.objective_function = function_handle
 
-
-    def callObjectiveFuction(self, handle):
-        pass
+    def callObjectiveFunction(self, x):
+        self.objective_function(x, self.static_data)
 
 
 
