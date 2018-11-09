@@ -11,6 +11,8 @@ from itertools import combinations
 import numpy as np
 from copy import deepcopy
 import cv2
+from functools import partial
+import random
 
 import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
@@ -30,6 +32,13 @@ def keyPressManager(self):
             print('Pressed "q". Aborting.')
             exit(0)
 
+def addSafe(i_in, val):
+        """Avoids saturation when adding to uint8 images"""
+        i_out = i_in.astype(np.float) #Convert the i to type float 
+        i_out = np.add(i_out, val) #Perform the adding of parameters to the i
+        i_out = np.maximum(i_out, 0)   #underflow
+        i_out = np.minimum(i_out, 255) #overflow
+        return i_out.astype(np.uint8) #Convert back to uint8 and return
 
 #-------------------------------------------------------------------------------
 #--- MAIN
@@ -66,38 +75,51 @@ if __name__ == "__main__":
     dataset_loader = OCDatasetLoader.Loader(args)
     dataset = dataset_loader.loadDataset()
     num_cameras = len(dataset.cameras)
+    print(num_cameras)
+
+    #Change camera's colors just to better see optimization working
+    for i, camera in enumerate(dataset.cameras):
+        dataset.cameras[i].rgb.image = addSafe(dataset.cameras[i].rgb.image, random.randint(-70, 70))
+
+
+    #lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
+    for i, camera in enumerate(dataset.cameras):
+        # camera.rgb.bias = random.randint(-30, 30)
+        camera.rgb.bias = 50
+
+    
+        
 
     # ---------------------------------------
-    # --- PREPARE OPTIMIZATION
+    # --- Setup Optimizer
     # ---------------------------------------
     print('Initializing optimizer')
     opt = OptimizationUtils.Optimizer()
     opt.addStaticData('dataset', dataset)
+    opt.addStaticData('another_thing', [])
 
-    #A vector containing the bias for the cameras
-    bias = [0] * len(dataset.cameras)
-    bias[0] = 150      #brighten the first camera
-    bias[1] = -140     #darken the second camera
+      
+    def setter(dataset, value, i):
+        dataset.cameras[i].rgb.bias = value
 
-    for i, b in enumerate(bias):
-        opt.pushScalarParam('bias' + str(i), b)
+    def getter(dataset, i):
+        return dataset.cameras[i].rgb.bias
 
-    print(opt.params)
+    # Create specialized getter and setter functions
+    for idx_camera, camera in enumerate(dataset.cameras):
+        opt.pushScalarParam('bias' + str(idx_camera), 'dataset', partial(getter,i=idx_camera), partial(setter,i=idx_camera))
 
-    exit(0)
+    #TODO max and min limits
+    #TODO sparse matrix
+
+
 
     # ---------------------------------------
     # --- SET THE OBJECTIVE FUNCTION
     # ---------------------------------------
-    def addSafe(i_in, val):
-        """Avoids saturation when adding to uint8 images"""
-        i_out = i_in.astype(np.float) #Convert the i to type float 
-        i_out = np.add(i_out, val) #Perform the adding of parameters to the i
-        i_out = np.maximum(i_out, 0)   #underflow
-        i_out = np.minimum(i_out, 255) #overflow
-        return i_out.astype(np.uint8) #Convert back to uint8 and return
+    
 
-    def objectiveFunction(x, static_data, show=False):
+    def objectiveFunction(static_data, show=False):
 
         #Get the static data from the dictionary
         dataset = static_data['dataset']
@@ -107,7 +129,7 @@ if __name__ == "__main__":
         #Apply changes to all camera images using parameter vector
         changed_images = []
         for i in range(0,num_cameras):
-            changed_images.append(addSafe(cameras[i].rgb.image, x[i]))
+            changed_images.append(addSafe(cameras[i].rgb.image, cameras[i].rgb.bias))
 
         #Compute averages for initial and changed images
         initial_avgs = np.zeros((num_cameras))
@@ -135,15 +157,19 @@ if __name__ == "__main__":
     #---------------------------------------
     #--- Create X0 (First Guess)
     #---------------------------------------
-       
-    #objectiveFunction(x0, dataset)
 
-    opt.callObjectiveFunction(x0)
+    opt.fromXToModel()
+    opt.callObjectiveFunction()
 
 
     #---------------------------------------
-    #--- USING THE API
+    #--- Start Optimization
     #---------------------------------------
+    print("\n\nStarting optimization")
+    opt.startOptimization()
+
+    
+
 
 
 
