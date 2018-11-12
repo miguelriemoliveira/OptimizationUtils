@@ -154,7 +154,6 @@ if __name__ == "__main__":
         opt.pushResidual(name='c' + cam_a.name + '-c' + cam_b.name, params=['bias_' + cam_a.name, 'bias_' + cam_b.name])
 
     print('residuals = ' + str(opt.residuals))
-    print('residual_params = ' + str(opt.residual_params))
 
     opt.computeSparseMatrix()
 

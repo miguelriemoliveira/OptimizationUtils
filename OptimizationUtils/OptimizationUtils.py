@@ -12,7 +12,7 @@ from scipy.sparse import lil_matrix
 # ------------------------
 ##   DATA STRUCTURES   ##
 # ------------------------
-ParamT = namedtuple('ParamT', 'idx data_key getter setter')
+ParamT = namedtuple('ParamT', 'idx data_key getter setter bound_max bound_min')
 
 
 # -------------------------------------------------------------------------------
@@ -26,10 +26,9 @@ class Optimizer:
         self.params = OrderedDict()  # an ordered dict where key={name} and value = namedtuple('ParamT')
         self.x = []  # a list of floats (the actual parameters)
         self.x0 = []  # the initial value of the parameters
-        self.bound_min = []  # min values for x
-        self.bound_max = []  # max values for x
-        self.residuals = []
-        self.residual_params = {}
+        self.xf = []  # the final value of the parameters
+        self.residuals = OrderedDict()
+        self.result = None
 
     def setFirstGuess(self):
         self.x0 = deepcopy(self.x)
@@ -47,11 +46,8 @@ class Optimizer:
         if name in self.params:  # Cannot add a parameter that already exists
             raise ValueError('Scalar param ' + name + ' already exists.')
 
-        self.params[name] = ParamT(len(self.x), model_key, getter, setter)  # add to params dict
+        self.params[name] = ParamT(len(self.x), model_key, getter, setter, bound_max, bound_min)  # add to params dict
         self.x.append(getter(self.model[model_key]))  # set initial value in x
-        self.bound_min.append(bound_min)  # set min value for this param
-        self.bound_max.append(bound_max)  # set max value for this param
-
         print('Pushed scalar param ' + name)
 
     def pushResidual(self, name, params=None):
@@ -60,8 +56,7 @@ class Optimizer:
         :param name: name of residual
         :param params: list of parameter names which affect this residual
         """
-        self.residuals.append(name)
-        self.residual_params[name] = params
+        self.residuals[name] = params
 
     def fromModelToX(self):
         """Copies values of all parameters from model to vector x"""
@@ -76,7 +71,7 @@ class Optimizer:
             x = self.x
 
         for name in self.params:
-            idx, data_key, _, setter = self.params[name]
+            idx, data_key, _, setter,_,_ = self.params[name]
             value = x[idx]
             setter(self.model[data_key], value)
 
@@ -104,9 +99,9 @@ class Optimizer:
     def computeSparseMatrix(self):
         self.sparse_matrix = lil_matrix((len(self.residuals), len(self.params)), dtype=int)
 
-        for i, residual in enumerate(self.residuals):
-            for param in self.residual_params[residual]:
-                idx, _, _, _ = self.params[param]
+        for i, key in enumerate(self.residuals):
+            for param in self.residuals[key]:
+                idx, _, _, _,_,_ = self.params[param]
                 self.sparse_matrix[i, idx] = 1
 
         print('Sparsity matrix:')
@@ -119,7 +114,7 @@ class Optimizer:
         print(text)
         for i, param_value in enumerate(x):
             for name in self.params:
-                idx, _, _, _ = self.params[name]
+                idx, _, _, _,_,_ = self.params[name]
                 if idx == i:
                     print('   ' + name + ' = ' + str(param_value))
 
@@ -150,9 +145,15 @@ class Optimizer:
     def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-8,
                                                       'diff_step': 1e0}):
         self.setFirstGuess()
-        bounds = (self.bound_min, self.bound_max)
+        bounds_min =[]
+        bounds_max = []
+        for name in self.params:
+            _, _, _, _, max, min = self.params[name]
+            bounds_max.append(max)
+            bounds_min.append(min)
+
         self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
-                                    bounds=bounds, method='trf', args=(), **optimization_options)
+                                    bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
         self.xf = list(self.result.x)
         self.finalOptimizationReport()
 
