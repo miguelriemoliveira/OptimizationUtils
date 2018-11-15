@@ -191,8 +191,8 @@ if __name__ == "__main__":
     print('Initializing optimizer')
     opt = OptimizationUtils.Optimizer()
 
-    opt.addStaticData('dataset', dataset)
-    opt.addStaticData('cam_pairs', cam_pairs)
+    opt.addModelData('dataset', dataset)
+    opt.addModelData('cam_pairs', cam_pairs)
 
     # ---------------------------------------
     # --- SET THE OBJECTIVE FUNCTION

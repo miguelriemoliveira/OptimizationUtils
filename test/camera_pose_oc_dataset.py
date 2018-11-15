@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
-This code shows how the optimizer class may be used for changing the colors of a set of images so that the average
-color in all images is very similar. This is often called color correction.
+This example shows an optimizer working with a set of n cameras, changing their pose so that the reprojection error is
+minimized.
 The OCDatasetLoader is used to collect data from a OpenConstructor dataset
 """
 
@@ -9,6 +9,8 @@ The OCDatasetLoader is used to collect data from a OpenConstructor dataset
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import argparse  # to read command line arguments
+from collections import namedtuple
+from copy import deepcopy
 from itertools import combinations
 import numpy as np
 import cv2
@@ -16,6 +18,7 @@ from functools import partial
 import random
 import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
+
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
@@ -31,15 +34,6 @@ def keyPressManager(self):
         elif key == ord('q'):
             print('Pressed "q". Aborting.')
             exit(0)
-
-
-def addSafe(i_in, val):
-    """Avoids saturation when adding to uint8 images"""
-    i_out = i_in.astype(np.float)  # Convert the i to type float
-    i_out = np.add(i_out, val)  # Perform the adding of parameters to the i
-    i_out = np.maximum(i_out, 0)  # underflow
-    i_out = np.minimum(i_out, 255)  # overflow
-    return i_out.astype(np.uint8)  # Convert back to uint8 and return
 
 
 # -------------------------------------------------------------------------------
@@ -82,14 +76,86 @@ if __name__ == "__main__":
     num_cameras = len(dataset.cameras)
     print(num_cameras)
 
-    # Change camera's colors just to better see optimization working
-    for i, camera in enumerate(dataset.cameras):
-        dataset.cameras[i].rgb.image = addSafe(dataset.cameras[i].rgb.image, random.randint(-70, 70))
+    # ---------------------------------------
+    # --- Detect ARUCOS
+    # ---------------------------------------
+    import cv2.aruco  # Aruco Markers
+    markerSize = 0.082
+    distortion = np.array(dataset.cameras[0].rgb.camera_info.D)
+    intrinsics = np.reshape(dataset.cameras[0].rgb.camera_info.K,(3,3))
 
-    # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
+    class Detections:
+        def __init__(self):
+            pass
+
+    detections = Detections()
+    detections.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_ARUCO_ORIGINAL)
+    detections.parameters = cv2.aruco.DetectorParameters_create()
+
+    ArucoT = namedtuple('ArucoT', 'id center rodrigues translation')
+
+
     for i, camera in enumerate(dataset.cameras):
-        # camera.rgb.bias = random.randint(-30, 30)
-        camera.rgb.bias = 0
+        camera.rgb.arucos = []
+
+        image = cv2.cvtColor(camera.rgb.image, cv2.COLOR_BGR2GRAY)
+        corners, ids, _ = cv2.aruco.detectMarkers(image, detections.aruco_dict, parameters=detections.parameters)
+
+        # Estimate pose of each marker
+        rotationVecs, translationVecs, _ = cv2.aruco.estimatePoseSingleMarkers(corners, markerSize, intrinsics, distortion)
+
+        for j, id in enumerate(ids):
+            id = id[0] #strange thing from cv2
+
+            my_corners = corners[j][0][:]
+            x = []
+            y = []
+            for corner in my_corners:
+                x.append(corner[0])
+                y.append(corner[1])
+            center = (np.average(x), np.average(y))
+
+            rodrigues =tuple(rotationVecs[j][0])
+            translation =tuple(translationVecs[j][0])
+
+            camera.rgb.arucos.append(ArucoT(id, center, rodrigues, translation))
+
+
+    # Display
+    font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
+    for i, camera in enumerate(dataset.cameras):
+        image = deepcopy(camera.rgb.image)
+        corners, ids, _ = cv2.aruco.detectMarkers(image, detections.aruco_dict, parameters=detections.parameters)
+
+        for aruco in camera.rgb.arucos:
+            cv2.aruco.drawAxis(image, intrinsics, distortion, aruco.rodrigues, aruco.translation, 0.05)  # Draw Axis
+            cv2.putText(image, "Id:" + str(aruco.id), aruco.center, font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+
+        cv2.aruco.drawDetectedMarkers(image, corners)
+        cv2.namedWindow('cam' + str(i), cv2.WINDOW_NORMAL)
+        cv2.imshow('cam' + str(i), image)
+
+
+    cv2.waitKey(0)
+
+
+
+
+    # def matrixToRodrigues(T):
+    #     rods, _ = cv2.Rodrigues(T[0:3, 0:3])
+    #     rods = rods.transpose()
+    #     return rods[0]
+    #
+    #
+    # def rodriguesToMatrix(r):
+    #     rod = np.array(r, dtype=np.float)
+    #     matrix = cv2.Rodrigues(rod)
+    #     return matrix[0]
+
+
+    # Add new rodrigues rotation to each camera
+    # for camera in dataset.cameras:
+    #     camera.rgb.rodrigues = matrixToRodrigues(camera.rgb.matrix[0:3, 0:3])
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -99,24 +165,49 @@ if __name__ == "__main__":
     opt.addModelData('dataset', dataset)
     opt.addModelData('another_thing', [])
 
-    def setter(dataset, value, i):
-        dataset.cameras[i].rgb.bias = value
 
-    def getter(dataset, i):
-        return dataset.cameras[i].rgb.bias
+    def setter_translation(dataset, value, i, axis='x'):
+        dataset.cameras[i].rgb.matrix['xyz'.index(axis), 3] = value
 
 
-    # Create specialized getter and setter functions
-    for idx_camera, camera in enumerate(dataset.cameras):
-        if idx_camera == 0:# First camera with static color
-            bound_max = camera.rgb.bias + 0.00001
-            bound_min = camera.rgb.bias - 0.00001
-        else:
-            bound_max = camera.rgb.bias + 50
-            bound_min = camera.rgb.bias - 50
+    def getter_translation(dataset, i, axis='x'):
+        return dataset.cameras[i].rgb.matrix['xyz'.index(axis), 3]
 
-        opt.pushScalarParam(name='bias_' + camera.name, model_key='dataset', getter=partial(getter, i=idx_camera),
-                            setter=partial(setter, i=idx_camera), bound_max=bound_max, bound_min=bound_min)
+
+    # def setter_rotation(dataset, value, i, axis='x'):
+    #     rodriguesToMatrix(value)
+    #     datasetrotation.rgb.matrix['xyz'.index(axis), 3] = value
+    #
+    #
+    # def getter_rotation(dataset, i, axis='x'):
+    #     r = matrixToRodrigues(dataset.cameras[i].rgb.matrix[0:3, 0:3])
+    #     return r['xyz'.index(axis)]
+
+
+    for i, camera in enumerate(dataset.cameras):
+
+        # Translation
+        for axis in 'xyz':
+            opt.pushScalarParam(name='cam' + camera.name + '_t' + axis, model_key='dataset',
+                                getter=partial(getter_translation, i=i, axis=axis),
+                                setter=partial(setter_translation, i=i, axis=axis))
+        #
+        # # Rotation
+        # for axis in 'xyz':
+        #     opt.pushScalarParam(name='cam' + camera.name + '_t' + axis, model_key='dataset',
+        #             getter=partial(getter_translation, i=i, axis=axis),
+        #             setter=partial(setter_translation, i=i, axis=axis))
+        pass
+
+    # for key in opt.params:
+    #     print('key = ' + key)
+    #     print(opt.params[key])
+    #     print("\n")
+    #
+    # print(opt.groups)
+
+    exit(0)
+
 
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
@@ -145,10 +236,6 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Define THE RESIDUALS
     # ---------------------------------------
-    # The error is computed from the difference of the average color of one image with another
-    # Thus, we will use all pairwise combinations of available images
-    # For example, if we have 3 cameras c0, c1 and c2, the residuals should be:
-    #    c0-c1, c0-c2, c1-c2
 
     for cam_a, cam_b in combinations(dataset.cameras, 2):
         opt.pushResidual(name='c' + cam_a.name + '-c' + cam_b.name, params=['bias_' + cam_a.name, 'bias_' + cam_b.name])
@@ -156,6 +243,8 @@ if __name__ == "__main__":
     print('residuals = ' + str(opt.residuals))
 
     opt.computeSparseMatrix()
+
+    exit(0)
 
 
     # ---------------------------------------

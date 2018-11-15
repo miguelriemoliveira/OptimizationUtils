@@ -12,6 +12,7 @@
       <option name="ignoredIdentifiers">
         <list>
           <option value="pandas" />
+          <option value="test.camera_pose_oc_dataset.rodrigues" />
         </list>
       </option>
     </inspection_tool>

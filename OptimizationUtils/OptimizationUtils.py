@@ -10,28 +10,41 @@ from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 
 # ------------------------
-##   DATA STRUCTURES   ##
+# DATA STRUCTURES   ##
 # ------------------------
 ParamT = namedtuple('ParamT', 'idx data_key getter setter bound_max bound_min')
 
 
 # -------------------------------------------------------------------------------
-# --- FUNCTIONS
+# CLASS
 # -------------------------------------------------------------------------------
 class Optimizer:
 
     def __init__(self):
         self.counter = 0
         self.model = {}  # a dict with a set of variables or structures to be used by the objective function
+        self.groups = {}
         self.params = OrderedDict()  # an ordered dict where key={name} and value = namedtuple('ParamT')
         self.x = []  # a list of floats (the actual parameters)
         self.x0 = []  # the initial value of the parameters
         self.xf = []  # the final value of the parameters
-        self.residuals = OrderedDict()
-        self.result = None
+        self.residuals = OrderedDict()  # ordered dict: key={residual} value = [params that influence this residual]
+        self.sparse_matrix = None
+        self.result = None  # to contain the optimization result
+        self.objective_function = None  # to contain the objective function
+        self.visualization_function = None  # to contain the visualization function
+        self.visualization_function_iterations = 0
 
-    def setFirstGuess(self):
-        self.x0 = deepcopy(self.x)
+    # ---------------------------
+    # Optimizer configuration
+    # ---------------------------
+    def addModelData(self, name, data):
+        """ Should be a dictionary containing every static data to be used by the cost function"""
+        if name in self.params:  # Cannot add a parameter that already exists
+            raise ValueError('Data ' + name + ' already exits in model dict.')
+        else:
+            self.model[name] = data
+            print('Added data ' + name + ' to model dict.')
 
     def pushScalarParam(self, name, model_key, getter, setter, bound_max=+inf, bound_min=-inf):
         """
@@ -56,74 +69,21 @@ class Optimizer:
         :param name: name of residual
         :param params: list of parameter names which affect this residual
         """
+        # TODO check if all listed params exist in the self.params
         self.residuals[name] = params
 
-    def fromModelToX(self):
-        """Copies values of all parameters from model to vector x"""
-        for name in self.params:
-            idx, data_key, getter, _ = self.params[name]
-            value = getter(self.model[data_key])
-            self.x[idx] = value
-
-    def fromXToModel(self, x=None):
-        """Copies values of all parameters from vector x to model"""
-        if x is None:
-            x = self.x
-
-        for name in self.params:
-            idx, data_key, _, setter,_,_ = self.params[name]
-            value = x[idx]
-            setter(self.model[data_key], value)
-
-    def addStaticData(self, name, data):
-        """ Should be a dictionary containing every static data to be used by the cost function"""
-        if name in self.params:  # Cannot add a parameter that already exists
-            raise ValueError(name + ' already exits in model dict.')
-        else:
-            self.model[name] = data
-            print('Added ' + name + ' to model dict.')
-
-    # noinspection PyAttributeOutsideInit
     def setObjectiveFunction(self, function_handle):
         self.objective_function = function_handle
 
-    def callObjectiveFunction(self):
-        self.objective_function(self.model)
-
-    # noinspection PyAttributeOutsideInit
     def setVisualizationFunction(self, function_handle, n_iterations=0):
         self.visualization_function = function_handle
         self.visualization_function_iterations = n_iterations
 
-    # noinspection PyAttributeOutsideInit
-    def computeSparseMatrix(self):
-        self.sparse_matrix = lil_matrix((len(self.residuals), len(self.params)), dtype=int)
-
-        for i, key in enumerate(self.residuals):
-            for param in self.residuals[key]:
-                idx, _, _, _,_,_ = self.params[param]
-                self.sparse_matrix[i, idx] = 1
-
-        print('Sparsity matrix:')
-        print(pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, self.params.keys()))
-
-    def printX(self, text='Parameter vector:', x=None):
-        if x is None:
-            x = self.x
-
-        print(text)
-        for i, param_value in enumerate(x):
-            for name in self.params:
-                idx, _, _, _,_,_ = self.params[name]
-                if idx == i:
-                    print('   ' + name + ' = ' + str(param_value))
-
-    def printModel(self):
-        print('Model =\n' + str(self.model))
-
-    def printXAndModel(self, opt):
-        self.printX()
-        self.printModel()
+    # ---------------------------
+    # Optimization functions
+    # ---------------------------
+    def callObjectiveFunction(self):
+        self.objective_function(self.model)
 
     def internalObjectiveFunction(self, x):
         """
@@ -145,7 +105,7 @@ class Optimizer:
     def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-8,
                                                       'diff_step': 1e0}):
         self.setFirstGuess()
-        bounds_min =[]
+        bounds_min = []
         bounds_max = []
         for name in self.params:
             _, _, _, _, max, min = self.params[name]
@@ -167,3 +127,59 @@ class Optimizer:
         self.fromXToModel(self.xf)
         self.visualization_function(self.model)
         cv2.waitKey(0)
+
+    # ---------------------------
+    # Utilities
+    # ---------------------------
+    def setFirstGuess(self):
+        self.x0 = deepcopy(self.x)
+
+    def fromModelToX(self, x=None):
+        """Copies values of all parameters from model to vector x"""
+        if x is None:
+            x = self.x
+        for name in self.params:
+            idx, data_key, getter, _ = self.params[name]
+            value = getter(self.model[data_key])
+            x[idx] = value
+
+    def fromXToModel(self, x=None):
+        """Copies values of all parameters from vector x to model"""
+        if x is None:
+            x = self.x
+        for name in self.params:
+            idx, data_key, _, setter, _, _ = self.params[name]
+            value = x[idx]
+            setter(self.model[data_key], value)
+
+    def computeSparseMatrix(self):
+        self.sparse_matrix = lil_matrix((len(self.residuals), len(self.params)), dtype=int)
+
+        for i, key in enumerate(self.residuals):
+            for param in self.residuals[key]:
+                idx, _, _, _, _, _ = self.params[param]
+                self.sparse_matrix[i, idx] = 1
+
+        print('Sparsity matrix:')
+        print(pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, self.params.keys()))
+
+    # ---------------------------
+    # Print and display
+    # ---------------------------
+    def printX(self, text='Parameter vector:', x=None):
+        if x is None:
+            x = self.x
+
+        print(text)
+        for i, param_value in enumerate(x):
+            for name in self.params:
+                idx, _, _, _, _, _ = self.params[name]
+                if idx == i:
+                    print('   ' + name + ' = ' + str(param_value))
+
+    def printModel(self):
+        print('Model =\n' + str(self.model))
+
+    def printXAndModel(self, opt):
+        self.printX()
+        self.printModel()
