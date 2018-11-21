@@ -22,7 +22,7 @@ class Optimizer:
 
     def __init__(self):
         self.counter = 0
-        self.model = {}  # a dict with a set of variables or structures to be used by the objective function
+        self.data = {}  # a dict with a set of variables or structures to be used by the objective function
         self.groups = {}
         self.params = OrderedDict()  # an ordered dict where key={name} and value = namedtuple('ParamT')
         self.x = []  # a list of floats (the actual parameters)
@@ -43,24 +43,27 @@ class Optimizer:
         if name in self.params:  # Cannot add a parameter that already exists
             raise ValueError('Data ' + name + ' already exits in model dict.')
         else:
-            self.model[name] = data
+            self.data[name] = data
             print('Added data ' + name + ' to model dict.')
 
-    def pushScalarParam(self, name, model_key, getter, setter, bound_max=+inf, bound_min=-inf):
+    def pushScalarParam(self, name, data_key, getter, setter, bound_max=+inf, bound_min=-inf):
         """
         Pushes a new parameter to the parameter vector
         :param name: the name of the parameter
-        :param model_key: the key of the model into which the parameter maps
+        :param data_key: the key of the model into which the parameter maps
         :param getter: a function to retrieve the parameter value from the model
         :param setter: a function to set the parameter value from the model
         :param bound_max: max value the parameter may take
         :param bound_min: min value the parameter may take
         """
         if name in self.params:  # Cannot add a parameter that already exists
-            raise ValueError('Scalar param ' + name + ' already exists.')
+            raise ValueError('Scalar param ' + name + ' already exists. Cannot add it.')
 
-        self.params[name] = ParamT(len(self.x), model_key, getter, setter, bound_max, bound_min)  # add to params dict
-        self.x.append(getter(self.model[model_key]))  # set initial value in x
+        if not data_key in self.data:
+            raise ValueError('Dataset ' + data_key + ' does not exist. Cannot add param ' + name + '.')
+
+        self.params[name] = ParamT(len(self.x), data_key, getter, setter, bound_max, bound_min)  # add to params dict
+        self.x.append(getter(self.data[data_key]))  # set initial value in x
         print('Pushed scalar param ' + name)
 
     def pushResidual(self, name, params=None):
@@ -83,7 +86,7 @@ class Optimizer:
     # Optimization functions
     # ---------------------------
     def callObjectiveFunction(self):
-        self.objective_function(self.model)
+        self.objective_function(self.data)
 
     def internalObjectiveFunction(self, x):
         """
@@ -93,10 +96,10 @@ class Optimizer:
         """
         self.x = x
         self.fromXToModel()
-        error = self.objective_function(self.model)
+        error = self.objective_function(self.data)
 
         if self.counter >= self.visualization_function_iterations:
-            self.visualization_function(self.model)
+            self.visualization_function(self.data)
             self.counter = 0
         self.counter += self.counter
 
@@ -125,7 +128,7 @@ class Optimizer:
         self.printX(text='\nFinal value of parameters', x=self.xf)
 
         self.fromXToModel(self.xf)
-        self.visualization_function(self.model)
+        self.visualization_function(self.data)
         cv2.waitKey(0)
 
     # ---------------------------
@@ -140,7 +143,7 @@ class Optimizer:
             x = self.x
         for name in self.params:
             idx, data_key, getter, _ = self.params[name]
-            value = getter(self.model[data_key])
+            value = getter(self.data[data_key])
             x[idx] = value
 
     def fromXToModel(self, x=None):
@@ -150,7 +153,7 @@ class Optimizer:
         for name in self.params:
             idx, data_key, _, setter, _, _ = self.params[name]
             value = x[idx]
-            setter(self.model[data_key], value)
+            setter(self.data[data_key], value)
 
     def computeSparseMatrix(self):
         self.sparse_matrix = lil_matrix((len(self.residuals), len(self.params)), dtype=int)
@@ -178,8 +181,8 @@ class Optimizer:
                     print('   ' + name + ' = ' + str(param_value))
 
     def printModel(self):
-        print('Model =\n' + str(self.model))
+        print('Model =\n' + str(self.data))
 
-    def printXAndModel(self, opt):
+    def printXAndModel(self):
         self.printX()
         self.printModel()

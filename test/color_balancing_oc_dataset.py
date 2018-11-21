@@ -108,14 +108,14 @@ if __name__ == "__main__":
 
     # Create specialized getter and setter functions
     for idx_camera, camera in enumerate(dataset.cameras):
-        if idx_camera == 0:# First camera with static color
-            bound_max = camera.rgb.bias + 0.00001
-            bound_min = camera.rgb.bias - 0.00001
-        else:
-            bound_max = camera.rgb.bias + 50
-            bound_min = camera.rgb.bias - 50
+        # if idx_camera == 0:# First camera with static color
+        #     bound_max = camera.rgb.bias + 0.00001
+        #     bound_min = camera.rgb.bias - 0.00001
+        # else:
+        bound_max = camera.rgb.bias + 150
+        bound_min = camera.rgb.bias - 150
 
-        opt.pushScalarParam(name='bias_' + camera.name, model_key='dataset', getter=partial(getter, i=idx_camera),
+        opt.pushScalarParam(name='bias_' + camera.name, data_key='dataset', getter=partial(getter, i=idx_camera),
                             setter=partial(setter, i=idx_camera), bound_max=bound_max, bound_min=bound_min)
 
     # ---------------------------------------
