@@ -115,7 +115,7 @@ if __name__ == "__main__":
         bound_max = camera.rgb.bias + 150
         bound_min = camera.rgb.bias - 150
 
-        opt.pushScalarParam(name='bias_' + camera.name, data_key='dataset', getter=partial(getter, i=idx_camera),
+        opt.pushParamScalar(group_name='bias_' + camera.name, data_key='dataset', getter=partial(getter, i=idx_camera),
                             setter=partial(setter, i=idx_camera), bound_max=bound_max, bound_min=bound_min)
 
     # ---------------------------------------

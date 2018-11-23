@@ -18,5 +18,13 @@ test/color_balancing_oc_dataset.py -p ~/datasets/red_book2/dataset/ -m ~/dataset
 Uses the OCDatasetLoader to load an OC dataset and runs a camera pose optimization.
 
 ```bash
-test/camera_pose_oc_dataset.py -p ~/datasets/red_book_aruco/dataset/ -m ~/datasets/red_book_aruco/dataset/1528885039597.obj -i ~/datasets/red_book_aruco/dataset/calibrations/camera.yaml -si 15
+test/camera_pose_oc_dataset.py -p ~/datasets/red_book_aruco/dataset/ -m ~/datasets/red_book_aruco/dataset/1528885039597.obj -i ~/datasets/red_book_aruco/dataset/calibrations/camera.yaml -ms 0.082 -si 15
 ```
+
+to view the aruco detections run:
+
+```bash
+test/camera_pose_oc_dataset.py -p ~/datasets/red_book_aruco/dataset/ -m ~/datasets/red_book_aruco/dataset/1528885039597.obj -i ~/datasets/red_book_aruco/dataset/calibrations/camera.yaml -ms 0.082 -vad -va3d -si 15
+```
+
+
