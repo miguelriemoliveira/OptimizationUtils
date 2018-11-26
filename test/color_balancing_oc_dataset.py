@@ -180,7 +180,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Create X0 (First Guess)
     # ---------------------------------------
-    opt.fromXToModel()
+    opt.fromXToData()
     opt.callObjectiveFunction()
 
     # ---------------------------------------

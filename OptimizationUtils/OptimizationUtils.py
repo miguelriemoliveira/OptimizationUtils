@@ -8,6 +8,7 @@ import cv2
 from numpy import inf
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
+import numpy as np
 
 # ------------------------
 # DATA STRUCTURES   ##
@@ -23,7 +24,7 @@ class Optimizer:
     def __init__(self):
         self.counter = 0
         self.data = {}  # a dict with a set of variables or structures to be used by the objective function
-        self.groups = OrderedDict()  #groups of params an ordered dict where key={name} and value = namedtuple('ParamT')
+        self.groups = OrderedDict()  # groups of params an ordered dict where key={name} and value = namedtuple('ParamT')
         self.x = []  # a list of floats (the actual parameters)
         self.x0 = []  # the initial value of the parameters
         self.xf = []  # the final value of the parameters
@@ -64,15 +65,18 @@ class Optimizer:
 
         value = getter(self.data[data_key])
         if not type(value) is list or not (len(value) == 1):
-            raise ValueError('For scalar parameters, getter must return a list of lenght 1. Returned list = ' + str(value) + ' of type ' + str(type(value)))
+            raise ValueError('For scalar parameters, getter must return a list of lenght 1. Returned list = ' + str(
+                value) + ' of type ' + str(type(value)))
 
-        param_names = [group_name] # a single parameter with the same name as the group
-        idx = len(self.x)
-        self.groups[group_name] = ParamT(param_names, idx, data_key, getter, setter, [bound_max], [bound_min])  # add to group dict
-        self.x.append(value)  # set initial value in x using the value from the data model
+        param_names = [group_name]  # a single parameter with the same name as the group
+        idx = [len(self.x)]
+        self.groups[group_name] = ParamT(param_names, idx, data_key, getter, setter, [bound_max],
+                                         [bound_min])  # add to group dict
+        self.x.append(value[0])  # set initial value in x using the value from the data model
         print('Pushed scalar param ' + group_name + ' to group ' + group_name)
 
-    def pushParamTranslation(self, group_name, data_key, getter, setter, bound_max=(+inf, +inf, +inf), bound_min=(-inf, -inf, -inf)):
+    def pushParamVector3(self, group_name, data_key, getter, setter, bound_max=(+inf, +inf, +inf),
+                         bound_min=(-inf, -inf, -inf), sufix=['x', 'y', 'z']):
         """
         Pushes a new parameter group of type translation to the parameter vector.
         There will be 3 parameters, *_tx, *_ty, *_tz per translation group
@@ -86,20 +90,24 @@ class Optimizer:
         if group_name in self.groups:  # Cannot add a parameter that already exists
             raise ValueError('Group ' + group_name + ' already exists. Cannot add it.')
 
-        if not data_key in self.data: # Check if we have the data_key in the data dictionary
+        if not data_key in self.data:  # Check if we have the data_key in the data dictionary
             raise ValueError('Dataset ' + data_key + ' does not exist. Cannot add group ' + group_name + '.')
 
-        if not len(bound_max) == 3: # check size of bound_max
+        if not len(bound_max) == 3:  # check size of bound_max
             raise ValueError('bound_max ' + str(bound_max) + ' must be a tuple of size 3, e.g. (max_x, max_y, max_z).')
 
-        if not len(bound_min) == 3: # check size of bound_min
+        if not len(bound_min) == 3:  # check size of bound_min
             raise ValueError('bound_min ' + str(bound_min) + ' must be a tuple of size 3, e.g. (min_x, min_y, min_z).')
 
-        idxs = range(len(self.x), len(self.x)+3) # Compute value of indices
+        if not len(sufix) == 3:
+            raise ValueError('sufix ' + str(sufix) + ' must be a list of size 3, e.g. ["x", "y", "z"].')
 
-        param_names = [group_name + '_tx', group_name + '_ty', group_name + '_tz']
+        idxs = range(len(self.x), len(self.x) + 3)  # Compute value of indices
 
-        self.groups[group_name] = ParamT(param_names, idxs,  data_key, getter, setter, bound_max, bound_min)  # add to params dict
+        param_names = [group_name + sufix[0], group_name + sufix[1], group_name + sufix[2]]
+
+        self.groups[group_name] = ParamT(param_names, idxs, data_key, getter, setter, bound_max,
+                                         bound_min)  # add to params dict
         values = getter(self.data[data_key])
         for value in values:
             self.x.append(value)  # set initial value in x
@@ -134,7 +142,7 @@ class Optimizer:
         :param x: the parameters vector
         """
         self.x = x
-        self.fromXToModel()
+        self.fromXToData()
         error = self.objective_function(self.data)
 
         if self.counter >= self.visualization_function_iterations:
@@ -163,63 +171,109 @@ class Optimizer:
         """Just print some info and show the images"""
         print('\n-------------\nOptimization finished')
         print(self.result)
-        self.printX(text='\nInitial value of parameters', x=self.x0)
-        self.printX(text='\nFinal value of parameters', x=self.xf)
+        self.printX(preamble_text='\nInitial value of parameters', x=self.x0)
+        self.printX(preamble_text='\nFinal value of parameters', x=self.xf)
 
-        self.fromXToModel(self.xf)
+        self.fromXToData(self.xf)
         self.visualization_function(self.data)
         cv2.waitKey(0)
 
     # ---------------------------
     # Utilities
     # ---------------------------
+    def getParameters(self):
+        params = []
+        for group_name, group in self.groups.items():
+            params.extend(group.param_names)
+        return params
+
+    def getParamsContainingPattern(self, pattern):
+        params = []
+        for group_name, group in self.groups.items():
+            for i, param_name in enumerate(group.param_names):
+                if pattern in param_name:
+                    params.append(param_name)
+        return params
+
     def setFirstGuess(self):
         self.x0 = deepcopy(self.x)
 
-    def fromModelToX(self, x=None):
-        """Copies values of all parameters from model to vector x"""
+    def fromDataToX(self, x=None):
+        """Copies values of all parameters from the data to the vector x"""
         if x is None:
             x = self.x
-        for name in self.groups:
-            idx, data_key, getter, _ = self.groups[name]
-            value = getter(self.data[data_key])
-            x[idx] = value
 
-    def fromXToModel(self, x=None):
-        """Copies values of all parameters from vector x to model"""
+        for group_name, group in self.groups.items():
+            values = group.getter(self.data[group.data_key])
+            for i, idx in enumerate(group.idx):
+                x[idx] = values[i]
+
+    def fromXToData(self, x=None):
+        """Copies values of all parameters from vector x to the data"""
         if x is None:
             x = self.x
-        for name in self.groups:
-            idx, data_key, _, setter, _, _ = self.groups[name]
-            value = x[idx]
-            setter(self.data[data_key], value)
+
+        for group_name, group in self.groups.items():
+            values = []
+            for idx in group.idx:
+                values.append(x[idx])
+
+            group.setter(self.data[group.data_key], values)
 
     def computeSparseMatrix(self):
-        self.sparse_matrix = lil_matrix((len(self.residuals), len(self.groups)), dtype=int)
+
+        params = self.getParameters()
+        self.sparse_matrix = lil_matrix((len(self.residuals), len(params)), dtype=int)
 
         for i, key in enumerate(self.residuals):
             for param in self.residuals[key]:
-                idx, _, _, _, _, _ = self.groups[param]
-                self.sparse_matrix[i, idx] = 1
+                print("param = " + param)
+                for group_name, group in self.groups.items():
+                    if param in group.param_names:
+                        idx_in_group = group.param_names.index(param)
+                        print("param_names = " + str(group.param_names))
+                        idx = group.idx[idx_in_group]
+                        print("group.idx = " + str(group.idx))
+                        print("idx_in_group = " + str(idx_in_group))
+                        print("idx = " + str(idx))
+                        self.sparse_matrix[i, idx] = 1
 
         print('Sparsity matrix:')
-        print(pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, self.groups.keys()))
+        data_frame = pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, params)
+        print(data_frame)
+        data_frame.to_csv('sparse_matrix.csv')
 
     # ---------------------------
     # Print and display
     # ---------------------------
-    def printX(self, text='Parameter vector:', x=None):
+    def printX(self, x=None):
         if x is None:
             x = self.x
 
-        print(text)
         for group_name, group in self.groups.items():
-            print('Group ' + str(group_name) + ':')
-            values = group.getter(self.data[group.data_key])
-            print('values = ' + str(values))
-            print('Group params:' + str(group.param_names))
+            print('Group ' + str(group_name) + ' has parameters:')
+            values_in_data = group.getter(self.data[group.data_key])
             for i, param_name in enumerate(group.param_names):
-                print('   Param ' + str(param_name) + ' = ' + str(values[i]))
+                print('--- ' + str(param_name) + ' = ' + str(values_in_data[i]) + ' (in data) ' + str(
+                    x[group.idx[i]]) + ' (in x)')
+
+        print(self.x)
+
+    def printParameters(self, x=None):
+        if x is None:
+            x = self.x
+
+        # Build a panda data frame and then print a nice table
+        rows = []  # get a list of parameters
+        table = []
+        for group_name, group in self.groups.items():
+            values_in_data = group.getter(self.data[group.data_key])
+            for i, param_name in enumerate(group.param_names):
+                rows.append(param_name)
+                table.append([group_name, x[group.idx[i]], values_in_data[i]])
+
+        print('Parameters:')
+        print(pandas.DataFrame(table, rows, ['Group', 'x', 'data']))
 
     def printModel(self):
         print('There are ' + str(len(self.data)) + ' data models stored: ' + str(self.data))
