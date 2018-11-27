@@ -133,7 +133,7 @@ class Optimizer:
     # Optimization functions
     # ---------------------------
     def callObjectiveFunction(self):
-        self.objective_function(self.data)
+        self.internalObjectiveFunction(self.x)
 
     def internalObjectiveFunction(self, x):
         """
@@ -153,14 +153,15 @@ class Optimizer:
         return error
 
     def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-8,
-                                                      'diff_step': 1e0}):
+                                                      'diff_step': 1e-3}):
         self.setFirstGuess()
+
         bounds_min = []
         bounds_max = []
         for name in self.groups:
-            _, _, _, _, max, min = self.groups[name]
-            bounds_max.append(max)
-            bounds_min.append(min)
+            _, _, _, _, _, max, min = self.groups[name]
+            bounds_max.extend(max)
+            bounds_min.extend(min)
 
         self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
@@ -171,12 +172,12 @@ class Optimizer:
         """Just print some info and show the images"""
         print('\n-------------\nOptimization finished')
         print(self.result)
-        self.printX(preamble_text='\nInitial value of parameters', x=self.x0)
-        self.printX(preamble_text='\nFinal value of parameters', x=self.xf)
+        # self.printX(preamble_text='\nInitial value of parameters', x=self.x0)
+        # self.printX(preamble_text='\nFinal value of parameters', x=self.xf)
 
         self.fromXToData(self.xf)
         self.visualization_function(self.data)
-        cv2.waitKey(0)
+        cv2.waitKey(20)
 
     # ---------------------------
     # Utilities

@@ -146,6 +146,7 @@ if __name__ == "__main__":
     opt.addModelData('data_cameras', dataset_cameras)
     opt.addModelData('data_arucos', dataset_arucos)
 
+
     # ------------  Cameras -----------------
     # Each camera will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
     # thus, the getter should return a list of size 6
@@ -251,7 +252,7 @@ if __name__ == "__main__":
         valid_pixs = np.logical_and(valid_z, np.logical_and(valid_xpix, valid_ypix))
         return pixs, valid_pixs, dists
 
-
+    first_time = True
     def objectiveFunction(data):
         """
         Computes the vector of errors. Each error is associated with a camera, ans is computed from the Euclidean distance
@@ -290,17 +291,22 @@ if __name__ == "__main__":
                                                          camera.rgb.camera_info.height,
                                                          np.array(aruco_origin_camera, dtype=np.float).reshape((4, 1)))
                 aruco_detection.projected = (pixs[0][0], pixs[1][0])
+                global first_time
+                if first_time:
+                    aruco_detection.first_projection = aruco_detection.projected
+
+
                 print(aruco_detection.projected)
                 error = euclidean(aruco_detection.center, aruco_detection.projected)
                 print("error = " + str(error))
                 errors.append(error)
 
+        first_time = False
         # Return the errors
         return errors
 
-    opt.setObjectiveFunction(objectiveFunction)
-    opt.callObjectiveFunction()  # Just for testing
 
+    opt.setObjectiveFunction(objectiveFunction)
 
     # ---------------------------------------
     # --- Define THE RESIDUALS
@@ -318,36 +324,57 @@ if __name__ == "__main__":
     # ---------------------------------------
     opt.computeSparseMatrix()
 
-
     # ---------------------------------------
     # --- Define THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    def visualizationFunction(model):
-        # Get the dataset from the model dictionary
-        dataset = model['dataset']
+    # position the windows in the proper place
+    for i, camera in enumerate(dataset_cameras.cameras):
+        cv2.namedWindow('Cam ' + camera.name, cv2.WINDOW_NORMAL)
+        cv2.moveWindow('Cam ' + camera.name, 300 * i, 0)
 
-        for i, camera in enumerate(dataset.cameras):
-            cv2.namedWindow('Initial Cam ' + str(i), cv2.WINDOW_NORMAL)
-            cv2.imshow('Initial Cam ' + str(i), camera.rgb.image)
 
-        for i, camera in enumerate(dataset.cameras):
-            cv2.namedWindow('Changed Cam ' + str(i), cv2.WINDOW_NORMAL)
-            cv2.imshow('Changed Cam ' + str(i), camera.rgb.image_changed)
+    def visualizationFunction(data):
+        # Get the data
+        data_cameras = data['data_cameras']
+        data_arucos = data['data_arucos']
+
+        for i, camera in enumerate(data_cameras.cameras):
+            image = deepcopy(camera.rgb.image)
+            print("Cam " + str(camera.name))
+            for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
+                print("Aruco " + str(aruco_id))
+                print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
+
+                cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
+                print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
+
+                if aruco_detection.projected[0] > 0 and  aruco_detection.projected[0] < camera.rgb.camera_info.width and aruco_detection.projected[1] > 0 and aruco_detection.projected[1] < camera.rgb.camera_info.height:
+                    cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
+
+                if aruco_detection.first_projection[0] > 0 and aruco_detection.first_projection[0] < camera.rgb.camera_info.width and aruco_detection.first_projection[1] > 0 and aruco_detection.first_projection[1] < camera.rgb.camera_info.height:
+                        cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
+
+            cv2.imshow('Cam ' + camera.name, image)
+
         cv2.waitKey(20)
 
 
     opt.setVisualizationFunction(visualizationFunction)
 
-
-    exit(0)
     # ---------------------------------------
     # --- Create X0 (First Guess)
     # ---------------------------------------
     opt.fromXToData()
     opt.callObjectiveFunction()
 
+    # keyPressManager()
+
+    # exit(0)
+
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
     print("\n\nStarting optimization")
     opt.startOptimization()
+
+    keyPressManager()
