@@ -348,11 +348,16 @@ if __name__ == "__main__":
                 cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
                 print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
 
-                if aruco_detection.projected[0] > 0 and  aruco_detection.projected[0] < camera.rgb.camera_info.width and aruco_detection.projected[1] > 0 and aruco_detection.projected[1] < camera.rgb.camera_info.height:
+                if 0 < aruco_detection.projected[0] < camera.rgb.camera_info.width \
+                        and 0 < aruco_detection.projected[1] < camera.rgb.camera_info.height:
+
                     cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
 
-                if aruco_detection.first_projection[0] > 0 and aruco_detection.first_projection[0] < camera.rgb.camera_info.width and aruco_detection.first_projection[1] > 0 and aruco_detection.first_projection[1] < camera.rgb.camera_info.height:
-                        cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
+                # TODO: improve drawing first detection code
+                if 0 < aruco_detection.first_projection[0] < camera.rgb.camera_info.width \
+                        and 0 < aruco_detection.first_projection[1] < camera.rgb.camera_info.height:
+
+                    cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
 
             cv2.imshow('Cam ' + camera.name, image)
 
