@@ -146,7 +146,6 @@ if __name__ == "__main__":
     opt.addModelData('data_cameras', dataset_cameras)
     opt.addModelData('data_arucos', dataset_arucos)
 
-
     # ------------  Cameras -----------------
     # Each camera will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
     # thus, the getter should return a list of size 6
@@ -292,8 +291,9 @@ if __name__ == "__main__":
                                                          np.array(aruco_origin_camera, dtype=np.float).reshape((4, 1)))
                 aruco_detection.projected = (pixs[0][0], pixs[1][0])
                 print(aruco_detection.projected)
-
-                errors.append(euclidean(aruco_detection.center, aruco_detection.projected))
+                error = euclidean(aruco_detection.center, aruco_detection.projected)
+                print("error = " + str(error))
+                errors.append(error)
 
         # Return the errors
         return errors
