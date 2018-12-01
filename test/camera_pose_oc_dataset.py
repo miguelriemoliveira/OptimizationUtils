@@ -372,10 +372,6 @@ if __name__ == "__main__":
     opt.fromXToData()
     opt.callObjectiveFunction()
 
-    # keyPressManager()
-
-    # exit(0)
-
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------

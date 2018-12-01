@@ -30,7 +30,7 @@ class Optimizer:
         self.xf = []  # the final value of the parameters
         self.residuals = OrderedDict()  # ordered dict: key={residual} value = [params that influence this residual]
         self.sparse_matrix = None
-        self.result = None  # to contain the optimization result
+        self.result = None # to contain the optimization result
         self.objective_function = None  # to contain the objective function
         self.visualization_function = None  # to contain the visualization function
         self.visualization_function_iterations = 0
@@ -165,7 +165,7 @@ class Optimizer:
 
         self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
-        self.xf = list(self.result.x)
+        self.xf = deepcopy(list(self.result.x))
         self.finalOptimizationReport()
 
     def finalOptimizationReport(self):

@@ -103,7 +103,7 @@ if __name__ == "__main__":
         dataset.cameras[i].rgb.bias = value
 
     def getter(dataset, i):
-        return dataset.cameras[i].rgb.bias
+        return [dataset.cameras[i].rgb.bias]
 
 
     # Create specialized getter and setter functions
@@ -187,4 +187,5 @@ if __name__ == "__main__":
     # --- Start Optimization
     # ---------------------------------------
     print("\n\nStarting optimization")
-    opt.startOptimization()
+    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-8,
+                                                      'diff_step': 1e-0})
