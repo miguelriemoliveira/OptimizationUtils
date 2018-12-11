@@ -9,6 +9,7 @@ The OCDatasetLoader is used to collect data from a OpenConstructor dataset
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import argparse  # to read command line arguments
+import sys
 from collections import namedtuple
 from copy import deepcopy
 from itertools import combinations
@@ -16,33 +17,20 @@ import numpy as np
 import cv2
 from functools import partial
 import random
-import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
-import OCDatasetLoader.OCArucoDetector as OCArucoDetector
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
-
 from scipy.spatial.distance import euclidean
 
-import OptimizationUtils.OptimizationUtils as OptimizationUtils
+import KeyPressManager.KeyPressManager
+import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
+import OCDatasetLoader.OCArucoDetector as OCArucoDetector
 
+import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
-
-def keyPressManager():
-    print('keyPressManager.\nPress "c" to continue or "q" to abort.')
-    while True:
-        plt.waitforbuttonpress(0.01)
-        key = cv2.waitKey(15)
-        if key == ord('c'):
-            print('Pressed "c". Continuing.')
-            break
-        elif key == ord('q'):
-            print('Pressed "q". Aborting.')
-            exit(0)
-
 
 def drawAxis3D(ax, transform, text, axis_scale=0.1, line_width=1.0):
     pt_origin = np.array([[0, 0, 0, 1]], dtype=np.float).transpose()
@@ -252,7 +240,10 @@ if __name__ == "__main__":
         valid_pixs = np.logical_and(valid_z, np.logical_and(valid_xpix, valid_ypix))
         return pixs, valid_pixs, dists
 
+
     first_time = True
+
+
     def objectiveFunction(data):
         """
         Computes the vector of errors. Each error is associated with a camera, ans is computed from the Euclidean distance
@@ -294,7 +285,6 @@ if __name__ == "__main__":
                 global first_time
                 if first_time:
                     aruco_detection.first_projection = aruco_detection.projected
-
 
                 print(aruco_detection.projected)
                 error = euclidean(aruco_detection.center, aruco_detection.projected)
@@ -350,13 +340,11 @@ if __name__ == "__main__":
 
                 if 0 < aruco_detection.projected[0] < camera.rgb.camera_info.width \
                         and 0 < aruco_detection.projected[1] < camera.rgb.camera_info.height:
-
                     cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
 
                 # TODO: improve drawing first detection code
                 if 0 < aruco_detection.first_projection[0] < camera.rgb.camera_info.width \
                         and 0 < aruco_detection.first_projection[1] < camera.rgb.camera_info.height:
-
                     cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
 
             cv2.imshow('Cam ' + camera.name, image)
@@ -378,4 +366,6 @@ if __name__ == "__main__":
     print("\n\nStarting optimization")
     opt.startOptimization()
 
-    keyPressManager()
+    wm = KeyPressManager.KeyPressManager.WindowManager()
+    if wm.waitForKey():
+        exit(0)

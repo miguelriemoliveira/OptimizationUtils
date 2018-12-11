@@ -15,22 +15,12 @@ import cv2
 from functools import partial
 import random
 import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
+import KeyPressManager.KeyPressManager
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
-
-def keyPressManager(self):
-    print('keyPressManager.\nPress "c" to continue or "q" to abort.')
-    while True:
-        key = cv2.waitKey(3)
-        if key == ord('c'):
-            print('Pressed "c". Continuing.')
-            break
-        elif key == ord('q'):
-            print('Pressed "q". Aborting.')
-            exit(0)
 
 
 def addSafe(i_in, val):
@@ -182,6 +172,12 @@ if __name__ == "__main__":
     # ---------------------------------------
     opt.fromXToData()
     opt.callObjectiveFunction()
+
+
+    wm = KeyPressManager.KeyPressManager.WindowManager()
+    if wm.waitForKey():
+        exit(0)
+    print("\n\nStarting optimization")
 
     # ---------------------------------------
     # --- Start Optimization
