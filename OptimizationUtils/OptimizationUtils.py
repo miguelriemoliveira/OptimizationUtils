@@ -9,6 +9,7 @@ from numpy import inf
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 import numpy as np
+import random
 
 # ------------------------
 # DATA STRUCTURES   ##
@@ -30,7 +31,7 @@ class Optimizer:
         self.xf = []  # the final value of the parameters
         self.residuals = OrderedDict()  # ordered dict: key={residual} value = [params that influence this residual]
         self.sparse_matrix = None
-        self.result = None # to contain the optimization result
+        self.result = None  # to contain the optimization result
         self.objective_function = None  # to contain the objective function
         self.visualization_function = None  # to contain the visualization function
         self.visualization_function_iterations = 0
@@ -148,7 +149,7 @@ class Optimizer:
         if self.counter >= self.visualization_function_iterations:
             self.visualization_function(self.data)
             self.counter = 0
-        self.counter += self.counter
+        self.counter += 1
 
         return error
 
@@ -182,6 +183,12 @@ class Optimizer:
     # ---------------------------
     # Utilities
     # ---------------------------
+    def addNoiseToX(self, noise=0.1, x=None):
+        if x is None:
+            x = self.x
+
+        return x * np.array([random.uniform(1-noise, 1+noise) for _ in xrange(len(x))], dtype=np.float)
+
     def getParameters(self):
         params = []
         for group_name, group in self.groups.items():

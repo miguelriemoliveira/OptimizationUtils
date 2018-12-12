@@ -9,14 +9,10 @@ The OCDatasetLoader is used to collect data from a OpenConstructor dataset
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import argparse  # to read command line arguments
-import sys
-from collections import namedtuple
 from copy import deepcopy
-from itertools import combinations
 import numpy as np
 import cv2
 from functools import partial
-import random
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
@@ -25,14 +21,23 @@ from scipy.spatial.distance import euclidean
 import KeyPressManager.KeyPressManager
 import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
 import OCDatasetLoader.OCArucoDetector as OCArucoDetector
-
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
+
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
 
-def drawAxis3D(ax, transform, text, axis_scale=0.1, line_width=1.0):
+def drawAxis3D(ax, transform, text, axis_scale=0.1, line_width=1.0, handles=None):
+    """
+    Draws (or replots) a 3D reference system
+    :param ax:
+    :param transform:
+    :param text:
+    :param axis_scale:
+    :param line_width:
+    :param hin: handles in
+    """
     pt_origin = np.array([[0, 0, 0, 1]], dtype=np.float).transpose()
     x_axis = np.array([[0, 0, 0, 1], [axis_scale, 0, 0, 1]], dtype=np.float).transpose()
     y_axis = np.array([[0, 0, 0, 1], [0, axis_scale, 0, 1]], dtype=np.float).transpose()
@@ -43,10 +48,55 @@ def drawAxis3D(ax, transform, text, axis_scale=0.1, line_width=1.0):
     y_axis = np.dot(transform, y_axis)
     z_axis = np.dot(transform, z_axis)
 
-    ax.plot(x_axis[0, :], x_axis[1, :], x_axis[2, :], 'r-', linewidth=line_width)
-    ax.plot(y_axis[0, :], y_axis[1, :], y_axis[2, :], 'g-', linewidth=line_width)
-    ax.plot(z_axis[0, :], z_axis[1, :], z_axis[2, :], 'b-', linewidth=line_width)
-    ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black')  # , size=15, zorder=1
+    if handles == None:
+        handles_out = {}
+        handles_out['x'] = ax.plot(x_axis[0, :], x_axis[1, :], x_axis[2, :], 'r-', linewidth=line_width)[0]
+        handles_out['y'] = ax.plot(y_axis[0, :], y_axis[1, :], y_axis[2, :], 'g-', linewidth=line_width)[0]
+        handles_out['z'] = ax.plot(z_axis[0, :], z_axis[1, :], z_axis[2, :], 'b-', linewidth=line_width)[0]
+        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black')
+        return handles_out
+    else:
+        handles['x'].set_xdata(x_axis[0, :])
+        handles['x'].set_ydata(x_axis[1, :])
+        handles['x'].set_3d_properties(zs=x_axis[2, :])
+
+        handles['y'].set_xdata(y_axis[0, :])
+        handles['y'].set_ydata(y_axis[1, :])
+        handles['y'].set_3d_properties(zs=y_axis[2, :])
+
+        handles['z'].set_xdata(z_axis[0, :])
+        handles['z'].set_ydata(z_axis[1, :])
+        handles['z'].set_3d_properties(zs=z_axis[2, :])
+
+        handles['text'].set_position((pt_origin[0, 0], pt_origin[1, 0]))
+        handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
+
+
+def drawPoint3D(ax, transform, text, line_width=1.0, handles=None):
+    """
+    Draws (or replots) a 3D Point
+    :param ax:
+    :param transform:
+    :param text:
+    :param line_width:
+    :param hin: handles in
+    """
+    pt_origin = np.array([[0, 0, 0, 1]], dtype=np.float).transpose()
+    pt_origin = np.dot(transform, pt_origin)
+
+    if handles is None:
+        handles_out = {}
+        print(pt_origin[2,0])
+        handles_out['point'] = ax.plot([pt_origin[0, 0], pt_origin[0, 0]], [pt_origin[1, 0],pt_origin[1, 0]], [pt_origin[2, 0],pt_origin[2, 0]], 'k.')[0]
+        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black')
+        return handles_out
+    else:
+        handles['point'].set_xdata([pt_origin[0, 0], pt_origin[0, 0]])
+        handles['point'].set_ydata([pt_origin[1, 0],pt_origin[1, 0]])
+        handles['point'].set_3d_properties(zs=[pt_origin[2, 0],pt_origin[2, 0]])
+
+        handles['text'].set_position((pt_origin[0, 0], pt_origin[1, 0]))
+        handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
 
 
 # -------------------------------------------------------------------------------
@@ -255,26 +305,28 @@ if __name__ == "__main__":
         data_cameras = data['data_cameras']
         data_arucos = data['data_arucos']
 
-        print("data_cameras" + str(data_cameras.cameras[0].rgb))
-        print("data_arucos" + str(data_arucos))
+        # print("data_cameras\n" + str(data_cameras.cameras[0].rgb.matrix))
+        # print("data_arucos" + str(data_arucos))
 
         errors = []
         # Cycle all cameras in the dataset
         for camera in data_cameras.cameras:
-            print("Cam " + str(camera.name))
+            # print("Cam " + str(camera.name))
             for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
-                print("Aruco " + str(aruco_id))
-                print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
+                # print("Aruco " + str(aruco_id))
+                # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
 
                 # Find current position of aruco
                 world_T_camera = np.linalg.inv(camera.rgb.matrix)
+                if camera.name == '030':
+                    print("world_T_camera = \n" + str(world_T_camera))
 
                 # Extract the translation from the transform matrix and create a np array with a 4,1 point coordinate
                 aruco_origin_world = data_arucos.arucos[aruco_id][0:4, 3]
-                print("aruco_origin_world = " + str(aruco_origin_world))
+                # print("aruco_origin_world = " + str(aruco_origin_world))
 
                 aruco_origin_camera = np.dot(world_T_camera, aruco_origin_world)
-                print("aruco_origin_camera = " + str(aruco_origin_camera))
+                # print("aruco_origin_camera = " + str(aruco_origin_camera))
 
                 pixs, valid_pixs, dists = projectToPixel(np.array(camera.rgb.camera_info.K).reshape((3, 3)),
                                                          camera.rgb.camera_info.D,
@@ -286,9 +338,9 @@ if __name__ == "__main__":
                 if first_time:
                     aruco_detection.first_projection = aruco_detection.projected
 
-                print(aruco_detection.projected)
+                # print(aruco_detection.projected)
                 error = euclidean(aruco_detection.center, aruco_detection.projected)
-                print("error = " + str(error))
+                # print("error = " + str(error))
                 errors.append(error)
 
         first_time = False
@@ -315,28 +367,60 @@ if __name__ == "__main__":
     opt.computeSparseMatrix()
 
     # ---------------------------------------
-    # --- Define THE VISUALIZATION FUNCTION
+    # --- SETUP THE VISUALIZATION FUNCTION
     # ---------------------------------------
     # position the windows in the proper place
     for i, camera in enumerate(dataset_cameras.cameras):
         cv2.namedWindow('Cam ' + camera.name, cv2.WINDOW_NORMAL)
-        cv2.moveWindow('Cam ' + camera.name, 300 * i, 0)
+        cv2.moveWindow('Cam ' + camera.name, 300 * i, 50)
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
+    ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
+    limit = 1.8
+    ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
+
+    # Draw world axis
+    world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
+    drawAxis3D(ax, world_T_world, "world", axis_scale=0.7, line_width=3)
+
+    #Draw cameras
+    for camera in dataset_cameras.cameras:
+        camera.handle_frame = drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3, line_width=2)
+        # print("camera " + camera.name + " " + str(camera.handle_frame))
+
+    #Draw Arucos
+    dataset_arucos.handles = {}
+    for aruco_id, transform in dataset_arucos.arucos.items():
+        dataset_arucos.handles[aruco_id] = drawPoint3D(ax, transform, 'A' + str(aruco_id), line_width=1.0, handles=None)
+        print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
+
+    wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    if wm.waitForKey(0):
+        exit(0)
 
 
+    # ---------------------------------------
+    # --- DEFINE THE VISUALIZATION FUNCTION
+    # ---------------------------------------
     def visualizationFunction(data):
         # Get the data
         data_cameras = data['data_cameras']
         data_arucos = data['data_arucos']
 
+        # print("data_cameras\n" + str(data_cameras.cameras[0].rgb.matrix))
+
         for i, camera in enumerate(data_cameras.cameras):
             image = deepcopy(camera.rgb.image)
-            print("Cam " + str(camera.name))
+            # print("Cam " + str(camera.name))
             for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
-                print("Aruco " + str(aruco_id))
-                print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
+                # print("Aruco " + str(aruco_id))
+                # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
 
                 cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
-                print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
+                # print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
 
                 if 0 < aruco_detection.projected[0] < camera.rgb.camera_info.width \
                         and 0 < aruco_detection.projected[1] < camera.rgb.camera_info.height:
@@ -349,16 +433,28 @@ if __name__ == "__main__":
 
             cv2.imshow('Cam ' + camera.name, image)
 
-        cv2.waitKey(20)
+        # Draw camera's axes
+        for camera in data_cameras.cameras:
+            drawAxis3D(ax=ax, transform=camera.rgb.matrix, text="C" + camera.name, axis_scale=0.3, line_width=2,
+                       handles=camera.handle_frame)
+
+        #Draw Arucos
+        for aruco_id, transform in data_arucos.arucos.items():
+             drawPoint3D(ax, transform, 'A' + str(aruco_id), line_width=1.0, handles=data_arucos.handles[aruco_id])
+
+        wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+        if wm.waitForKey(0.5):
+            exit(0)
 
 
-    opt.setVisualizationFunction(visualizationFunction)
+    opt.setVisualizationFunction(visualizationFunction, n_iterations=10)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
     # ---------------------------------------
+    opt.x = opt.addNoiseToX(noise=0.01)
     opt.fromXToData()
-    opt.callObjectiveFunction()
+    # opt.callObjectiveFunction()
 
     # ---------------------------------------
     # --- Start Optimization
