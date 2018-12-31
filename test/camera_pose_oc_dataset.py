@@ -2,7 +2,7 @@
 """
 This example shows an optimizer working with a set of n cameras, changing their pose so that the reprojection error is
 minimized.
-The OCDatasetLoader is used to collect data from a OpenConstructor dataset
+The OCDatasetLoader is used to collect data from a OpenConstructor dataset.
 """
 
 # -------------------------------------------------------------------------------
@@ -15,9 +15,7 @@ import cv2
 from functools import partial
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
-from mpl_toolkits import mplot3d
 from scipy.spatial.distance import euclidean
-
 import KeyPressManager.KeyPressManager
 import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
 import OCDatasetLoader.OCArucoDetector as OCArucoDetector
@@ -27,6 +25,33 @@ import OptimizationUtils.OptimizationUtils as OptimizationUtils
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
+
+def drawSquare2D(image, x, y, size, color=(0, 0, 255), thickness=1):
+    """
+    Draws a square on the image
+    :param image:
+    :param x:
+    :param y:
+    :param color:
+    :param thickness:
+    """
+
+    w,h,_ = image.shape
+    if x-size < 0 or x+size > w or y-size < 0 or y+size>h:
+        # print("Cannot draw square")
+        return None
+
+    # tl, tr, bl, br -> top left, top right, bottom left, bottom right
+    tl = (int(x-size),int(y-size))
+    tr = (int(x+size),int(y-size))
+    br = (int(x+size),int(y+size))
+    bl = (int(x-size),int(y+size))
+
+    cv2.line(image, tl, tr, color, thickness)
+    cv2.line(image, tr, br, color, thickness)
+    cv2.line(image, br, bl, color, thickness)
+    cv2.line(image, bl, tl, color, thickness)
+
 
 def drawAxis3D(ax, transform, text, axis_scale=0.1, line_width=1.0, handles=None):
     """
@@ -72,13 +97,14 @@ def drawAxis3D(ax, transform, text, axis_scale=0.1, line_width=1.0, handles=None
         handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
 
 
-def drawPoint3D(ax, transform, text, line_width=1.0, handles=None):
+def drawAxis3DOrigin(ax, transform, text, line_width=1.0, fontsize=12, handles=None):
     """
     Draws (or replots) a 3D Point
     :param ax:
     :param transform:
     :param text:
     :param line_width:
+    :param fontsize:
     :param hin: handles in
     """
     pt_origin = np.array([[0, 0, 0, 1]], dtype=np.float).transpose()
@@ -86,17 +112,19 @@ def drawPoint3D(ax, transform, text, line_width=1.0, handles=None):
 
     if handles is None:
         handles_out = {}
-        print(pt_origin[2,0])
-        handles_out['point'] = ax.plot([pt_origin[0, 0], pt_origin[0, 0]], [pt_origin[1, 0],pt_origin[1, 0]], [pt_origin[2, 0],pt_origin[2, 0]], 'k.')[0]
-        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black')
+        print(pt_origin[2, 0])
+        handles_out['point'] = ax.plot([pt_origin[0, 0], pt_origin[0, 0]], [pt_origin[1, 0], pt_origin[1, 0]],
+                                       [pt_origin[2, 0], pt_origin[2, 0]], 'k.')[0]
+        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black',
+                                      fontsize=fontsize)
         return handles_out
     else:
         handles['point'].set_xdata([pt_origin[0, 0], pt_origin[0, 0]])
-        handles['point'].set_ydata([pt_origin[1, 0],pt_origin[1, 0]])
-        handles['point'].set_3d_properties(zs=[pt_origin[2, 0],pt_origin[2, 0]])
+        handles['point'].set_ydata([pt_origin[1, 0], pt_origin[1, 0]])
+        handles['point'].set_3d_properties(zs=[pt_origin[2, 0], pt_origin[2, 0]])
 
         handles['text'].set_position((pt_origin[0, 0], pt_origin[1, 0]))
-        handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
+        handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='x')
 
 
 # -------------------------------------------------------------------------------
@@ -318,8 +346,6 @@ if __name__ == "__main__":
 
                 # Find current position of aruco
                 world_T_camera = np.linalg.inv(camera.rgb.matrix)
-                if camera.name == '030':
-                    print("world_T_camera = \n" + str(world_T_camera))
 
                 # Extract the translation from the transform matrix and create a np array with a 4,1 point coordinate
                 aruco_origin_world = data_arucos.arucos[aruco_id][0:4, 3]
@@ -373,32 +399,37 @@ if __name__ == "__main__":
     for i, camera in enumerate(dataset_cameras.cameras):
         cv2.namedWindow('Cam ' + camera.name, cv2.WINDOW_NORMAL)
         cv2.moveWindow('Cam ' + camera.name, 300 * i, 50)
+        cv2.imshow('Cam ' + camera.name, camera.rgb.image)
 
     fig = plt.figure()
     ax = fig.gca(projection='3d')
 
     ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
     ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
-    limit = 1.8
+    limit = 1.5
     ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
+    ax.view_init(elev=122, azim=-87)
 
     # Draw world axis
     world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
     drawAxis3D(ax, world_T_world, "world", axis_scale=0.7, line_width=3)
 
-    #Draw cameras
+    # Draw cameras
     for camera in dataset_cameras.cameras:
         camera.handle_frame = drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3, line_width=2)
         # print("camera " + camera.name + " " + str(camera.handle_frame))
 
-    #Draw Arucos
+    # Draw Arucos
     dataset_arucos.handles = {}
     for aruco_id, transform in dataset_arucos.arucos.items():
-        dataset_arucos.handles[aruco_id] = drawPoint3D(ax, transform, 'A' + str(aruco_id), line_width=1.0, handles=None)
+        dataset_arucos.handles[aruco_id] = drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0,
+                                                            fontsize=8,
+                                                            handles=None)
         print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
 
+
     wm = KeyPressManager.KeyPressManager.WindowManager(fig)
-    if wm.waitForKey(0):
+    if wm.waitForKey(time_to_wait=None, verbose=True):
         exit(0)
 
 
@@ -419,7 +450,9 @@ if __name__ == "__main__":
                 # print("Aruco " + str(aruco_id))
                 # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
 
-                cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
+                drawSquare2D(image, aruco_detection.center[0], aruco_detection.center[1], 10, color=(0, 0, 255), thickness=2)
+
+                # cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
                 # print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
 
                 if 0 < aruco_detection.projected[0] < camera.rgb.camera_info.width \
@@ -438,14 +471,13 @@ if __name__ == "__main__":
             drawAxis3D(ax=ax, transform=camera.rgb.matrix, text="C" + camera.name, axis_scale=0.3, line_width=2,
                        handles=camera.handle_frame)
 
-        #Draw Arucos
+        # Draw Arucos
         for aruco_id, transform in data_arucos.arucos.items():
-             drawPoint3D(ax, transform, 'A' + str(aruco_id), line_width=1.0, handles=data_arucos.handles[aruco_id])
+            drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0, handles=data_arucos.handles[aruco_id])
 
         wm = KeyPressManager.KeyPressManager.WindowManager(fig)
-        if wm.waitForKey(0.5):
+        if wm.waitForKey(0.01, verbose=False):
             exit(0)
-
 
     opt.setVisualizationFunction(visualizationFunction, n_iterations=10)
 
@@ -462,6 +494,11 @@ if __name__ == "__main__":
     print("\n\nStarting optimization")
     opt.startOptimization()
 
-    wm = KeyPressManager.KeyPressManager.WindowManager()
-    if wm.waitForKey():
+    print('ola')
+    wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    if wm.waitForKey(time_to_wait=None, verbose=True):
         exit(0)
+
+    print('ola')
+
+

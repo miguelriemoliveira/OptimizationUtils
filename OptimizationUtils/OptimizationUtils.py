@@ -10,10 +10,12 @@ from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 import numpy as np
 import random
+import KeyPressManager.KeyPressManager
 
 # ------------------------
 # DATA STRUCTURES   ##
 # ------------------------
+
 ParamT = namedtuple('ParamT', 'param_names idx data_key getter setter bound_max bound_min')
 
 
@@ -149,7 +151,11 @@ class Optimizer:
         if self.counter >= self.visualization_function_iterations:
             self.visualization_function(self.data)
             self.counter = 0
+
+            print('AvgError = ' + str(np.average(error)))
+
         self.counter += 1
+
 
         return error
 
@@ -168,6 +174,10 @@ class Optimizer:
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
         self.xf = deepcopy(list(self.result.x))
         self.finalOptimizationReport()
+
+        wm = KeyPressManager.KeyPressManager.WindowManager()
+        if wm.waitForKey():
+            exit(0)
 
     def finalOptimizationReport(self):
         """Just print some info and show the images"""

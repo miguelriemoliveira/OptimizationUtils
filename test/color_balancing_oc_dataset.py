@@ -74,7 +74,8 @@ if __name__ == "__main__":
 
     # Change camera's colors just to better see optimization working
     for i, camera in enumerate(dataset.cameras):
-        dataset.cameras[i].rgb.image = addSafe(dataset.cameras[i].rgb.image, random.randint(-70, 70))
+        if i>0:
+            dataset.cameras[i].rgb.image = addSafe(dataset.cameras[i].rgb.image, random.randint(-170, 170))
 
     # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
     for i, camera in enumerate(dataset.cameras):
@@ -98,12 +99,12 @@ if __name__ == "__main__":
 
     # Create specialized getter and setter functions
     for idx_camera, camera in enumerate(dataset.cameras):
-        # if idx_camera == 0:# First camera with static color
-        #     bound_max = camera.rgb.bias + 0.00001
-        #     bound_min = camera.rgb.bias - 0.00001
-        # else:
-        bound_max = camera.rgb.bias + 150
-        bound_min = camera.rgb.bias - 150
+        if idx_camera == 0:# First camera with static color
+            bound_max = camera.rgb.bias + 0.00001
+            bound_min = camera.rgb.bias - 0.00001
+        else:
+            bound_max = camera.rgb.bias + 250
+            bound_min = camera.rgb.bias - 250
 
         opt.pushParamScalar(group_name='bias_' + camera.name, data_key='dataset', getter=partial(getter, i=idx_camera),
                             setter=partial(setter, i=idx_camera), bound_max=bound_max, bound_min=bound_min)
@@ -125,7 +126,7 @@ if __name__ == "__main__":
         # Each element in the vector of errors is the difference of the average color for the combination
         error = []
         for cam_a, cam_b in combinations(dataset.cameras, 2):
-            error.append(cam_a.rgb.avg_changed - cam_b.rgb.avg_changed)
+            error.append(abs(cam_a.rgb.avg_changed - cam_b.rgb.avg_changed))
 
         return error
 
@@ -170,18 +171,20 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Create X0 (First Guess)
     # ---------------------------------------
-    opt.fromXToData()
-    opt.callObjectiveFunction()
+    # opt.fromXToData()
+    # opt.callObjectiveFunction()
+    # wm = KeyPressManager.KeyPressManager.WindowManager()
+    # if wm.waitForKey():
+    #     exit(0)
 
-
-    wm = KeyPressManager.KeyPressManager.WindowManager()
-    if wm.waitForKey():
-        exit(0)
     print("\n\nStarting optimization")
 
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
     print("\n\nStarting optimization")
-    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-8,
-                                                      'diff_step': 1e-0})
+    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-0})
+
+    wm = KeyPressManager.KeyPressManager.WindowManager()
+    if wm.waitForKey():
+        exit(0)
