@@ -86,10 +86,10 @@ if __name__ == "__main__":
     opt.addModelData('data_cameras', dataset_cameras)
     opt.addModelData('data_arucos', dataset_arucos)
 
-
     # ------------  Cameras -----------------
     # Each camera will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
     # thus, the getter should return a list of size 6
+
     def getterCameraTranslation(data, cam_idx):
         return data.cameras[cam_idx].rgb.matrix[0:3, 3]
 
@@ -290,17 +290,18 @@ if __name__ == "__main__":
 
     # Draw cameras
     for camera in dataset_cameras.cameras:
-        camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3, line_width=2)
+        camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3,
+                                                   line_width=2)
         # print("camera " + camera.name + " " + str(camera.handle_frame))
 
     # Draw Arucos
     dataset_arucos.handles = {}
     for aruco_id, transform in dataset_arucos.arucos.items():
-        dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0,
-                                                            fontsize=8,
-                                                            handles=None)
+        dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id),
+                                                                      line_width=1.0,
+                                                                      fontsize=8,
+                                                                      handles=None)
         print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
-
 
     wm = KeyPressManager.KeyPressManager.WindowManager(fig)
     if wm.waitForKey(time_to_wait=None, verbose=True):
@@ -324,7 +325,8 @@ if __name__ == "__main__":
                 # print("Aruco " + str(aruco_id))
                 # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
 
-                utilities.drawSquare2D(image, aruco_detection.center[0], aruco_detection.center[1], 10, color=(0, 0, 255), thickness=2)
+                utilities.drawSquare2D(image, aruco_detection.center[0], aruco_detection.center[1], 10,
+                                       color=(0, 0, 255), thickness=2)
 
                 # cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
                 # print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
@@ -342,16 +344,19 @@ if __name__ == "__main__":
 
         # Draw camera's axes
         for camera in data_cameras.cameras:
-            utilities.drawAxis3D(ax=ax, transform=camera.rgb.matrix, text="C" + camera.name, axis_scale=0.3, line_width=2,
-                       handles=camera.handle_frame)
+            utilities.drawAxis3D(ax=ax, transform=camera.rgb.matrix, text="C" + camera.name, axis_scale=0.3,
+                                 line_width=2,
+                                 handles=camera.handle_frame)
 
         # Draw Arucos
         for aruco_id, transform in data_arucos.arucos.items():
-            utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0, handles=data_arucos.handles[aruco_id])
+            utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0,
+                                       handles=data_arucos.handles[aruco_id])
 
         wm = KeyPressManager.KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
+
 
     opt.setVisualizationFunction(visualizationFunction, n_iterations=10)
 
@@ -374,5 +379,3 @@ if __name__ == "__main__":
         exit(0)
 
     print('ola')
-
-

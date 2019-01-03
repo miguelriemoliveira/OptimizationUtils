@@ -27,4 +27,11 @@ to view the aruco detections run:
 test/camera_pose_oc_dataset.py -p ~/datasets/red_book_aruco/dataset/ -m ~/datasets/red_book_aruco/dataset/1528885039597.obj -i ~/datasets/red_book_aruco/dataset/calibrations/camera.yaml -ms 0.082 -vad -va3d -si 15
 ```
 
+### Pose and color optimization using an OC dataset
+
+Uses the OCDatasetLoader to load an OC dataset and runs a camera pose plus camera color optimization.
+
+```bash
+test/pose_and_color_oc_dataset.py -p ~/datasets/red_book_aruco/dataset/ -m ~/datasets/red_book_aruco/dataset/1528885039597.obj -i ~/datasets/red_book_aruco/dataset/calibrations/camera.yaml -ms 0.082 -si 15
+```
 

@@ -156,7 +156,6 @@ class Optimizer:
 
         self.counter += 1
 
-
         return error
 
     def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-8,
@@ -175,9 +174,12 @@ class Optimizer:
         self.xf = deepcopy(list(self.result.x))
         self.finalOptimizationReport()
 
-        wm = KeyPressManager.KeyPressManager.WindowManager()
-        if wm.waitForKey():
-            exit(0)
+        # wm = KeyPressManager.KeyPressManager.WindowManager()
+        # if wm.waitForKey(self.fig):
+        #     exit(0)
+
+    # def setFigure(self, figure):
+    #     self.figure = figure
 
     def finalOptimizationReport(self):
         """Just print some info and show the images"""
@@ -188,7 +190,7 @@ class Optimizer:
 
         self.fromXToData(self.xf)
         self.visualization_function(self.data)
-        cv2.waitKey(20)
+        # cv2.waitKey(20)
 
     # ---------------------------
     # Utilities
@@ -197,7 +199,7 @@ class Optimizer:
         if x is None:
             x = self.x
 
-        return x * np.array([random.uniform(1-noise, 1+noise) for _ in xrange(len(x))], dtype=np.float)
+        return x * np.array([random.uniform(1 - noise, 1 + noise) for _ in xrange(len(x))], dtype=np.float)
 
     def getParameters(self):
         params = []
