@@ -23,18 +23,11 @@ import OptimizationUtils.OptimizationUtils as OptimizationUtils
 # -------------------------------------------------------------------------------
 
 
-def addSafe(i_in, val):
-    """Avoids saturation when adding to uint8 images"""
-    i_out = i_in.astype(np.float)  # Convert the i to type float
-    i_out = np.add(i_out, val)  # Perform the adding of parameters to the i
-    i_out = np.maximum(i_out, 0)  # underflow
-    i_out = np.minimum(i_out, 255)  # overflow
-    return i_out.astype(np.uint8)  # Convert back to uint8 and return
-
-
 # -------------------------------------------------------------------------------
 # --- MAIN
 # -------------------------------------------------------------------------------
+from OptimizationUtils import utilities
+
 if __name__ == "__main__":
 
     # ---------------------------------------
@@ -75,7 +68,7 @@ if __name__ == "__main__":
     # Change camera's colors just to better see optimization working
     for i, camera in enumerate(dataset.cameras):
         # if i>0:
-        dataset.cameras[i].rgb.image = addSafe(dataset.cameras[i].rgb.image, random.randint(-70, 70))
+        dataset.cameras[i].rgb.image = utilities.addSafe(dataset.cameras[i].rgb.image, random.randint(-70, 70))
 
     # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
     for i, camera in enumerate(dataset.cameras):
@@ -119,7 +112,7 @@ if __name__ == "__main__":
 
         # Apply changes to all camera images using parameter vector
         for camera in dataset.cameras:
-            camera.rgb.image_changed = addSafe(camera.rgb.image, camera.rgb.bias)
+            camera.rgb.image_changed = utilities.addSafe(camera.rgb.image, camera.rgb.bias)
             camera.rgb.avg_changed = np.average(camera.rgb.image_changed)
 
         # Compute all the pair wise combinations of the set of cameras

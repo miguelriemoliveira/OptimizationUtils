@@ -6,7 +6,9 @@ A set of utilities to be used in the optimization algorithms
 # -------------------------------------------------------------------------------
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
+from copy import deepcopy
 
+import KeyPressManager
 import numpy as np
 import cv2
 
@@ -150,14 +152,97 @@ def traslationRodriguesToTransform(translation, rodrigues):
 # ---------------------------------------
 # --- Computer Vision functions
 # ---------------------------------------
-def projectToPixel(intrinsic_matrix, distortion, width, height, pts):
+def projectToCameraPair(intrinsic_matrix_a, distortion_a, width_a, height_a, map_T_cam_a, image_a, depth_a,
+                        intrinsic_matrix_b, distortion_b, width_b, height_b, map_T_cam_b, image_b, depth_b,
+                        pts3D_in_map, z_inconsistency_threshold = 0.1, visualize=False):
+
+    # project 3D points to cam_a image (first the transformation from map to camera is done)
+    pts3D_in_cam_a = np.dot(map_T_cam_a, pts3D_in_map)
+    pts2D_a, pts_valid_a, pts_range_a = projectToCamera(
+        np.array(intrinsic_matrix_a).reshape((3, 3)),
+        distortion_a,
+        width_a,
+        height_a,
+        pts3D_in_cam_a)
+
+    pts2D_a = np.where(pts_valid_a, pts2D_a, 0)
+    range_meas_a = depth_a[pts2D_a[1, :], pts2D_a[0, :]]
+    z_valid_a = abs(pts_range_a - range_meas_a) < z_inconsistency_threshold
+
+    # project 3D points to cam_b
+    pts3D_in_cam_b = np.dot(map_T_cam_b, pts3D_in_map)
+    pts2D_b, pts_valid_b, pts_range_b = projectToCamera(
+        np.array(intrinsic_matrix_b).reshape((3, 3)),
+        distortion_b,
+        width_b,
+        height_b,
+        pts3D_in_cam_b)
+
+    pts2D_b = np.where(pts_valid_b, pts2D_b, 0)
+    range_meas_b = depth_b[pts2D_b[1, :], pts2D_b[0, :]]
+    z_valid_b = abs(pts_range_b - range_meas_b) < z_inconsistency_threshold
+
+    # Compute masks for the valid projections
+
+    mask = np.logical_and(pts_valid_a, pts_valid_b)
+    z_mask = np.logical_and(z_valid_a, z_valid_b)
+    final_mask = np.logical_and(mask, z_mask)
+
+    if visualize:
+        print("pts2d_a has " + str(np.count_nonzero(pts_valid_a)) + ' valid projections')
+        print("pts2d_b has " + str(np.count_nonzero(pts_valid_b)) + ' valid projections')
+        print("there are " + str(np.count_nonzero(mask)) + ' valid projection pairs')
+
+        cam_a_image = deepcopy(image_a)
+        cam_b_image = deepcopy(image_b)
+        for i, val in enumerate(mask):
+            if pts_valid_a[i] == True:
+                x0 = pts2D_a[0, i]
+                y0 = pts2D_a[1, i]
+                cv2.line(cam_a_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=2)
+
+            if pts_valid_b[i] == True:
+                x0 = pts2D_b[0, i]
+                y0 = pts2D_b[1, i]
+                cv2.line(cam_b_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=2)
+
+            if val == True:
+                x0 = pts2D_a[0, i]
+                y0 = pts2D_a[1, i]
+                cv2.line(cam_a_image, (x0, y0), (x0, y0), color=(0, 0, 210), thickness=2)
+
+                x0 = pts2D_b[0, i]
+                y0 = pts2D_b[1, i]
+                cv2.line(cam_b_image, (x0, y0), (x0, y0), color=(0, 0, 210), thickness=2)
+
+            if z_mask[i] == True:
+                x0 = pts2D_a[0, i]
+                y0 = pts2D_a[1, i]
+                cv2.line(cam_a_image, (x0, y0), (x0, y0), color=(0, 210, 0), thickness=2)
+
+                x0 = pts2D_b[0, i]
+                y0 = pts2D_b[1, i]
+                cv2.line(cam_b_image, (x0, y0), (x0, y0), color=(0, 210, 0), thickness=2)
+
+        cv2.namedWindow('cam_a', cv2.WINDOW_NORMAL)
+        cv2.imshow('cam_a', cam_a_image)
+        cv2.namedWindow('cam_b', cv2.WINDOW_NORMAL)
+        cv2.imshow('cam_b', cam_b_image)
+
+        wm = KeyPressManager.KeyPressManager.WindowManager()
+        if wm.waitForKey(time_to_wait=None, verbose=False):
+            exit(0)
+
+    return pts2D_a, pts2D_b, final_mask
+
+def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
     """
     Projects a list of points to the camera defined transform, intrinsics and distortion
     :param intrinsic_matrix: 3x3 intrinsic camera matrix
     :param distortion: should be as follows: (k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])
     :param width: the image width
     :param height: the image height
-    :param pts_world: a list of point coordinates (in the world frame) with the following format
+    :param pts: a list of point coordinates (in the camera frame) with the following format
     :return: a list of pixel coordinates with the same lenght as pts
     """
 
@@ -193,3 +278,14 @@ def projectToPixel(intrinsic_matrix, distortion, width, height, pts):
     valid_ypix = np.logical_and(pixs[1, :] >= 0, pixs[1, :] < height)
     valid_pixs = np.logical_and(valid_z, np.logical_and(valid_xpix, valid_ypix))
     return pixs, valid_pixs, dists
+
+
+def addSafe(i_in, val):
+    """Avoids saturation when adding to uint8 images"""
+    i_out = i_in.astype(np.float)  # Convert the i to type float
+    i_out = np.add(i_out, val)  # Perform the adding of parameters to the i
+    i_out = np.maximum(i_out, 0)  # underflow
+    i_out = np.minimum(i_out, 255)  # overflow
+    return i_out.astype(np.uint8)  # Convert back to uint8 and return
+
+

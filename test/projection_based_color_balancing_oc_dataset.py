@@ -9,7 +9,10 @@ The OCDatasetLoader is used to collect data from a OpenConstructor dataset.
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import argparse  # to read command line arguments
+import random
 from copy import deepcopy
+from itertools import combinations
+
 import numpy as np
 import cv2
 from functools import partial
@@ -65,7 +68,6 @@ if __name__ == "__main__":
     ap.add_argument("-vo", "--view_optimization", help="...", action='store_true', default=False)
 
     args = vars(ap.parse_args())
-    print(args)
 
     # ---------------------------------------
     # --- INITIALIZATION
@@ -74,8 +76,13 @@ if __name__ == "__main__":
     dataset_cameras = dataset_loader.loadDataset()
     print("dataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
 
-    aruco_detector = OCArucoDetector.ArucoDetector(args)
-    dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
+    # aruco_detector = OCArucoDetector.ArucoDetector(args)
+    # dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
+
+    # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
+    for i, camera in enumerate(dataset_cameras.cameras):
+        camera.rgb.bias = random.randint(-30, 30)
+        # camera.rgb.bias = 0
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -83,62 +90,51 @@ if __name__ == "__main__":
     print('Initializing optimizer')
     opt = OptimizationUtils.Optimizer()
     opt.addModelData('data_cameras', dataset_cameras)
-    opt.addModelData('data_arucos', dataset_arucos)
 
+
+    # opt.addModelData('data_arucos', dataset_arucos)
 
     # ------------  Cameras -----------------
-    # Each camera will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
-    # thus, the getter should return a list of size 6
-    def getterCameraTranslation(data, cam_idx):
-        return data.cameras[cam_idx].rgb.matrix[0:3, 3]
+    # Each camera will have a bias value which will be added to all pixels
 
+    def setterBias(dataset, value, i):
+        dataset.cameras[i].rgb.bias = value
 
-    def setterCameraTranslation(data, value, cam_idx):
-        data.cameras[cam_idx].rgb.matrix[0:3, 3] = value
-
-
-    def getterCameraRotation(data, cam_idx):
-        matrix = data.cameras[cam_idx].rgb.matrix[0:3, 0:3]
-        return utilities.matrixToRodrigues(matrix)
-
-
-    def setterCameraRotation(data, value, cam_idx):
-        matrix = utilities.rodriguesToMatrix(value)
-        data.cameras[cam_idx].rgb.matrix[0:3, 0:3] = matrix
+    def getterBias(dataset, i):
+        return [dataset.cameras[i].rgb.bias]
 
 
     # Add parameters related to the cameras
-    for cam_idx, camera in enumerate(dataset_cameras.cameras):
-        # Add the translation
-        opt.pushParamVector3(group_name='C' + camera.name + '_t', data_key='data_cameras',
-                             getter=partial(getterCameraTranslation, cam_idx=cam_idx),
-                             setter=partial(setterCameraTranslation, cam_idx=cam_idx),
-                             sufix=['x', 'y', 'z'])
+    for idx_camera, camera in enumerate(dataset_cameras.cameras):
+        # if idx_camera == 0:  # First camera with static color
+        #     bound_max = camera.rgb.bias + 0.00001
+        #     bound_min = camera.rgb.bias - 0.00001
+        # else:
+        bound_max = camera.rgb.bias + 250
+        bound_min = camera.rgb.bias - 250
 
-        # Add the rotation
-        opt.pushParamVector3(group_name='C' + camera.name + '_r', data_key='data_cameras',
-                             getter=partial(getterCameraRotation, cam_idx=cam_idx),
-                             setter=partial(setterCameraRotation, cam_idx=cam_idx),
-                             sufix=['1', '2', '3'])
+        opt.pushParamScalar(group_name='bias_C' + camera.name, data_key='data_cameras',
+                            getter=partial(getterBias, i=idx_camera),
+                            setter=partial(setterBias, i=idx_camera),
+                            bound_max=bound_max, bound_min=bound_min)
 
-
-    # ------------  Arucos -----------------
-    # Each aruco will only have the position (tx,ty,tz)
-    # thus, the getter should return a list of size 3
-    def getterArucoTranslation(data, aruco_id):
-        return data.arucos[aruco_id][0:3, 3]
-
-
-    def setterArucoTranslation(data, value, aruco_id):
-        data.arucos[aruco_id][0:3, 3] = value
-
-
-    # Add parameters related to the arucos
-    for aruco_id, aruco in dataset_arucos.arucos.items():
-        opt.pushParamVector3(group_name='A' + str(aruco_id), data_key='data_arucos',
-                             getter=partial(getterArucoTranslation, aruco_id=aruco_id),
-                             setter=partial(setterArucoTranslation, aruco_id=aruco_id),
-                             sufix=['_tx', '_ty', '_tz'])
+    # # ------------  Arucos -----------------
+    # # Each aruco will only have the position (tx,ty,tz)
+    # # thus, the getter should return a list of size 3
+    # def getterArucoTranslation(data, aruco_id):
+    #     return data.arucos[aruco_id][0:3, 3]
+    #
+    #
+    # def setterArucoTranslation(data, value, aruco_id):
+    #     data.arucos[aruco_id][0:3, 3] = value
+    #
+    #
+    # # Add parameters related to the arucos
+    # for aruco_id, aruco in dataset_arucos.arucos.items():
+    #     opt.pushParamVector3(group_name='A' + str(aruco_id), data_key='data_arucos',
+    #                          getter=partial(getterArucoTranslation, aruco_id=aruco_id),
+    #                          setter=partial(setterArucoTranslation, aruco_id=aruco_id),
+    #                          sufix=['_tx', '_ty', '_tz'])
 
     opt.printParameters()
 
@@ -150,53 +146,41 @@ if __name__ == "__main__":
 
     def objectiveFunction(data):
         """
-        Computes the vector of errors. Each error is associated with a camera, ans is computed from the Euclidean distance
-        between the projected coordinates of aruco centers and the coordinates given by the detection of the aruco in the image.
-        :param data: points to the camera and aruco dataset
-        :return: a vector of resuduals
+        Computes the vector of errors. Each error associated with a pairwise combination of available cameras. For each,
+        pair of cameras, the average color difference between valid projections of measured 3D points.
+        :return: a vector of residuals
         """
         # Get the data
         data_cameras = data['data_cameras']
-        data_arucos = data['data_arucos']
-
-        # print("data_cameras\n" + str(data_cameras.cameras[0].rgb.matrix))
-        # print("data_arucos" + str(data_arucos))
-
+        # data_arucos = data['data_arucos']
         errors = []
-        # Cycle all cameras in the dataset
+
+        # Apply changes to all camera images using parameter vector
         for camera in data_cameras.cameras:
-            # print("Cam " + str(camera.name))
-            for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
-                # print("Aruco " + str(aruco_id))
-                # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
+            camera.rgb.image_changed = utilities.addSafe(camera.rgb.image, camera.rgb.bias)
+            camera.rgb.avg_changed = np.average(camera.rgb.image_changed)
 
-                # Find current position of aruco
-                world_T_camera = np.linalg.inv(camera.rgb.matrix)
+        # Compute all the pair wise combinations of the set of cameras
+        # Each element in the vector of errors is the difference of the average color for the combination
+        for cam_a, cam_b in combinations(data_cameras.cameras, 2):
+            print(cam_a.name + ' with ' + cam_b.name)
 
-                # Extract the translation from the transform matrix and create a np array with a 4,1 point coordinate
-                aruco_origin_world = data_arucos.arucos[aruco_id][0:4, 3]
-                # print("aruco_origin_world = " + str(aruco_origin_world))
+            ci_a = cam_a.rgb.camera_info
+            ci_b = cam_b.rgb.camera_info
 
-                aruco_origin_camera = np.dot(world_T_camera, aruco_origin_world)
-                # print("aruco_origin_camera = " + str(aruco_origin_camera))
+            # get a list of 3D points in the map frame by concatenating the 3D measurements of cam_a and cam_b
+            pts3D_in_map = np.concatenate([
+                np.dot(cam_a.depth.matrix, cam_a.depth.vertices[:, 0::args['skip_vertices']]),
+                np.dot(cam_b.depth.matrix, cam_b.depth.vertices[:, 0::args['skip_vertices']])], axis=1)
 
-                pixs, valid_pixs, dists = utilities.projectToCamera(np.array(camera.rgb.camera_info.K).reshape((3, 3)),
-                                                                    camera.rgb.camera_info.D,
-                                                                    camera.rgb.camera_info.width,
-                                                                    camera.rgb.camera_info.height,
-                                                                    np.array(aruco_origin_camera,
-                                                                            dtype=np.float).reshape((4, 1)))
-                aruco_detection.projected = (pixs[0][0], pixs[1][0])
-                global first_time
-                if first_time:
-                    aruco_detection.first_projection = aruco_detection.projected
+            pts2D_a, pts2D_b, valid_mask = utilities.projectToCameraPair(
+                ci_a.K, ci_a.D, ci_a.width, ci_a.height, np.linalg.inv(cam_a.rgb.matrix), cam_a.rgb.image, cam_a.rgb.range_dense,
+                ci_b.K, ci_b.D, ci_b.width, ci_b.height, np.linalg.inv(cam_b.rgb.matrix), cam_b.rgb.image, cam_b.rgb.range_dense,
+                pts3D_in_map, z_inconsistency_threshold=args['z_inconsistency_threshold'],
+                visualize=args['view_projected_vertices'])
 
-                # print(aruco_detection.projected)
-                error = euclidean(aruco_detection.center, aruco_detection.projected)
-                # print("error = " + str(error))
-                errors.append(error)
+            errors.append(random)
 
-        first_time = False
         # Return the errors
         return errors
 
@@ -206,11 +190,10 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Define THE RESIDUALS
     # ---------------------------------------
-    for camera in dataset_cameras.cameras:
-        for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
-            params = opt.getParamsContainingPattern('C' + str(camera.name))
-            params.extend(opt.getParamsContainingPattern('A' + str(aruco_id)))
-            opt.pushResidual(name='C' + camera.name + 'A' + str(aruco_id), params=params)
+    for cam_a, cam_b in combinations(dataset_cameras.cameras, 2):
+        params = opt.getParamsContainingPattern('C' + cam_a.name)
+        params.extend(opt.getParamsContainingPattern('C' + cam_b.name))
+        opt.pushResidual(name='C' + cam_a.name + '_C' + cam_b.name, params=params)
 
     print('residuals = ' + str(opt.residuals))
 
@@ -248,18 +231,17 @@ if __name__ == "__main__":
         # print("camera " + camera.name + " " + str(camera.handle_frame))
 
     # Draw Arucos
-    dataset_arucos.handles = {}
-    for aruco_id, transform in dataset_arucos.arucos.items():
-        dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id),
-                                                                      line_width=1.0,
-                                                                      fontsize=8,
-                                                                      handles=None)
-        print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
+    # dataset_arucos.handles = {}
+    # for aruco_id, transform in dataset_arucos.arucos.items():
+    #     dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id),
+    #                                                                   line_width=1.0,
+    #                                                                   fontsize=8,
+    #                                                                   handles=None)
+    #     print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
 
     wm = KeyPressManager.KeyPressManager.WindowManager(fig)
     if wm.waitForKey(time_to_wait=None, verbose=True):
         exit(0)
-
 
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
@@ -267,7 +249,7 @@ if __name__ == "__main__":
     def visualizationFunction(data):
         # Get the data
         data_cameras = data['data_cameras']
-        data_arucos = data['data_arucos']
+        # data_arucos = data['data_arucos']
 
         # print("data_cameras\n" + str(data_cameras.cameras[0].rgb.matrix))
 
@@ -302,9 +284,9 @@ if __name__ == "__main__":
                                  handles=camera.handle_frame)
 
         # Draw Arucos
-        for aruco_id, transform in data_arucos.arucos.items():
-            utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0,
-                                       handles=data_arucos.handles[aruco_id])
+        # for aruco_id, transform in data_arucos.arucos.items():
+        #     utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0,
+        #                                handles=data_arucos.handles[aruco_id])
 
         wm = KeyPressManager.KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
@@ -319,6 +301,7 @@ if __name__ == "__main__":
     opt.x = opt.addNoiseToX(noise=0.01)
     opt.fromXToData()
     # opt.callObjectiveFunction()
+    # exit(0)
 
     # ---------------------------------------
     # --- Start Optimization
@@ -326,9 +309,6 @@ if __name__ == "__main__":
     print("\n\nStarting optimization")
     opt.startOptimization()
 
-    print('ola')
     wm = KeyPressManager.KeyPressManager.WindowManager(fig)
     if wm.waitForKey(time_to_wait=None, verbose=True):
         exit(0)
-
-    print('ola')
