@@ -74,8 +74,8 @@ if __name__ == "__main__":
 
     # Change camera's colors just to better see optimization working
     for i, camera in enumerate(dataset.cameras):
-        if i>0:
-            dataset.cameras[i].rgb.image = addSafe(dataset.cameras[i].rgb.image, random.randint(-170, 170))
+        # if i>0:
+        dataset.cameras[i].rgb.image = addSafe(dataset.cameras[i].rgb.image, random.randint(-70, 70))
 
     # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
     for i, camera in enumerate(dataset.cameras):

@@ -10,10 +10,11 @@ The OCDatasetLoader is used to collect data from a OpenConstructor dataset.
 # -------------------------------------------------------------------------------
 import argparse  # to read command line arguments
 from copy import deepcopy
+from itertools import combinations
+
 import numpy as np
 import cv2
 from functools import partial
-from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import euclidean
 import KeyPressManager.KeyPressManager
@@ -66,7 +67,6 @@ if __name__ == "__main__":
     ap.add_argument("-vo", "--view_optimization", help="...", action='store_true', default=False)
 
     args = vars(ap.parse_args())
-    print(args)
 
     # ---------------------------------------
     # --- INITIALIZATION
@@ -85,6 +85,7 @@ if __name__ == "__main__":
     opt = OptimizationUtils.Optimizer()
     opt.addModelData('data_cameras', dataset_cameras)
     opt.addModelData('data_arucos', dataset_arucos)
+
 
     # ------------  Cameras -----------------
     # Each camera will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
@@ -143,55 +144,9 @@ if __name__ == "__main__":
 
     opt.printParameters()
 
-
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
     # ---------------------------------------
-    def projectToPixel(intrinsic_matrix, distortion, width, height, pts):
-        """
-        Projects a list of points to the camera defined transform, intrinsics and distortion
-        :param transform: a 4x4 homogeneous coordinates matrix which transforms from the world frame to the camera frame
-        :param intrinsic_matrix: 3x3 intrinsic camera matrix
-        :param distortion: should be as follows: (k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])
-        :param width: the image width
-        :param height: the image height
-        :param pts_world: a list of point coordinates (in the world frame) with the following format
-        :return: a list of pixel coordinates with the same lenght as pts
-        """
-
-        _, n_pts = pts.shape
-
-        # Project the 3D points in the camera's frame to image pixels
-        # From https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
-        pixs = np.zeros((2, n_pts), dtype=np.int)
-
-        k1, k2, p1, p2, k3 = distortion
-        # fx, _, cx, _, fy, cy, _, _, _ = intrinsic_matrix
-        fx = intrinsic_matrix[0, 0]
-        fy = intrinsic_matrix[1, 1]
-        cx = intrinsic_matrix[0, 2]
-        cy = intrinsic_matrix[1, 2]
-
-        x = pts[0, :]
-        y = pts[1, :]
-        z = pts[2, :]
-
-        dists = norm(pts[0:3, :], axis=0)  # compute distances from point to camera
-        xl = np.divide(x, z)  # compute homogeneous coordinates
-        yl = np.divide(y, z)  # compute homogeneous coordinates
-        r2 = xl ** 2 + yl ** 2  # r square (used multiple times bellow)
-        xll = xl * (1 + k1 * r2 + k2 * r2 ** 2 + k3 * r2 ** 3) + 2 * p1 * xl * yl + p2 * (r2 + 2 * xl ** 2)
-        yll = yl * (1 + k1 * r2 + k2 * r2 ** 2 + k3 * r2 ** 3) + p1 * (r2 + 2 * yl ** 2) + 2 * p2 * xl * yl
-        pixs[0, :] = fx * xll + cx
-        pixs[1, :] = fy * yll + cy
-
-        # Compute mask of valid projections
-        valid_z = z > 0
-        valid_xpix = np.logical_and(pixs[0, :] >= 0, pixs[0, :] < width)
-        valid_ypix = np.logical_and(pixs[1, :] >= 0, pixs[1, :] < height)
-        valid_pixs = np.logical_and(valid_z, np.logical_and(valid_xpix, valid_ypix))
-        return pixs, valid_pixs, dists
-
 
     first_time = True
 
@@ -201,7 +156,7 @@ if __name__ == "__main__":
         Computes the vector of errors. Each error is associated with a camera, ans is computed from the Euclidean distance
         between the projected coordinates of aruco centers and the coordinates given by the detection of the aruco in the image.
         :param data: points to the camera and aruco dataset
-        :return: a vector of resuduals
+        :return: a vector of residuals
         """
         # Get the data
         data_cameras = data['data_cameras']
@@ -228,11 +183,12 @@ if __name__ == "__main__":
                 aruco_origin_camera = np.dot(world_T_camera, aruco_origin_world)
                 # print("aruco_origin_camera = " + str(aruco_origin_camera))
 
-                pixs, valid_pixs, dists = projectToPixel(np.array(camera.rgb.camera_info.K).reshape((3, 3)),
-                                                         camera.rgb.camera_info.D,
-                                                         camera.rgb.camera_info.width,
-                                                         camera.rgb.camera_info.height,
-                                                         np.array(aruco_origin_camera, dtype=np.float).reshape((4, 1)))
+                pixs, valid_pixs, dists = utilities.projectToPixel(np.array(camera.rgb.camera_info.K).reshape((3, 3)),
+                                                                   camera.rgb.camera_info.D,
+                                                                   camera.rgb.camera_info.width,
+                                                                   camera.rgb.camera_info.height,
+                                                                   np.array(aruco_origin_camera,
+                                                                            dtype=np.float).reshape((4, 1)))
                 aruco_detection.projected = (pixs[0][0], pixs[1][0])
                 global first_time
                 if first_time:
@@ -306,6 +262,42 @@ if __name__ == "__main__":
     wm = KeyPressManager.KeyPressManager.WindowManager(fig)
     if wm.waitForKey(time_to_wait=None, verbose=True):
         exit(0)
+
+    # Obtaining the 3D measurements for each camera
+    for c1, c2 in combinations(dataset_cameras.cameras, 2):
+        v1 = c1.depth.vertices[:, 0::args['skip_vertices']]  # skip some vertices
+        # v2 = c2.depth.vertices[:, 0::args['skip_vertices']]  # skip some vertices
+        print('camera 1 has ' + str(v1.shape[1]) + ' vertices.')
+        print('camera 1 vertices ' + str(v1))
+        # print('camera 2 has ' + str(v2.shape[1]) + ' vertices.')
+
+        # get a list of 3D points by concatenating the 3D measurements of c1 and c2
+        v1_map = np.dot(c1.depth.matrix, v1)
+
+        print('depth matrix=\n' + str(c1.depth.matrix))
+        # v2_map = np.dot(c2.depth.matrix, v2)
+        # pts3d = np.concatenate([v1_map, v2_map], axis=1)
+        pts3d = v1_map
+        print('pts3d has ' + str(pts3d.shape[1]) + ' vertices.')
+        print('pts3d = \n' + str(pts3d))
+        exit(0)
+
+        # project 3D points to c1
+        pts3d_c1 = np.dot(np.linalg.inv(c1.depth.matrix), pts3d)  # transform to c1 coordinate frames
+
+        pixs_c1, vpixs_c1, dpixs_c1 = utilities.projectToPixel(np.array(c1.rgb.camera_info.K).reshape((3, 3)),
+                                                               c1.rgb.camera_info.D,
+                                                               c1.rgb.camera_info.width,
+                                                               c1.rgb.camera_info.height,
+                                                               pts3d_c1)
+
+        print(pixs_c1)
+        print(vpixs_c1)
+        # pts2D_a = np.where(pts_valid_a, pts2D_a, 0)
+        # range_meas_a = c1.rgb.range_dense[pts2D_a[1, :], pts2D_a[0, :]]
+        # z_valid_a = abs(pts_range_a - range_meas_a) < self.p['z_inconsistency_threshold']
+
+    exit(0)
 
 
     # ---------------------------------------

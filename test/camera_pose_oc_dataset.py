@@ -13,7 +13,6 @@ from copy import deepcopy
 import numpy as np
 import cv2
 from functools import partial
-from numpy.linalg import norm
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import euclidean
 import KeyPressManager.KeyPressManager
@@ -143,56 +142,9 @@ if __name__ == "__main__":
 
     opt.printParameters()
 
-
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
     # ---------------------------------------
-    def projectToPixel(intrinsic_matrix, distortion, width, height, pts):
-        """
-        Projects a list of points to the camera defined transform, intrinsics and distortion
-        :param transform: a 4x4 homogeneous coordinates matrix which transforms from the world frame to the camera frame
-        :param intrinsic_matrix: 3x3 intrinsic camera matrix
-        :param distortion: should be as follows: (k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])
-        :param width: the image width
-        :param height: the image height
-        :param pts_world: a list of point coordinates (in the world frame) with the following format
-        :return: a list of pixel coordinates with the same lenght as pts
-        """
-
-        _, n_pts = pts.shape
-
-        # Project the 3D points in the camera's frame to image pixels
-        # From https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
-        pixs = np.zeros((2, n_pts), dtype=np.int)
-
-        k1, k2, p1, p2, k3 = distortion
-        # fx, _, cx, _, fy, cy, _, _, _ = intrinsic_matrix
-        fx = intrinsic_matrix[0, 0]
-        fy = intrinsic_matrix[1, 1]
-        cx = intrinsic_matrix[0, 2]
-        cy = intrinsic_matrix[1, 2]
-
-        x = pts[0, :]
-        y = pts[1, :]
-        z = pts[2, :]
-
-        dists = norm(pts[0:3, :], axis=0)  # compute distances from point to camera
-        xl = np.divide(x, z)  # compute homogeneous coordinates
-        yl = np.divide(y, z)  # compute homogeneous coordinates
-        r2 = xl ** 2 + yl ** 2  # r square (used multiple times bellow)
-        xll = xl * (1 + k1 * r2 + k2 * r2 ** 2 + k3 * r2 ** 3) + 2 * p1 * xl * yl + p2 * (r2 + 2 * xl ** 2)
-        yll = yl * (1 + k1 * r2 + k2 * r2 ** 2 + k3 * r2 ** 3) + p1 * (r2 + 2 * yl ** 2) + 2 * p2 * xl * yl
-        pixs[0, :] = fx * xll + cx
-        pixs[1, :] = fy * yll + cy
-
-        # Compute mask of valid projections
-        valid_z = z > 0
-        valid_xpix = np.logical_and(pixs[0, :] >= 0, pixs[0, :] < width)
-        valid_ypix = np.logical_and(pixs[1, :] >= 0, pixs[1, :] < height)
-        valid_pixs = np.logical_and(valid_z, np.logical_and(valid_xpix, valid_ypix))
-        return pixs, valid_pixs, dists
-
-
     first_time = True
 
 
@@ -228,11 +180,12 @@ if __name__ == "__main__":
                 aruco_origin_camera = np.dot(world_T_camera, aruco_origin_world)
                 # print("aruco_origin_camera = " + str(aruco_origin_camera))
 
-                pixs, valid_pixs, dists = projectToPixel(np.array(camera.rgb.camera_info.K).reshape((3, 3)),
-                                                         camera.rgb.camera_info.D,
-                                                         camera.rgb.camera_info.width,
-                                                         camera.rgb.camera_info.height,
-                                                         np.array(aruco_origin_camera, dtype=np.float).reshape((4, 1)))
+                pixs, valid_pixs, dists = utilities.projectToPixel(np.array(camera.rgb.camera_info.K).reshape((3, 3)),
+                                                                   camera.rgb.camera_info.D,
+                                                                   camera.rgb.camera_info.width,
+                                                                   camera.rgb.camera_info.height,
+                                                                   np.array(aruco_origin_camera,
+                                                                            dtype=np.float).reshape((4, 1)))
                 aruco_detection.projected = (pixs[0][0], pixs[1][0])
                 global first_time
                 if first_time:
@@ -290,17 +243,18 @@ if __name__ == "__main__":
 
     # Draw cameras
     for camera in dataset_cameras.cameras:
-        camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3, line_width=2)
+        camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3,
+                                                   line_width=2)
         # print("camera " + camera.name + " " + str(camera.handle_frame))
 
     # Draw Arucos
     dataset_arucos.handles = {}
     for aruco_id, transform in dataset_arucos.arucos.items():
-        dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0,
-                                                            fontsize=8,
-                                                            handles=None)
+        dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id),
+                                                                      line_width=1.0,
+                                                                      fontsize=8,
+                                                                      handles=None)
         print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
-
 
     wm = KeyPressManager.KeyPressManager.WindowManager(fig)
     if wm.waitForKey(time_to_wait=None, verbose=True):
@@ -324,7 +278,8 @@ if __name__ == "__main__":
                 # print("Aruco " + str(aruco_id))
                 # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
 
-                utilities.drawSquare2D(image, aruco_detection.center[0], aruco_detection.center[1], 10, color=(0, 0, 255), thickness=2)
+                utilities.drawSquare2D(image, aruco_detection.center[0], aruco_detection.center[1], 10,
+                                       color=(0, 0, 255), thickness=2)
 
                 # cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
                 # print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
@@ -342,16 +297,19 @@ if __name__ == "__main__":
 
         # Draw camera's axes
         for camera in data_cameras.cameras:
-            utilities.drawAxis3D(ax=ax, transform=camera.rgb.matrix, text="C" + camera.name, axis_scale=0.3, line_width=2,
-                       handles=camera.handle_frame)
+            utilities.drawAxis3D(ax=ax, transform=camera.rgb.matrix, text="C" + camera.name, axis_scale=0.3,
+                                 line_width=2,
+                                 handles=camera.handle_frame)
 
         # Draw Arucos
         for aruco_id, transform in data_arucos.arucos.items():
-            utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0, handles=data_arucos.handles[aruco_id])
+            utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0,
+                                       handles=data_arucos.handles[aruco_id])
 
         wm = KeyPressManager.KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
+
 
     opt.setVisualizationFunction(visualizationFunction, n_iterations=10)
 
@@ -374,5 +332,3 @@ if __name__ == "__main__":
         exit(0)
 
     print('ola')
-
-
