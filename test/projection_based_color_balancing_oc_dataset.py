@@ -12,7 +12,7 @@ import argparse  # to read command line arguments
 import random
 from copy import deepcopy
 from itertools import combinations
-
+from math import floor
 import numpy as np
 import cv2
 from functools import partial
@@ -82,12 +82,13 @@ if __name__ == "__main__":
     # Change camera's colors just to better see optimization working
     for i, camera in enumerate(dataset_cameras.cameras):
         # if i>0:
-        dataset_cameras.cameras[i].rgb.image = utilities.addSafe(dataset_cameras.cameras[i].rgb.image, random.randint(-70, 70))
+        dataset_cameras.cameras[i].rgb.image = utilities.addSafe(dataset_cameras.cameras[i].rgb.image,
+                                                                 random.randint(-70, 70))
 
     # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
     for i, camera in enumerate(dataset_cameras.cameras):
-        camera.rgb.bias = random.randint(-30, 30)
-        # camera.rgb.bias = 0
+        # camera.rgb.bias = random.randint(-30, 30)
+        camera.rgb.bias = 0
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -164,7 +165,7 @@ if __name__ == "__main__":
         # Apply changes to all camera images using parameter vector
         for camera in data_cameras.cameras:
             camera.rgb.image_changed = utilities.addSafe(camera.rgb.image, camera.rgb.bias)
-            camera.rgb.avg_changed = np.average(camera.rgb.image_changed)
+            # camera.rgb.avg_changed = np.average(camera.rgb.image_changed)
 
         # Compute all the pair wise combinations of the set of cameras
         # Each element in the vector of errors is the difference of the average color for the combination
@@ -187,16 +188,21 @@ if __name__ == "__main__":
                 pts3D_in_map, z_inconsistency_threshold=args['z_inconsistency_threshold'],
                 visualize=args['view_projected_vertices'])
 
-            colors_a = cam_a.rgb.image_changed[pts2D_a[1, :], pts2D_a[0, :]]
-            colors_b = cam_b.rgb.image_changed[pts2D_b[1, :], pts2D_b[0, :]]
+            #Compute the error with the valid projections
+            colors_a = cam_a.rgb.image_changed[pts2D_a[1, valid_mask], pts2D_a[0, valid_mask]]
+            colors_b = cam_b.rgb.image_changed[pts2D_b[1, valid_mask], pts2D_b[0, valid_mask]]
             error = np.linalg.norm(colors_a.astype(np.float) - colors_b.astype(np.float), ord=2, axis=1)
             # utilities.printNumPyArray({'colors_a': colors_a, 'colors_b': colors_b, 'error': error})
+
+            utilities.drawProjectionErrors(cam_a.rgb.image_changed, pts2D_a[:, valid_mask], cam_b.rgb.image_changed, pts2D_b[:, valid_mask],
+                                 error, cam_a.name + '_' + cam_b.name, skip=10)
 
             errors.append(np.mean(error))
 
         # print('errors is = ' + str(errors))
         # Return the errors
         return errors
+
 
 
     opt.setObjectiveFunction(objectiveFunction)
@@ -219,17 +225,58 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- SETUP THE VISUALIZATION FUNCTION
     # ---------------------------------------
+    import gtk
+
+    W = gtk.gdk.screen_width()
+    H = gtk.gdk.screen_height()
+
     # position the windows in the proper place
+    wpw = 4
+    start_row = 30
     for i, camera in enumerate(dataset_cameras.cameras):
-        cv2.namedWindow('C' + camera.name + '_original', cv2.WINDOW_NORMAL)
-        cv2.moveWindow('C' + camera.name + '_original', 420 * i, 70)
-        cv2.imshow('C' + camera.name + '_original', camera.rgb.image)
+        aspect = float(camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
+        w = int(W / wpw)
+        h = int(w / aspect)
+        name = 'C' + camera.name + '_original'
+        cv2.namedWindow(name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
+        cv2.resizeWindow(name, w, h)
+        cv2.imshow(name, camera.rgb.image)
+        cv2.waitKey(10)
+        cv2.moveWindow(name, w * i, start_row)
+    cv2.waitKey(200)
 
+    wpw = 4
+    start_row = 30 + H/4
     for i, camera in enumerate(dataset_cameras.cameras):
-        cv2.namedWindow('C' + camera.name + '_current', cv2.WINDOW_NORMAL)
-        cv2.moveWindow('C' + camera.name + '_current', 420 * i, 450)
-        cv2.imshow('C' + camera.name + '_current', camera.rgb.image)
+        aspect = float(camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
+        w = int(W / wpw)
+        h = int(w / aspect)
+        name = 'C' + camera.name + '_current'
+        cv2.namedWindow(name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
+        cv2.resizeWindow(name, w, h)
+        cv2.imshow(name, camera.rgb.image)
+        cv2.waitKey(10)
+        cv2.moveWindow(name, w * i, start_row)
+    cv2.waitKey(200)
 
+    i = 0
+    wpw = 3
+    start_row =  2 * (30 + H/4)
+    window_header_height = 15
+    for cam_a, cam_b in combinations(dataset_cameras.cameras, 2):
+        aspect = float(2 * camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
+        w = int(W / wpw)
+        h = int(w / aspect)
+        name = cam_a.name + '_' + cam_b.name
+        cv2.namedWindow(name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
+        cv2.waitKey(10)
+        cv2.resizeWindow(name, w, h)
+        utilities.drawProjectionErrors(cam_a.rgb.image, [], cam_b.rgb.image, [], [], name)
+        cv2.waitKey(10)
+        cv2.moveWindow(name, int(w * (i % wpw)), int(start_row + floor(i / wpw) * (h + window_header_height)))
+        i = i + 1
+
+    cv2.waitKey(50)
     wm = KeyPressManager.KeyPressManager.WindowManager()
     if wm.waitForKey(time_to_wait=None, verbose=True):
         exit(0)
@@ -247,6 +294,7 @@ if __name__ == "__main__":
 
         wm = KeyPressManager.KeyPressManager.WindowManager()
         if wm.waitForKey(0.01, verbose=False):
+        # if wm.waitForKey(None, verbose=False):
             exit(0)
 
 
@@ -264,7 +312,8 @@ if __name__ == "__main__":
     # --- Start Optimization
     # ---------------------------------------
     print("\n\nStarting optimization")
-    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-0})
+    opt.startOptimization(
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-0})
 
     wm = KeyPressManager.KeyPressManager.WindowManager()
     if wm.waitForKey(time_to_wait=None, verbose=True):

@@ -11,7 +11,7 @@ from copy import deepcopy
 import KeyPressManager
 import numpy as np
 import cv2
-
+from matplotlib import cm
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
@@ -154,7 +154,7 @@ def traslationRodriguesToTransform(translation, rodrigues):
 # ---------------------------------------
 def projectToCameraPair(intrinsic_matrix_a, distortion_a, width_a, height_a, map_T_cam_a, image_a, depth_a,
                         intrinsic_matrix_b, distortion_b, width_b, height_b, map_T_cam_b, image_b, depth_b,
-                        pts3D_in_map, z_inconsistency_threshold = 0.1, visualize=False):
+                        pts3D_in_map, z_inconsistency_threshold=0.1, visualize=False):
     # type: (object, object, object, object, object, object, object, object, object, object, object, object, object, object, object, object, object) -> (np.array, np.array, np.array)
 
     # project 3D points to cam_a image (first the transformation from map to camera is done)
@@ -236,6 +236,7 @@ def projectToCameraPair(intrinsic_matrix_a, distortion_a, width_a, height_a, map
 
     return pts2D_a, pts2D_b, final_mask
 
+
 def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
     """
     Projects a list of points to the camera defined transform, intrinsics and distortion
@@ -301,5 +302,96 @@ def printNumPyArray(arrays):
         print(name + ': shape ' + str(array.shape) + ' type ' + str(array.dtype) + ':\n' + str(array))
 
 
+def drawProjectionErrors(img1, points1, img2, points2, errors, fig_name, skip=1):
+    """ Draws an image pair reprojections similar to the opencv draw matches
+
+    :param img1: An openCV image ndarray in a grayscale or color format.
+    :param points1: np array with shape (2, n)
+    :param img2: An openCV image ndarray in a grayscale or color format.
+    :param points2: np array with shape (2, n)
+    :param errors: np array with shape (1, n)
+    :param fig_name: string
+    :return:
+    """
+
+    # We're drawing the images side by side. Get dimensions accordingly.
+    if len(img1.shape) == 3:
+        new_shape = (max(img1.shape[0], img2.shape[0]), img1.shape[1] + img2.shape[1], img1.shape[2])
+    elif len(img1.shape) == 2:
+        new_shape = (max(img1.shape[0], img2.shape[0]), img1.shape[1] + img2.shape[1])
+    new_img = np.zeros(new_shape, type(img1.flat[0]))
+    # Place images onto the new image.
+    new_img[0:img1.shape[0], 0:img1.shape[1]] = img1
+    new_img[0:img2.shape[0], img1.shape[1]:img1.shape[1] + img2.shape[1]] = img2
+
+    if len(points1) == 0 or len(points1) != len(points2):  # nothing to draw
+        cv2.imshow(fig_name, new_img)
+        return
+
+    r = 15
+    thickness = 2
+
+    for i, (x1, y1, x2, y2) in enumerate(zip(points1[0, ::skip], points1[1, ::skip], points2[0, ::skip], points2[1, ::skip])):
+        x2 = x2 + img1.shape[1]
+        idx = 255 - int(min(errors[i], 255))
+        color = cm.RdYlGn(idx)
+        c = round(color[2] * 255), round(color[1] * 255), round(color[0] * 255)  # matplot is RGB, opencv is BGR
+        cv2.line(new_img, (x1, y1), (x2, y2), c, thickness)
+        cv2.circle(new_img, (x1, y1), r, c, thickness)
+        cv2.circle(new_img, (x2, y2), r, c, thickness)
+
+    cv2.imshow(fig_name, new_img)
 
 
+# https://gist.github.com/isker/11be0c50c4f78cad9549
+def drawMatches(img1, kp1, img2, kp2, matches, color=None):
+    """Draws lines between matching keypoints of two images.
+    Keypoints not in a matching pair are not drawn.
+
+    Places the images side by side in a new image and draws circles
+    around each keypoint, with line segments connecting matching pairs.
+    You can tweak the r, thickness, and figsize values as needed.
+
+    Args:
+        img1: An openCV image ndarray in a grayscale or color format.
+        kp1: A list of cv2.KeyPoint objects for img1.
+        img2: An openCV image ndarray of the same format and with the same
+        element type as img1.
+        kp2: A list of cv2.KeyPoint objects for img2.
+        matches: A list of DMatch objects whose trainIdx attribute refers to
+        img1 keypoints and whose queryIdx attribute refers to img2 keypoints.
+        color: The color of the circles and connecting lines drawn on the images.
+        A 3-tuple for color images, a scalar for grayscale images.  If None, these
+        values are randomly generated.
+    """
+    # We're drawing them side by side.  Get dimensions accordingly.
+    # Handle both color and grayscale images.
+    if len(img1.shape) == 3:
+        new_shape = (max(img1.shape[0], img2.shape[0]), img1.shape[1] + img2.shape[1], img1.shape[2])
+    elif len(img1.shape) == 2:
+        new_shape = (max(img1.shape[0], img2.shape[0]), img1.shape[1] + img2.shape[1])
+    new_img = np.zeros(new_shape, type(img1.flat[0]))
+    # Place images onto the new image.
+    new_img[0:img1.shape[0], 0:img1.shape[1]] = img1
+    new_img[0:img2.shape[0], img1.shape[1]:img1.shape[1] + img2.shape[1]] = img2
+
+    # Draw lines between matches.  Make sure to offset kp coords in second image appropriately.
+    r = 15
+    thickness = 2
+    if color:
+        c = color
+    for m in matches:
+        # Generate random color for RGB/BGR and grayscale images as needed.
+        if not color:
+            c = np.random.randint(0, 256, 3) if len(img1.shape) == 3 else np.random.randint(0, 256)
+        # So the keypoint locs are stored as a tuple of floats.  cv2.line(), like most other things,
+        # wants locs as a tuple of ints.
+        end1 = tuple(np.round(kp1[m.trainIdx].pt).astype(int))
+        end2 = tuple(np.round(kp2[m.queryIdx].pt).astype(int) + np.array([img1.shape[1], 0]))
+        cv2.line(new_img, end1, end2, c, thickness)
+        cv2.circle(new_img, end1, r, c, thickness)
+        cv2.circle(new_img, end2, r, c, thickness)
+
+    plt.figure(figsize=(15, 15))
+    plt.imshow(new_img)
+    plt.show()
