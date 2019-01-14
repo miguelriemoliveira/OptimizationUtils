@@ -146,17 +146,22 @@ class Optimizer:
         """
         self.x = x
         self.fromXToData()
-        error = self.objective_function(self.data)
+        errors = self.objective_function(self.data)
 
+        # Visualization and printing
         if self.counter >= self.visualization_function_iterations:
             self.visualization_function(self.data)
             self.counter = 0
 
-            print('AvgError = ' + str(np.average(error)))
+            # Debug printing
+            self.printParameters(flg_simple=True)
+            self.printResiduals(errors)
+
+            print('\nAvgError = ' + str(np.average(errors)) + '\n')
 
         self.counter += 1
 
-        return error
+        return errors
 
     def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-8,
                                                       'diff_step': 1e-3}):
@@ -279,7 +284,7 @@ class Optimizer:
 
         print(self.x)
 
-    def printParameters(self, x=None):
+    def printParameters(self, x=None, flg_simple=False):
         if x is None:
             x = self.x
 
@@ -292,8 +297,13 @@ class Optimizer:
                 rows.append(param_name)
                 table.append([group_name, x[group.idx[i]], values_in_data[i]])
 
-        print('Parameters:')
-        print(pandas.DataFrame(table, rows, ['Group', 'x', 'data']))
+        print('\nParameters:')
+        df = pandas.DataFrame(table, rows, ['Group', 'x', 'data'])
+        if flg_simple:
+            # https://medium.com/dunder-data/selecting-subsets-of-data-in-pandas-6fcd0170be9c
+            print(df[['x']])
+        else:
+            print(df)
 
     def printModel(self):
         print('There are ' + str(len(self.data)) + ' data models stored: ' + str(self.data))
@@ -301,3 +311,21 @@ class Optimizer:
     def printXAndModel(self):
         self.printX()
         self.printModel()
+
+    def printResiduals(self, errors=None):
+
+        rows = []  # get a list of residuals
+        table = []
+        if errors is None:
+            errors = np.full((len(self.residuals)), np.nan)
+            # errors=np.nans((len(self.residuals)))
+
+        for i, residual in enumerate(self.residuals):
+            rows.append(residual)
+            table.append(errors[i])
+
+        print('\nResiduals:')
+        df = pandas.DataFrame(table, rows, ['error'])
+        print(df)
+
+

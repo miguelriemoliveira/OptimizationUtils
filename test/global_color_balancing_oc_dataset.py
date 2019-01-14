@@ -170,8 +170,6 @@ if __name__ == "__main__":
     # if wm.waitForKey():
     #     exit(0)
 
-    print("\n\nStarting optimization")
-
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------

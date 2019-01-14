@@ -79,6 +79,11 @@ if __name__ == "__main__":
     # aruco_detector = OCArucoDetector.ArucoDetector(args)
     # dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
 
+    # Change camera's colors just to better see optimization working
+    for i, camera in enumerate(dataset_cameras.cameras):
+        # if i>0:
+        dataset_cameras.cameras[i].rgb.image = utilities.addSafe(dataset_cameras.cameras[i].rgb.image, random.randint(-70, 70))
+
     # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
     for i, camera in enumerate(dataset_cameras.cameras):
         camera.rgb.bias = random.randint(-30, 30)
@@ -99,6 +104,7 @@ if __name__ == "__main__":
 
     def setterBias(dataset, value, i):
         dataset.cameras[i].rgb.bias = value
+
 
     def getterBias(dataset, i):
         return [dataset.cameras[i].rgb.bias]
@@ -163,7 +169,7 @@ if __name__ == "__main__":
         # Compute all the pair wise combinations of the set of cameras
         # Each element in the vector of errors is the difference of the average color for the combination
         for cam_a, cam_b in combinations(data_cameras.cameras, 2):
-            print(cam_a.name + ' with ' + cam_b.name)
+            # print(cam_a.name + ' with ' + cam_b.name)
 
             ci_a = cam_a.rgb.camera_info
             ci_b = cam_b.rgb.camera_info
@@ -174,13 +180,21 @@ if __name__ == "__main__":
                 np.dot(cam_b.depth.matrix, cam_b.depth.vertices[:, 0::args['skip_vertices']])], axis=1)
 
             pts2D_a, pts2D_b, valid_mask = utilities.projectToCameraPair(
-                ci_a.K, ci_a.D, ci_a.width, ci_a.height, np.linalg.inv(cam_a.rgb.matrix), cam_a.rgb.image, cam_a.rgb.range_dense,
-                ci_b.K, ci_b.D, ci_b.width, ci_b.height, np.linalg.inv(cam_b.rgb.matrix), cam_b.rgb.image, cam_b.rgb.range_dense,
+                ci_a.K, ci_a.D, ci_a.width, ci_a.height, np.linalg.inv(cam_a.rgb.matrix), cam_a.rgb.image,
+                cam_a.rgb.range_dense,
+                ci_b.K, ci_b.D, ci_b.width, ci_b.height, np.linalg.inv(cam_b.rgb.matrix), cam_b.rgb.image,
+                cam_b.rgb.range_dense,
                 pts3D_in_map, z_inconsistency_threshold=args['z_inconsistency_threshold'],
                 visualize=args['view_projected_vertices'])
 
-            errors.append(random)
+            colors_a = cam_a.rgb.image_changed[pts2D_a[1, :], pts2D_a[0, :]]
+            colors_b = cam_b.rgb.image_changed[pts2D_b[1, :], pts2D_b[0, :]]
+            error = np.linalg.norm(colors_a.astype(np.float) - colors_b.astype(np.float), ord=2, axis=1)
+            # utilities.printNumPyArray({'colors_a': colors_a, 'colors_b': colors_b, 'error': error})
 
+            errors.append(np.mean(error))
+
+        # print('errors is = ' + str(errors))
         # Return the errors
         return errors
 
@@ -195,7 +209,7 @@ if __name__ == "__main__":
         params.extend(opt.getParamsContainingPattern('C' + cam_b.name))
         opt.pushResidual(name='C' + cam_a.name + '_C' + cam_b.name, params=params)
 
-    print('residuals = ' + str(opt.residuals))
+    opt.printResiduals()
 
     # ---------------------------------------
     # --- Compute the SPARSE MATRIX
@@ -207,41 +221,19 @@ if __name__ == "__main__":
     # ---------------------------------------
     # position the windows in the proper place
     for i, camera in enumerate(dataset_cameras.cameras):
-        cv2.namedWindow('Cam ' + camera.name, cv2.WINDOW_NORMAL)
-        cv2.moveWindow('Cam ' + camera.name, 300 * i, 50)
-        cv2.imshow('Cam ' + camera.name, camera.rgb.image)
+        cv2.namedWindow('C' + camera.name + '_original', cv2.WINDOW_NORMAL)
+        cv2.moveWindow('C' + camera.name + '_original', 420 * i, 70)
+        cv2.imshow('C' + camera.name + '_original', camera.rgb.image)
 
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    for i, camera in enumerate(dataset_cameras.cameras):
+        cv2.namedWindow('C' + camera.name + '_current', cv2.WINDOW_NORMAL)
+        cv2.moveWindow('C' + camera.name + '_current', 420 * i, 450)
+        cv2.imshow('C' + camera.name + '_current', camera.rgb.image)
 
-    ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
-    ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
-    limit = 1.5
-    ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
-    ax.view_init(elev=122, azim=-87)
-
-    # Draw world axis
-    world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
-    utilities.drawAxis3D(ax, world_T_world, "world", axis_scale=0.7, line_width=3)
-
-    # Draw cameras
-    for camera in dataset_cameras.cameras:
-        camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3,
-                                                   line_width=2)
-        # print("camera " + camera.name + " " + str(camera.handle_frame))
-
-    # Draw Arucos
-    # dataset_arucos.handles = {}
-    # for aruco_id, transform in dataset_arucos.arucos.items():
-    #     dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id),
-    #                                                                   line_width=1.0,
-    #                                                                   fontsize=8,
-    #                                                                   handles=None)
-    #     print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
-
-    wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    wm = KeyPressManager.KeyPressManager.WindowManager()
     if wm.waitForKey(time_to_wait=None, verbose=True):
         exit(0)
+
 
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
@@ -249,56 +241,21 @@ if __name__ == "__main__":
     def visualizationFunction(data):
         # Get the data
         data_cameras = data['data_cameras']
-        # data_arucos = data['data_arucos']
 
-        # print("data_cameras\n" + str(data_cameras.cameras[0].rgb.matrix))
+        for i, camera in enumerate(dataset_cameras.cameras):
+            cv2.imshow('C' + camera.name + '_current', camera.rgb.image_changed)
 
-        for i, camera in enumerate(data_cameras.cameras):
-            image = deepcopy(camera.rgb.image)
-            # print("Cam " + str(camera.name))
-            for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
-                # print("Aruco " + str(aruco_id))
-                # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
-
-                utilities.drawSquare2D(image, aruco_detection.center[0], aruco_detection.center[1], 10,
-                                       color=(0, 0, 255), thickness=2)
-
-                # cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
-                # print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
-
-                if 0 < aruco_detection.projected[0] < camera.rgb.camera_info.width \
-                        and 0 < aruco_detection.projected[1] < camera.rgb.camera_info.height:
-                    cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
-
-                # TODO: improve drawing first detection code
-                if 0 < aruco_detection.first_projection[0] < camera.rgb.camera_info.width \
-                        and 0 < aruco_detection.first_projection[1] < camera.rgb.camera_info.height:
-                    cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
-
-            cv2.imshow('Cam ' + camera.name, image)
-
-        # Draw camera's axes
-        for camera in data_cameras.cameras:
-            utilities.drawAxis3D(ax=ax, transform=camera.rgb.matrix, text="C" + camera.name, axis_scale=0.3,
-                                 line_width=2,
-                                 handles=camera.handle_frame)
-
-        # Draw Arucos
-        # for aruco_id, transform in data_arucos.arucos.items():
-        #     utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0,
-        #                                handles=data_arucos.handles[aruco_id])
-
-        wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+        wm = KeyPressManager.KeyPressManager.WindowManager()
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
 
 
-    opt.setVisualizationFunction(visualizationFunction, n_iterations=10)
+    opt.setVisualizationFunction(visualizationFunction, n_iterations=0)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
     # ---------------------------------------
-    opt.x = opt.addNoiseToX(noise=0.01)
+    # opt.x = opt.addNoiseToX(noise=0.01)
     opt.fromXToData()
     # opt.callObjectiveFunction()
     # exit(0)
@@ -307,8 +264,8 @@ if __name__ == "__main__":
     # --- Start Optimization
     # ---------------------------------------
     print("\n\nStarting optimization")
-    opt.startOptimization()
+    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-0})
 
-    wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    wm = KeyPressManager.KeyPressManager.WindowManager()
     if wm.waitForKey(time_to_wait=None, verbose=True):
         exit(0)

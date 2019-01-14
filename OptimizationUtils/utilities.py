@@ -155,6 +155,7 @@ def traslationRodriguesToTransform(translation, rodrigues):
 def projectToCameraPair(intrinsic_matrix_a, distortion_a, width_a, height_a, map_T_cam_a, image_a, depth_a,
                         intrinsic_matrix_b, distortion_b, width_b, height_b, map_T_cam_b, image_b, depth_b,
                         pts3D_in_map, z_inconsistency_threshold = 0.1, visualize=False):
+    # type: (object, object, object, object, object, object, object, object, object, object, object, object, object, object, object, object, object) -> (np.array, np.array, np.array)
 
     # project 3D points to cam_a image (first the transformation from map to camera is done)
     pts3D_in_cam_a = np.dot(map_T_cam_a, pts3D_in_map)
@@ -287,5 +288,18 @@ def addSafe(i_in, val):
     i_out = np.maximum(i_out, 0)  # underflow
     i_out = np.minimum(i_out, 255)  # overflow
     return i_out.astype(np.uint8)  # Convert back to uint8 and return
+
+
+def printNumPyArray(arrays):
+    """
+
+    :type arrays: [{name, array}]
+    """
+
+    for name in arrays:
+        array = arrays[name]
+        print(name + ': shape ' + str(array.shape) + ' type ' + str(array.dtype) + ':\n' + str(array))
+
+
 
 
