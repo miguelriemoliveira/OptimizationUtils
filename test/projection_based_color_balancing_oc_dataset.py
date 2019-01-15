@@ -14,6 +14,7 @@ from copy import deepcopy
 from itertools import combinations
 from math import floor
 import numpy as np
+import gtk
 import cv2
 from functools import partial
 import matplotlib.pyplot as plt
@@ -102,23 +103,20 @@ if __name__ == "__main__":
 
     # ------------  Cameras -----------------
     # Each camera will have a bias value which will be added to all pixels
-
     def setterBias(dataset, value, i):
         dataset.cameras[i].rgb.bias = value
-
 
     def getterBias(dataset, i):
         return [dataset.cameras[i].rgb.bias]
 
-
     # Add parameters related to the cameras
     for idx_camera, camera in enumerate(dataset_cameras.cameras):
-        # if idx_camera == 0:  # First camera with static color
-        #     bound_max = camera.rgb.bias + 0.00001
-        #     bound_min = camera.rgb.bias - 0.00001
-        # else:
-        bound_max = camera.rgb.bias + 250
-        bound_min = camera.rgb.bias - 250
+        if idx_camera == 2:  # First camera with static color
+            bound_max = camera.rgb.bias + 0.00001
+            bound_min = camera.rgb.bias - 0.00001
+        else:
+            bound_max = 255
+            bound_min = -255
 
         opt.pushParamScalar(group_name='bias_C' + camera.name, data_key='data_cameras',
                             getter=partial(getterBias, i=idx_camera),
@@ -188,21 +186,21 @@ if __name__ == "__main__":
                 pts3D_in_map, z_inconsistency_threshold=args['z_inconsistency_threshold'],
                 visualize=args['view_projected_vertices'])
 
-            #Compute the error with the valid projections
+            # Compute the error with the valid projections
             colors_a = cam_a.rgb.image_changed[pts2D_a[1, valid_mask], pts2D_a[0, valid_mask]]
             colors_b = cam_b.rgb.image_changed[pts2D_b[1, valid_mask], pts2D_b[0, valid_mask]]
             error = np.linalg.norm(colors_a.astype(np.float) - colors_b.astype(np.float), ord=2, axis=1)
             # utilities.printNumPyArray({'colors_a': colors_a, 'colors_b': colors_b, 'error': error})
 
-            utilities.drawProjectionErrors(cam_a.rgb.image_changed, pts2D_a[:, valid_mask], cam_b.rgb.image_changed, pts2D_b[:, valid_mask],
-                                 error, cam_a.name + '_' + cam_b.name, skip=10)
+            utilities.drawProjectionErrors(cam_a.rgb.image_changed, pts2D_a[:, valid_mask], cam_b.rgb.image_changed,
+                                           pts2D_b[:, valid_mask],
+                                           error, cam_a.name + '_' + cam_b.name, skip=10)
 
             errors.append(np.mean(error))
 
         # print('errors is = ' + str(errors))
         # Return the errors
         return errors
-
 
 
     opt.setObjectiveFunction(objectiveFunction)
@@ -225,8 +223,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- SETUP THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    import gtk
-
+    wm = KeyPressManager.KeyPressManager.WindowManager()
     W = gtk.gdk.screen_width()
     H = gtk.gdk.screen_height()
 
@@ -246,7 +243,7 @@ if __name__ == "__main__":
     cv2.waitKey(200)
 
     wpw = 4
-    start_row = 30 + H/4
+    start_row = 30 + H / 4
     for i, camera in enumerate(dataset_cameras.cameras):
         aspect = float(camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
         w = int(W / wpw)
@@ -261,7 +258,7 @@ if __name__ == "__main__":
 
     i = 0
     wpw = 3
-    start_row =  2 * (30 + H/4)
+    start_row = 2 * (30 + H / 4)
     window_header_height = 15
     for cam_a, cam_b in combinations(dataset_cameras.cameras, 2):
         aspect = float(2 * camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
@@ -277,9 +274,8 @@ if __name__ == "__main__":
         i = i + 1
 
     cv2.waitKey(50)
-    wm = KeyPressManager.KeyPressManager.WindowManager()
-    if wm.waitForKey(time_to_wait=None, verbose=True):
-        exit(0)
+
+    wm.waitForKey(time_to_wait=None, verbose=True)
 
 
     # ---------------------------------------
@@ -292,10 +288,7 @@ if __name__ == "__main__":
         for i, camera in enumerate(dataset_cameras.cameras):
             cv2.imshow('C' + camera.name + '_current', camera.rgb.image_changed)
 
-        wm = KeyPressManager.KeyPressManager.WindowManager()
-        if wm.waitForKey(0.01, verbose=False):
-        # if wm.waitForKey(None, verbose=False):
-            exit(0)
+        wm.waitForKey(0.01, verbose=False)
 
 
     opt.setVisualizationFunction(visualizationFunction, n_iterations=0)
@@ -315,6 +308,3 @@ if __name__ == "__main__":
     opt.startOptimization(
         optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-0})
 
-    wm = KeyPressManager.KeyPressManager.WindowManager()
-    if wm.waitForKey(time_to_wait=None, verbose=True):
-        exit(0)

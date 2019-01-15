@@ -1,6 +1,7 @@
 # -------------------------------------------------------------------------------
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
+import matplotlib
 from collections import namedtuple, OrderedDict
 from copy import deepcopy
 import pandas
@@ -157,16 +158,50 @@ class Optimizer:
             self.printParameters(flg_simple=True)
             self.printResiduals(errors)
 
-            print('\nAvgError = ' + str(np.average(errors)) + '\n')
+            print('\nAverage error = ' + str(np.average(errors)) + '\n')
+
+            if self.first_call_of_objective_function:
+                self.first_call_of_objective_function = False
+                self.plot_handle, = self.ax.plot(range(0, len(errors)), errors, color='blue', marker='s', linestyle='solid', linewidth = 2, markersize = 6)
+                matplotlib.pyplot.legend((self.initial_residuals_handle, self.plot_handle), ('Initial', 'Current'))
+                self.wm.waitForKey(time_to_wait=0.01, verbose=True)
+            else:
+                print('here')
+                self.plot_handle.set_data(range(0, len(errors)), errors)
+                self.ax.relim()
+                # update ax.viewLim using the new dataLim
+                self.ax.autoscale_view()
+                self.wm.waitForKey(time_to_wait=0.01, verbose=True)
 
         self.counter += 1
 
         return errors
 
-    def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-8,
-                                                      'diff_step': 1e-3}):
-        self.setFirstGuess()
 
+
+    def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8,
+                                                      'diff_step': 1e-3}):
+        self.setInitialValues()
+
+        # Prepare residuals figure
+        self.figure_residuals = matplotlib.pyplot.figure()
+        self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figure_residuals)
+        self.ax = self.figure_residuals.add_subplot(1, 1, 1)
+        x = range(0, len(self.initial_errors))
+        self.initial_residuals_handle, = self.ax.plot(x, self.initial_errors, color='green', marker='o', linestyle='solid', linewidth = 2, markersize = 6)
+        self.ax.plot(x, [0]*len(self.initial_errors), color='black', linestyle='dashed', linewidth = 2, markersize = 6)
+        self.ax.set_xticks(x, minor=False)
+        self.ax.set_xticks([], minor=True)
+        self.ax.set_xticklabels(list(self.residuals.keys()))
+
+        matplotlib.pyplot.title('Optimization Residuals')
+        matplotlib.pyplot.xlabel('Residuals')
+        matplotlib.pyplot.ylabel('Values')
+        for tick in self.ax.get_xticklabels():
+            tick.set_rotation(90)
+        self.wm.waitForKey(time_to_wait=0.01, verbose=True)
+
+        # Setup boundaries for parameters
         bounds_min = []
         bounds_max = []
         for name in self.groups:
@@ -179,13 +214,6 @@ class Optimizer:
         self.xf = deepcopy(list(self.result.x))
         self.finalOptimizationReport()
 
-        # wm = KeyPressManager.KeyPressManager.WindowManager()
-        # if wm.waitForKey(self.fig):
-        #     exit(0)
-
-    # def setFigure(self, figure):
-    #     self.figure = figure
-
     def finalOptimizationReport(self):
         """Just print some info and show the images"""
         print('\n-------------\nOptimization finished')
@@ -195,7 +223,9 @@ class Optimizer:
 
         self.fromXToData(self.xf)
         self.visualization_function(self.data)
-        # cv2.waitKey(20)
+
+
+        self.wm.waitForKey(time_to_wait=None, verbose=False)
 
     # ---------------------------
     # Utilities
@@ -220,8 +250,12 @@ class Optimizer:
                     params.append(param_name)
         return params
 
-    def setFirstGuess(self):
+    def setInitialValues(self):
         self.x0 = deepcopy(self.x)
+        self.fromXToData()
+        self.initial_errors = self.objective_function(self.data)
+        self.first_call_of_objective_function = True
+
 
     def fromDataToX(self, x=None):
         """Copies values of all parameters from the data to the vector x"""
@@ -327,5 +361,3 @@ class Optimizer:
         print('\nResiduals:')
         df = pandas.DataFrame(table, rows, ['error'])
         print(df)
-
-
