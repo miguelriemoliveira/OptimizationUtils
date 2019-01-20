@@ -14,6 +14,7 @@ from copy import deepcopy
 from itertools import combinations
 from math import floor
 import numpy as np
+import numpy.linalg as npl
 import gtk
 import cv2
 from functools import partial
@@ -84,12 +85,12 @@ if __name__ == "__main__":
     for i, camera in enumerate(dataset_cameras.cameras):
         # if i>0:
         dataset_cameras.cameras[i].rgb.image = utilities.addSafe(dataset_cameras.cameras[i].rgb.image,
-                                                                 random.randint(-70, 70))
+                                                                 random.randint(-80, 80))
 
-    # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
+    # lets add a gamma variable to each camera.rgb. This value will be used to change the image and optimize
     for i, camera in enumerate(dataset_cameras.cameras):
-        # camera.rgb.bias = random.randint(-30, 30)
-        camera.rgb.bias = 0
+        # camera.rgb.gamma = random.randint(0.0001, 5.0)
+        camera.rgb.gamma = 1.0
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -102,25 +103,26 @@ if __name__ == "__main__":
     # opt.addModelData('data_arucos', dataset_arucos)
 
     # ------------  Cameras -----------------
-    # Each camera will have a bias value which will be added to all pixels
-    def setterBias(dataset, value, i):
-        dataset.cameras[i].rgb.bias = value
+    # Each camera will have a gamma value which will be added to all pixels
+    def setterGamma(dataset, value, i):
+        dataset.cameras[i].rgb.gamma = value
 
-    def getterBias(dataset, i):
-        return [dataset.cameras[i].rgb.bias]
+
+    def getterGamma(dataset, i):
+        return [dataset.cameras[i].rgb.gamma]
 
     # Add parameters related to the cameras
     for idx_camera, camera in enumerate(dataset_cameras.cameras):
-        if idx_camera == 2:  # First camera with static color
-            bound_max = camera.rgb.bias + 0.00001
-            bound_min = camera.rgb.bias - 0.00001
-        else:
-            bound_max = 255
-            bound_min = -255
+        # if idx_camera == 2:  # First camera with static color
+        #     bound_max = camera.rgb.gamma + 0.00001
+        #     bound_min = camera.rgb.gamma - 0.00001
+        # else:
+        bound_max = 3.5
+        bound_min = 0.001
 
         opt.pushParamScalar(group_name='bias_C' + camera.name, data_key='data_cameras',
-                            getter=partial(getterBias, i=idx_camera),
-                            setter=partial(setterBias, i=idx_camera),
+                            getter=partial(getterGamma, i=idx_camera),
+                            setter=partial(setterGamma, i=idx_camera),
                             bound_max=bound_max, bound_min=bound_min)
 
     # # ------------  Arucos -----------------
@@ -162,8 +164,7 @@ if __name__ == "__main__":
 
         # Apply changes to all camera images using parameter vector
         for camera in data_cameras.cameras:
-            camera.rgb.image_changed = utilities.addSafe(camera.rgb.image, camera.rgb.bias)
-            # camera.rgb.avg_changed = np.average(camera.rgb.image_changed)
+            camera.rgb.image_changed = utilities.adjustGamma(camera.rgb.image, camera.rgb.gamma)
 
         # Compute all the pair wise combinations of the set of cameras
         # Each element in the vector of errors is the difference of the average color for the combination
@@ -173,15 +174,18 @@ if __name__ == "__main__":
             ci_a = cam_a.rgb.camera_info
             ci_b = cam_b.rgb.camera_info
 
-            # get a list of 3D points in the map frame by concatenating the 3D measurements of cam_a and cam_b
+            # Option1: get a list of 3D points in the map frame by concatenating the 3D measurements of cam_a and cam_b
             pts3D_in_map = np.concatenate([
                 np.dot(cam_a.depth.matrix, cam_a.depth.vertices[:, 0::args['skip_vertices']]),
                 np.dot(cam_b.depth.matrix, cam_b.depth.vertices[:, 0::args['skip_vertices']])], axis=1)
 
+            # Option2: use the vertices of the mesh as the list of 3D points to project
+            # pts3D_in_map = data_cameras.pts_map[:, 0::args['skip_vertices']] # use only a subset of the points
+
             pts2D_a, pts2D_b, valid_mask = utilities.projectToCameraPair(
-                ci_a.K, ci_a.D, ci_a.width, ci_a.height, np.linalg.inv(cam_a.rgb.matrix), cam_a.rgb.image,
+                ci_a.K, ci_a.D, ci_a.width, ci_a.height, npl.inv(cam_a.rgb.matrix), cam_a.rgb.image,
                 cam_a.rgb.range_dense,
-                ci_b.K, ci_b.D, ci_b.width, ci_b.height, np.linalg.inv(cam_b.rgb.matrix), cam_b.rgb.image,
+                ci_b.K, ci_b.D, ci_b.width, ci_b.height, npl.inv(cam_b.rgb.matrix), cam_b.rgb.image,
                 cam_b.rgb.range_dense,
                 pts3D_in_map, z_inconsistency_threshold=args['z_inconsistency_threshold'],
                 visualize=args['view_projected_vertices'])
@@ -192,9 +196,9 @@ if __name__ == "__main__":
             error = np.linalg.norm(colors_a.astype(np.float) - colors_b.astype(np.float), ord=2, axis=1)
             # utilities.printNumPyArray({'colors_a': colors_a, 'colors_b': colors_b, 'error': error})
 
-            utilities.drawProjectionErrors(cam_a.rgb.image_changed, pts2D_a[:, valid_mask], cam_b.rgb.image_changed,
-                                           pts2D_b[:, valid_mask],
-                                           error, cam_a.name + '_' + cam_b.name, skip=10)
+            # utilities.drawProjectionErrors(cam_a.rgb.image_changed, pts2D_a[:, valid_mask], cam_b.rgb.image_changed,
+            #                                pts2D_b[:, valid_mask],
+            #                                error, cam_a.name + '_' + cam_b.name, skip=10)
 
             errors.append(np.mean(error))
 
@@ -223,59 +227,61 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- SETUP THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    wm = KeyPressManager.KeyPressManager.WindowManager()
-    W = gtk.gdk.screen_width()
-    H = gtk.gdk.screen_height()
+    print('view optimization = ' + str(args['view_optimization']))
+    if args['view_optimization']:
+        wm = KeyPressManager.KeyPressManager.WindowManager()
+        W = gtk.gdk.screen_width()
+        H = gtk.gdk.screen_height()
 
-    # position the windows in the proper place
-    wpw = 4
-    start_row = 30
-    for i, camera in enumerate(dataset_cameras.cameras):
-        aspect = float(camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
-        w = int(W / wpw)
-        h = int(w / aspect)
-        name = 'C' + camera.name + '_original'
-        cv2.namedWindow(name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
-        cv2.resizeWindow(name, w, h)
-        cv2.imshow(name, camera.rgb.image)
-        cv2.waitKey(10)
-        cv2.moveWindow(name, w * i, start_row)
-    cv2.waitKey(200)
+        # position the windows in the proper place
+        wpw = 4
+        start_row = 30
+        for i, camera in enumerate(dataset_cameras.cameras):
+            aspect = float(camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
+            w = int(W / wpw)
+            h = int(w / aspect)
+            name = 'C' + camera.name + '_original'
+            cv2.namedWindow(name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
+            cv2.resizeWindow(name, w, h)
+            cv2.imshow(name, camera.rgb.image)
+            cv2.waitKey(10)
+            cv2.moveWindow(name, w * i, start_row)
+        cv2.waitKey(200)
 
-    wpw = 4
-    start_row = 30 + H / 4
-    for i, camera in enumerate(dataset_cameras.cameras):
-        aspect = float(camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
-        w = int(W / wpw)
-        h = int(w / aspect)
-        name = 'C' + camera.name + '_current'
-        cv2.namedWindow(name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
-        cv2.resizeWindow(name, w, h)
-        cv2.imshow(name, camera.rgb.image)
-        cv2.waitKey(10)
-        cv2.moveWindow(name, w * i, start_row)
-    cv2.waitKey(200)
+        wpw = 4
+        start_row = 30 + H / 4
+        for i, camera in enumerate(dataset_cameras.cameras):
+            aspect = float(camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
+            w = int(W / wpw)
+            h = int(w / aspect)
+            name = 'C' + camera.name + '_current'
+            cv2.namedWindow(name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
+            cv2.resizeWindow(name, w, h)
+            cv2.imshow(name, camera.rgb.image)
+            cv2.waitKey(10)
+            cv2.moveWindow(name, w * i, start_row)
+        cv2.waitKey(200)
 
-    i = 0
-    wpw = 3
-    start_row = 2 * (30 + H / 4)
-    window_header_height = 15
-    for cam_a, cam_b in combinations(dataset_cameras.cameras, 2):
-        aspect = float(2 * camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
-        w = int(W / wpw)
-        h = int(w / aspect)
-        name = cam_a.name + '_' + cam_b.name
-        cv2.namedWindow(name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
-        cv2.waitKey(10)
-        cv2.resizeWindow(name, w, h)
-        utilities.drawProjectionErrors(cam_a.rgb.image, [], cam_b.rgb.image, [], [], name)
-        cv2.waitKey(10)
-        cv2.moveWindow(name, int(w * (i % wpw)), int(start_row + floor(i / wpw) * (h + window_header_height)))
-        i = i + 1
+        i = 0
+        wpw = 3
+        start_row = 2 * (30 + H / 4)
+        window_header_height = 15
+        for cam_a, cam_b in combinations(dataset_cameras.cameras, 2):
+            aspect = float(2 * camera.rgb.image.shape[1]) / float(camera.rgb.image.shape[0])
+            w = int(W / wpw)
+            h = int(w / aspect)
+            name = cam_a.name + '_' + cam_b.name
+            cv2.namedWindow(name, cv2.WINDOW_NORMAL | cv2.WINDOW_GUI_NORMAL)
+            cv2.waitKey(10)
+            cv2.resizeWindow(name, w, h)
+            utilities.drawProjectionErrors(cam_a.rgb.image, [], cam_b.rgb.image, [], [], name)
+            cv2.waitKey(10)
+            cv2.moveWindow(name, int(w * (i % wpw)), int(start_row + floor(i / wpw) * (h + window_header_height)))
+            i = i + 1
 
-    cv2.waitKey(50)
+        cv2.waitKey(50)
 
-    wm.waitForKey(time_to_wait=None, verbose=True)
+        wm.waitForKey(time_to_wait=None, verbose=True)
 
 
     # ---------------------------------------
@@ -291,7 +297,7 @@ if __name__ == "__main__":
         wm.waitForKey(0.01, verbose=False)
 
 
-    opt.setVisualizationFunction(visualizationFunction, n_iterations=0)
+    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=5)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
@@ -304,7 +310,5 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
-    print("\n\nStarting optimization")
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-0})
-
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-1})

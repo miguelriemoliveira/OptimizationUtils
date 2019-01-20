@@ -16,7 +16,6 @@ import KeyPressManager.KeyPressManager
 # ------------------------
 # DATA STRUCTURES   ##
 # ------------------------
-
 ParamT = namedtuple('ParamT', 'param_names idx data_key getter setter bound_max bound_min')
 
 
@@ -26,28 +25,41 @@ ParamT = namedtuple('ParamT', 'param_names idx data_key getter setter bound_max 
 class Optimizer:
 
     def __init__(self):
-        self.counter = 0
-        self.data = {}  # a dict with a set of variables or structures to be used by the objective function
+        """
+        Initializes class properties with default values.
+        """
+
+        self.data_models = {}  # a dict with a set of variables or structures to be used by the objective function
         self.groups = OrderedDict()  # groups of params an ordered dict where key={name} and value = namedtuple('ParamT')
+
         self.x = []  # a list of floats (the actual parameters)
         self.x0 = []  # the initial value of the parameters
         self.xf = []  # the final value of the parameters
+
         self.residuals = OrderedDict()  # ordered dict: key={residual} value = [params that influence this residual]
         self.sparse_matrix = None
         self.result = None  # to contain the optimization result
         self.objective_function = None  # to contain the objective function
-        self.visualization_function = None  # to contain the visualization function
-        self.visualization_function_iterations = 0
+        # self.visualization_function = None
+        self.first_call_of_objective_function = True
+
+        # Visualization stuff
+        self.vis_function_handle = None  # to contain a handle to the visualization function
+        self.vis_niterations = 0
+        self.vis_counter = 0
 
     # ---------------------------
     # Optimizer configuration
     # ---------------------------
     def addModelData(self, name, data):
-        """ Should be a dictionary containing every static data to be used by the cost function"""
-        if name in self.data:  # Cannot add a parameter that already exists
+        """ Should be a dictionary containing every static data to be used by the cost function
+        :param name: string containing the name of the data
+        :param data: object containing the data
+        """
+        if name in self.data_models:  # Cannot add a parameter that already exists
             raise ValueError('Data ' + name + ' already exits in model dict.')
         else:
-            self.data[name] = data
+            self.data_models[name] = data
             print('Added data ' + name + ' to model dict.')
 
     def pushParamScalar(self, group_name, data_key, getter, setter, bound_max=+inf, bound_min=-inf):
@@ -64,10 +76,10 @@ class Optimizer:
         if group_name in self.groups:  # Cannot add a parameter that already exists
             raise ValueError('Scalar param ' + group_name + ' already exists. Cannot add it.')
 
-        if not data_key in self.data:
+        if not data_key in self.data_models:
             raise ValueError('Dataset ' + data_key + ' does not exist. Cannot add group ' + group_name + '.')
 
-        value = getter(self.data[data_key])
+        value = getter(self.data_models[data_key])
         if not type(value) is list or not (len(value) == 1):
             raise ValueError('For scalar parameters, getter must return a list of lenght 1. Returned list = ' + str(
                 value) + ' of type ' + str(type(value)))
@@ -94,7 +106,7 @@ class Optimizer:
         if group_name in self.groups:  # Cannot add a parameter that already exists
             raise ValueError('Group ' + group_name + ' already exists. Cannot add it.')
 
-        if not data_key in self.data:  # Check if we have the data_key in the data dictionary
+        if not data_key in self.data_models:  # Check if we have the data_key in the data dictionary
             raise ValueError('Dataset ' + data_key + ' does not exist. Cannot add group ' + group_name + '.')
 
         if not len(bound_max) == 3:  # check size of bound_max
@@ -112,107 +124,108 @@ class Optimizer:
 
         self.groups[group_name] = ParamT(param_names, idxs, data_key, getter, setter, bound_max,
                                          bound_min)  # add to params dict
-        values = getter(self.data[data_key])
+        values = getter(self.data_models[data_key])
         for value in values:
             self.x.append(value)  # set initial value in x
         print('Pushed translation group ' + group_name + ' with params ' + str(param_names))
 
     def pushResidual(self, name, params=None):
-        """
-        Adds a new residual to the existing list of residuals
+        """Adds a new residual to the existing list of residuals
+
         :param name: name of residual
-        :param params: list of parameter names which affect this residual
+        :type name: string
+        :param params: parameter names which affect this residual
+        :type params: list
         """
         # TODO check if all listed params exist in the self.params
         self.residuals[name] = params
 
-    def setObjectiveFunction(self, function_handle):
-        self.objective_function = function_handle
+    def setObjectiveFunction(self, handle):
+        # type: (function) -> object
+        """Provide a pointer to the objective function
 
-    def setVisualizationFunction(self, function_handle, n_iterations=0):
-        self.visualization_function = function_handle
-        self.visualization_function_iterations = n_iterations
+        :param handle: the function handle
+        """
+        self.objective_function = handle
+
+    def setVisualizationFunction(self, handle, always_visualize, niterations=0):
+        """ Sets up the visualization function to be called to plot the data during the optimization procedure.
+
+        :param handle: handle to the function
+        :param always_visualize: call visualization function during optimization or just at the end
+        :param niterations: number of iterations at which the visualization function is called.
+        """
+
+        self.vis_function_handle = handle
+        self.vis_niterations = niterations
+        self.always_visualize = always_visualize
 
     # ---------------------------
-    # Optimization functions
+    # Optimization methods
     # ---------------------------
     def callObjectiveFunction(self):
-        self.internalObjectiveFunction(self.x)
+        """ Just an utility to call the objective function once. """
+        return self.internalObjectiveFunction(self.x)
 
     def internalObjectiveFunction(self, x):
-        """
-        A wrapper around the custom given objective function which maps the x vector to the model before calling the
-        objetive function and after the call
+        # type: (list) -> list
+        """ A wrapper around the custom given objective function which maps the x vector to the model before calling the
+        objective function and after the call
+
         :param x: the parameters vector
         """
-        self.x = x
-        self.fromXToData()
-        errors = self.objective_function(self.data)
+        self.x = x  # setup x parameters.
+        self.fromXToData()  # Copy from parameters to data models.
+        errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
 
-        # Visualization and printing
-        if self.counter >= self.visualization_function_iterations:
-            self.visualization_function(self.data)
-            self.counter = 0
+        # Visualization: skip if counter does not exceed blackout interval
+        if self.always_visualize and self.vis_counter >= self.vis_niterations:
+            self.vis_counter = 0  # reset counter
+            self.vis_function_handle(self.data_models)  # call visualization function
+            self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
+            self.ax.relim()  # recompute new limits
+            self.ax.autoscale_view()  # re-enable auto scale
+            self.wm.waitForKey(time_to_wait=0.01, verbose=True)  # wait a bit
 
-            # Debug printing
+            # Printing information
             self.printParameters(flg_simple=True)
             self.printResiduals(errors)
-
             print('\nAverage error = ' + str(np.average(errors)) + '\n')
 
-            if self.first_call_of_objective_function:
-                self.first_call_of_objective_function = False
-                self.plot_handle, = self.ax.plot(range(0, len(errors)), errors, color='blue', marker='s', linestyle='solid', linewidth = 2, markersize = 6)
-                matplotlib.pyplot.legend((self.initial_residuals_handle, self.plot_handle), ('Initial', 'Current'))
-                self.wm.waitForKey(time_to_wait=0.01, verbose=True)
-            else:
-                print('here')
-                self.plot_handle.set_data(range(0, len(errors)), errors)
-                self.ax.relim()
-                # update ax.viewLim using the new dataLim
-                self.ax.autoscale_view()
-                self.wm.waitForKey(time_to_wait=0.01, verbose=True)
-
-        self.counter += 1
+        else:
+            self.vis_counter += 1
 
         return errors
 
-
-
     def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8,
                                                       'diff_step': 1e-3}):
-        self.setInitialValues()
+        """ Initializes the optiization procedure.
 
-        # Prepare residuals figure
-        self.figure_residuals = matplotlib.pyplot.figure()
-        self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figure_residuals)
-        self.ax = self.figure_residuals.add_subplot(1, 1, 1)
-        x = range(0, len(self.initial_errors))
-        self.initial_residuals_handle, = self.ax.plot(x, self.initial_errors, color='green', marker='o', linestyle='solid', linewidth = 2, markersize = 6)
-        self.ax.plot(x, [0]*len(self.initial_errors), color='black', linestyle='dashed', linewidth = 2, markersize = 6)
-        self.ax.set_xticks(x, minor=False)
-        self.ax.set_xticks([], minor=True)
-        self.ax.set_xticklabels(list(self.residuals.keys()))
-
-        matplotlib.pyplot.title('Optimization Residuals')
-        matplotlib.pyplot.xlabel('Residuals')
-        matplotlib.pyplot.ylabel('Values')
-        for tick in self.ax.get_xticklabels():
-            tick.set_rotation(90)
-        self.wm.waitForKey(time_to_wait=0.01, verbose=True)
+        :param optimization_options: dict with options for the least squares scipy function.
+        Check https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
+        """
+        self.x0 = deepcopy(self.x)  # store current x as initial parameter values
+        self.fromXToData()  # copy from x to data models
+        self.residuals0 = self.objective_function(self.data_models)  # call obj. func. (once) to get initial residuals
 
         # Setup boundaries for parameters
         bounds_min = []
         bounds_max = []
         for name in self.groups:
-            _, _, _, _, _, max, min = self.groups[name]
-            bounds_max.extend(max)
-            bounds_min.extend(min)
+            _, _, _, _, _, bound_max, bound_min = self.groups[name]
+            bounds_max.extend(bound_max)
+            bounds_min.extend(bound_min)
 
+        if self.always_visualize:
+            self.drawResidualsFigure()  # First draw of residuals figure
+
+        # Call optimization function (finally!)
+        print("\n\nStarting optimization")
         self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
-        self.xf = deepcopy(list(self.result.x))
-        self.finalOptimizationReport()
+
+        self.xf = deepcopy(list(self.result.x))  # Store final x values
+        self.finalOptimizationReport()  # print an informative report
 
     def finalOptimizationReport(self):
         """Just print some info and show the images"""
@@ -222,8 +235,9 @@ class Optimizer:
         # self.printX(preamble_text='\nFinal value of parameters', x=self.xf)
 
         self.fromXToData(self.xf)
-        self.visualization_function(self.data)
 
+        if self.always_visualize:
+            self.vis_function_handle(self.data_models)
 
         self.wm.waitForKey(time_to_wait=None, verbose=False)
 
@@ -231,12 +245,23 @@ class Optimizer:
     # Utilities
     # ---------------------------
     def addNoiseToX(self, noise=0.1, x=None):
+        """ Adds uniform noise to the values in the parameter vector x
+
+        :param noise: magnitude of the noise. 0.1 would generate a value from 0.9 to 1.1 of the current value
+        :param x: parameter vector. If None the currently stored in the class is used.
+        :return: new parameter vector with noise.
+        """
+        # type: (float, list) -> list
         if x is None:
             x = self.x
 
         return x * np.array([random.uniform(1 - noise, 1 + noise) for _ in xrange(len(x))], dtype=np.float)
 
     def getParameters(self):
+        """ Gets all the existing parameters
+
+        :return: a list with all the parameter names.
+        """
         params = []
         for group_name, group in self.groups.items():
             params.extend(group.param_names)
@@ -250,25 +275,24 @@ class Optimizer:
                     params.append(param_name)
         return params
 
-    def setInitialValues(self):
-        self.x0 = deepcopy(self.x)
-        self.fromXToData()
-        self.initial_errors = self.objective_function(self.data)
-        self.first_call_of_objective_function = True
-
-
     def fromDataToX(self, x=None):
-        """Copies values of all parameters from the data to the vector x"""
+        """ Copies values of all parameters from the data to the vector x
+
+        :param x:  parameter vector. If None the currently stored in the class is used.
+        """
         if x is None:
             x = self.x
 
         for group_name, group in self.groups.items():
-            values = group.getter(self.data[group.data_key])
+            values = group.getter(self.data_models[group.data_key])
             for i, idx in enumerate(group.idx):
                 x[idx] = values[i]
 
     def fromXToData(self, x=None):
-        """Copies values of all parameters from vector x to the data"""
+        """ Copies values of all parameters from vector x to the data
+
+        :param x:  parameter vector. If None the currently stored in the class is used.
+        """
         if x is None:
             x = self.x
 
@@ -277,10 +301,12 @@ class Optimizer:
             for idx in group.idx:
                 values.append(x[idx])
 
-            group.setter(self.data[group.data_key], values)
+            group.setter(self.data_models[group.data_key], values)
 
     def computeSparseMatrix(self):
+        """ Computes the sparse matrix given the parameters and the residuals. Should be called only after setting both.
 
+        """
         params = self.getParameters()
         self.sparse_matrix = lil_matrix((len(self.residuals), len(params)), dtype=int)
 
@@ -306,12 +332,16 @@ class Optimizer:
     # Print and display
     # ---------------------------
     def printX(self, x=None):
+        """ Prints the list of parameters
+
+        :param x: list of parameters. If None prints the currently stored list.
+        """
         if x is None:
             x = self.x
 
         for group_name, group in self.groups.items():
             print('Group ' + str(group_name) + ' has parameters:')
-            values_in_data = group.getter(self.data[group.data_key])
+            values_in_data = group.getter(self.data_models[group.data_key])
             for i, param_name in enumerate(group.param_names):
                 print('--- ' + str(param_name) + ' = ' + str(values_in_data[i]) + ' (in data) ' + str(
                     x[group.idx[i]]) + ' (in x)')
@@ -319,6 +349,13 @@ class Optimizer:
         print(self.x)
 
     def printParameters(self, x=None, flg_simple=False):
+        """ Prints the current values of the parameters in the parameter list as well as the corresponding data
+        models.
+
+        :param x: list of parameters. If None prints the currently stored list.
+        :param flg_simple:
+        """
+        # type: (list, bool) -> object
         if x is None:
             x = self.x
 
@@ -326,7 +363,7 @@ class Optimizer:
         rows = []  # get a list of parameters
         table = []
         for group_name, group in self.groups.items():
-            values_in_data = group.getter(self.data[group.data_key])
+            values_in_data = group.getter(self.data_models[group.data_key])
             for i, param_name in enumerate(group.param_names):
                 rows.append(param_name)
                 table.append([group_name, x[group.idx[i]], values_in_data[i]])
@@ -339,15 +376,20 @@ class Optimizer:
         else:
             print(df)
 
-    def printModel(self):
-        print('There are ' + str(len(self.data)) + ' data models stored: ' + str(self.data))
+    def printModelsInfo(self):
+        """ Prints information about the currently configured models """
+        print('There are ' + str(len(self.data_models)) + ' data models stored: ' + str(self.data_models))
 
-    def printXAndModel(self):
+    def printXAndModelsInfo(self):
+        """ Just a wrapper of two other methods. """
         self.printX()
-        self.printModel()
+        self.printModelsInfo()
 
     def printResiduals(self, errors=None):
+        """ Prints the current values of the residuals.
 
+        :param errors:
+        """
         rows = []  # get a list of residuals
         table = []
         if errors is None:
@@ -361,3 +403,35 @@ class Optimizer:
         print('\nResiduals:')
         df = pandas.DataFrame(table, rows, ['error'])
         print(df)
+
+    # ---------------------------
+    # Drawing and figures
+    # ---------------------------
+    def drawResidualsFigure(self):
+
+        # Prepare residuals figure
+        self.figure_residuals = matplotlib.pyplot.figure()
+        self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figure_residuals)
+        self.ax = self.figure_residuals.add_subplot(1, 1, 1)
+        x = range(0, len(self.residuals0))
+        self.initial_residuals_handle, = self.ax.plot(x, self.residuals0, color='green', marker='o',
+                                                      linestyle='solid', linewidth=2, markersize=6)
+        self.ax.plot(x, [0] * len(self.residuals0), color='black', linestyle='dashed', linewidth=2, markersize=6)
+        self.ax.set_xticks(x, minor=False)
+        self.ax.set_xticks([], minor=True)
+        self.ax.set_xticklabels(list(self.residuals.keys()))
+
+        matplotlib.pyplot.title('Optimization Residuals')
+        matplotlib.pyplot.xlabel('Residuals')
+        matplotlib.pyplot.ylabel('Values')
+        for tick in self.ax.get_xticklabels():
+            tick.set_rotation(90)
+
+        self.wm.waitForKey(time_to_wait=0.01, verbose=True)
+
+        self.plot_handle, = self.ax.plot(range(0, len(self.residuals0)), self.residuals0, color='blue', marker='s',
+                                         linestyle='solid', linewidth=2, markersize=6)
+        matplotlib.pyplot.legend((self.initial_residuals_handle, self.plot_handle), ('Initial', 'Current'))
+        self.ax.relim()
+        self.ax.autoscale_view()
+        self.wm.waitForKey(time_to_wait=0.01, verbose=True)

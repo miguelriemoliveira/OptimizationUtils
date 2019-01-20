@@ -311,7 +311,7 @@ if __name__ == "__main__":
             exit(0)
 
 
-    opt.setVisualizationFunction(visualizationFunction, n_iterations=10)
+    opt.setVisualizationFunction(visualizationFunction, niterations=10)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)

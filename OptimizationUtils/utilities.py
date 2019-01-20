@@ -282,30 +282,48 @@ def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
     return pixs, valid_pixs, dists
 
 
-def addSafe(i_in, val):
-    """Avoids saturation when adding to uint8 images"""
-    i_out = i_in.astype(np.float)  # Convert the i to type float
-    i_out = np.add(i_out, val)  # Perform the adding of parameters to the i
-    i_out = np.maximum(i_out, 0)  # underflow
-    i_out = np.minimum(i_out, 255)  # overflow
-    return i_out.astype(np.uint8)  # Convert back to uint8 and return
+def addSafe(image_in, val):
+    """Avoids saturation when adding to uint8 images
+
+    :param image_in: the image.
+    :param val:
+    :return:
+    """
+    image_out = image_in.astype(np.float)  # Convert the i to type float
+    image_out = np.add(image_out, val)  # Perform the adding of parameters to the i
+    image_out = np.maximum(image_out, 0)  # underflow
+    image_out = np.minimum(image_out, 255)  # overflow
+    return image_out.astype(np.uint8)  # Convert back to uint8 and return
+
+
+def adjustGamma(image, gamma=1.0):
+    # type: (np.ndarray, float) -> np.ndarray
+    """ Build a lookup table mapping the pixel values [0, 255] to their adjusted gamma values
+
+    :param image: image to be altered.
+    :param gamma: gamma value to use.
+    :return: Altered image.
+    """
+    #
+    if type(gamma) is list:
+        gamma = gamma[0]
+
+    invGamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+
+    # apply gamma correction using the lookup table
+    return cv2.LUT(image, table)
 
 
 def printNumPyArray(arrays):
-    """
-
-    :type arrays: [{name, array}]
-    """
-
     for name in arrays:
         array = arrays[name]
         print(name + ': shape ' + str(array.shape) + ' type ' + str(array.dtype) + ':\n' + str(array))
 
-
 def drawProjectionErrors(img1, points1, img2, points2, errors, fig_name, skip=1):
     """ Draws an image pair reprojections similar to the opencv draw matches
 
-    :param img1: An openCV image ndarray in a grayscale or color format.
+    :param img1: An openCV image nd array in a grayscale or color format.
     :param points1: np array with shape (2, n)
     :param img2: An openCV image ndarray in a grayscale or color format.
     :param points2: np array with shape (2, n)
