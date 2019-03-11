@@ -153,8 +153,6 @@ if __name__ == "__main__":
 
     def objectiveFunction(data):
         """
-        Computes the vector of errors. Each error is associated with a camera, ans is computed from the Euclidean distance
-        between the projected coordinates of aruco centers and the coordinates given by the detection of the aruco in the image.
         :param data: points to the camera and aruco dataset
         :return: a vector of residuals
         """
@@ -355,7 +353,7 @@ if __name__ == "__main__":
             if wm.waitForKey(time_to_wait=None, verbose=False):
                 exit(0)
 
-    exit(0)
+    # exit(0)
 
 
     # ---------------------------------------
@@ -408,7 +406,7 @@ if __name__ == "__main__":
             exit(0)
 
 
-    opt.setVisualizationFunction(visualizationFunction, niterations=10)
+    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=10)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)

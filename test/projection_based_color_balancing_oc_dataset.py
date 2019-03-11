@@ -296,7 +296,7 @@ if __name__ == "__main__":
         wm.waitForKey(0.01, verbose=False)
 
 
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=5)
+    opt.setVisualizationFunction(visualizationFunction, always_visualize=args['view_optimization'], niterations=5)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)

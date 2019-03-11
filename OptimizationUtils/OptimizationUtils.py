@@ -238,8 +238,7 @@ class Optimizer:
 
         if self.always_visualize:
             self.vis_function_handle(self.data_models)
-
-        self.wm.waitForKey(time_to_wait=None, verbose=False)
+            self.wm.waitForKey(time_to_wait=None, verbose=False)
 
     # ---------------------------
     # Utilities

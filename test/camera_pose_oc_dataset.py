@@ -311,7 +311,8 @@ if __name__ == "__main__":
             exit(0)
 
 
-    opt.setVisualizationFunction(visualizationFunction, niterations=10)
+
+    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=10)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
@@ -326,9 +327,7 @@ if __name__ == "__main__":
     print("\n\nStarting optimization")
     opt.startOptimization()
 
-    print('ola')
-    wm = KeyPressManager.KeyPressManager.WindowManager(fig)
-    if wm.waitForKey(time_to_wait=None, verbose=True):
-        exit(0)
+    # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    # if wm.waitForKey(time_to_wait=None, verbose=True):
+    #     exit(0)
 
-    print('ola')
