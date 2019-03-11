@@ -295,6 +295,16 @@ def addSafe(image_in, val):
     image_out = np.minimum(image_out, 255)  # overflow
     return image_out.astype(np.uint8)  # Convert back to uint8 and return
 
+def deVignetting(image, parameters):
+    """ Devignettes and image using a devignetting function defined by a nth order polynomial.
+
+    :param image: the input image to be devignetted.
+    :param parameters: a list of n parameters to build the polynomial from
+    """
+
+    #f(x) = p1*x^5 + p2*x^4 + p3*x^3 + p4*x^2 + p5*x + p6
+
+
 
 def adjustGamma(image, gamma=1.0):
     # type: (np.ndarray, float) -> np.ndarray
@@ -313,6 +323,31 @@ def adjustGamma(image, gamma=1.0):
 
     # apply gamma correction using the lookup table
     return cv2.LUT(image, table)
+
+
+def adjustLAB(image_in, l_bias=0.0, a_bias=0.0, b_bias=0.0, l_scale=1.0, a_scale=1.0, b_scale=1.0):
+    image = image_in.copy()
+
+    image_lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float)
+
+    image_lab[:, :, 0] += l_bias*255
+    image_lab[:, :, 0] = image_lab [:, :, 0] * l_scale
+    image_lab
+
+    image_lab[:, :, 1] += a_bias*255
+    image_lab[:, :, 1] = image_lab [:, :, 1] * a_scale
+
+    image_lab[:, :, 2] += b_bias*255
+    image_lab[:, :, 2] = image_lab [:, :, 1] * b_scale
+
+    image_lab = np.maximum(image_lab, 0)  # underflow
+    image_lab = np.minimum(image_lab, 255)  # overflow
+    image_lab = image_lab.astype(np.uint8)
+
+    image_out = cv2.cvtColor(image_lab, cv2.COLOR_LAB2BGR)
+
+    return image_out
+    # return np.uint8(rgb * 255.0)
 
 
 def printNumPyArray(arrays):
