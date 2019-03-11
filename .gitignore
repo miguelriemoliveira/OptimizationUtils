@@ -50,3 +50,9 @@ datasets/*
 
 #matlab folder
 matlab/*
+
+#csv files
+*.csv
+
+#idea files
+.idea/*
