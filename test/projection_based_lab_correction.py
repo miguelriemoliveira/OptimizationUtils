@@ -87,10 +87,15 @@ if __name__ == "__main__":
     #     dataset_cameras.cameras[i].rgb.image = utilities.addSafe(dataset_cameras.cameras[i].rgb.image,
     #                                                              random.randint(-80, 80))
 
-    # lets add a gamma variable to each camera.rgb. This value will be used to change the image and optimize
+    # lets add a set of six parameters per image. This value will be used to change the image and optimize
     for i, camera in enumerate(dataset_cameras.cameras):
         # camera.rgb.gamma = random.randint(0.0001, 5.0)
-        camera.rgb.gamma = 1.0
+        camera.rgb.bias_l = 0.0  # luminance channel bias
+        camera.rgb.bias_a = 0.0  # alpha channel bias
+        camera.rgb.bias_b = 0.0  # beta channel bias
+        camera.rgb.scale_l = 1.0  # luminance channel scale
+        camera.rgb.scale_a = 1.0  # alpha channel scale
+        camera.rgb.scale_b = 1.0  # beta channel scale
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -98,31 +103,55 @@ if __name__ == "__main__":
     print('Initializing optimizer')
     opt = OptimizationUtils.Optimizer()
     opt.addModelData('data_cameras', dataset_cameras)
-    # opt.addModelData('data_arucos', dataset_arucos)
+
 
     # ------------  Cameras -----------------
-    # Each camera will have a gamma value which will be added to all pixels
-    def setterGamma(dataset, value, i):
-        dataset.cameras[i].rgb.gamma = value
+    def setterCameraBias(dataset, value, i):
+        dataset.cameras[i].rgb.bias_l = value[0]
+        dataset.cameras[i].rgb.bias_a = value[1]
+        dataset.cameras[i].rgb.bias_b = value[2]
 
 
-    def getterGamma(dataset, i):
-        return [dataset.cameras[i].rgb.gamma]
+    def getterCameraBias(dataset, i):
+        return [dataset.cameras[i].rgb.bias_l,
+                dataset.cameras[i].rgb.bias_a,
+                dataset.cameras[i].rgb.bias_b]
+
+    def setterCameraScale(dataset, value, i):
+        dataset.cameras[i].rgb.scale_l = value[0]
+        dataset.cameras[i].rgb.scale_a = value[1]
+        dataset.cameras[i].rgb.scale_b = value[2]
+
+
+    def getterCameraScale(dataset, i):
+        return [dataset.cameras[i].rgb.scale_l,
+                dataset.cameras[i].rgb.scale_a,
+                dataset.cameras[i].rgb.scale_b]
 
 
     # Add parameters related to the cameras
     for idx_camera, camera in enumerate(dataset_cameras.cameras):
-        if idx_camera == 0:  # First camera with static color
-            bound_max = camera.rgb.gamma + 0.00001
-            bound_min = camera.rgb.gamma - 0.00001
-        else:
-            bound_max = 3.5
-            bound_min = 0.001
+        # if idx_camera == 0:  # First camera with static color
+        #     bound_max = camera.rgb.gamma + 0.00001
+        #     bound_min = camera.rgb.gamma - 0.00001
+        # else:
+        bound_max = 3.5
+        bound_min = 0.001
 
-        opt.pushParamScalar(group_name='bias_C' + camera.name, data_key='data_cameras',
-                            getter=partial(getterGamma, i=idx_camera),
-                            setter=partial(setterGamma, i=idx_camera),
-                            bound_max=bound_max, bound_min=bound_min)
+        # opt.pushParamScalar(group_name='bias_C' + camera.name, data_key='data_cameras',
+        #                     getter=partial(getterGamma, i=idx_camera),
+        #                     setter=partial(setterGamma, i=idx_camera),
+        #                     bound_max=bound_max, bound_min=bound_min)
+
+        opt.pushParamVector3(group_name='C' + camera.name + '_bias_', data_key='data_cameras',
+                             getter=partial(getterCameraBias, i=idx_camera),
+                             setter=partial(setterCameraBias, i=idx_camera),
+                             sufix=['lum', 'alf', 'bet'])
+
+        opt.pushParamVector3(group_name='C' + camera.name + '_scale_', data_key='data_cameras',
+                             getter=partial(getterCameraScale, i=idx_camera),
+                             setter=partial(setterCameraScale, i=idx_camera),
+                             sufix=['lum', 'alf', 'bet'])
 
     # # ------------  Arucos -----------------
     # # Each aruco will only have the position (tx,ty,tz)
@@ -163,7 +192,10 @@ if __name__ == "__main__":
 
         # Apply changes to all camera images using parameter vector
         for camera in data_cameras.cameras:
-            camera.rgb.image_changed = utilities.adjustGamma(camera.rgb.image, camera.rgb.gamma)
+            # camera.rgb.image_changed = utilities.adjustGamma(camera.rgb.image, camera.rgb.gamma)
+            camera.rgb.image_changed = utilities.adjustLAB(camera.rgb.image,
+                     l_bias=camera.rgb.bias_l, a_bias=camera.rgb.bias_a, b_bias=camera.rgb.bias_b,
+                     l_scale=camera.rgb.scale_l, a_scale=camera.rgb.scale_a, b_scale=camera.rgb.scale_b)
 
         # Compute all the pair wise combinations of the set of cameras
         # Each element in the vector of errors is the difference of the average color for the combination
@@ -195,9 +227,9 @@ if __name__ == "__main__":
             error = np.linalg.norm(colors_a.astype(np.float) - colors_b.astype(np.float), ord=2, axis=1)
             # utilities.printNumPyArray({'colors_a': colors_a, 'colors_b': colors_b, 'error': error})
 
-            # utilities.drawProjectionErrors(cam_a.rgb.image_changed, pts2D_a[:, valid_mask], cam_b.rgb.image_changed,
-            #                                pts2D_b[:, valid_mask],
-            #                                error, cam_a.name + '_' + cam_b.name, skip=10)
+            utilities.drawProjectionErrors(cam_a.rgb.image_changed, pts2D_a[:, valid_mask], cam_b.rgb.image_changed,
+                                           pts2D_b[:, valid_mask],
+                                           error, cam_a.name + '_' + cam_b.name, skip=10)
 
             errors.append(np.mean(error))
 
@@ -310,4 +342,4 @@ if __name__ == "__main__":
     # --- Start Optimization
     # ---------------------------------------
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 5e-2})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-2})
