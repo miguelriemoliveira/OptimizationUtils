@@ -224,6 +224,7 @@ class Optimizer:
         self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
 
+
         self.xf = deepcopy(list(self.result.x))  # Store final x values
         self.finalOptimizationReport()  # print an informative report
 

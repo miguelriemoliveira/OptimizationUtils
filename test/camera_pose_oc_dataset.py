@@ -9,6 +9,7 @@ The OCDatasetLoader is used to collect data from a OpenConstructor dataset.
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import argparse  # to read command line arguments
+import subprocess
 from copy import deepcopy
 import numpy as np
 import cv2
@@ -21,9 +22,25 @@ import OCDatasetLoader.OCArucoDetector as OCArucoDetector
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 import OptimizationUtils.utilities as utilities
 
+
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
+##
+# @brief Executes the command in the shell in a blocking or non-blocking manner
+#
+# @param cmd a string with teh command to execute
+#
+# @return
+def bash(cmd, blocking=True):
+    print("Executing command: " + cmd)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    if blocking:
+        for line in p.stdout.readlines():
+            print line,
+            p.wait()
+
 
 # -------------------------------------------------------------------------------
 # --- MAIN
@@ -37,6 +54,8 @@ if __name__ == "__main__":
 
     # Dataset loader arguments
     ap.add_argument("-p", "--path_to_images", help="path to the folder that contains the OC dataset", required=True)
+    ap.add_argument("-o", "--path_to_output_dataset", help="path to the folder that will contain the output OC dataset",
+                    type=str, default=None, required=False)
     ap.add_argument("-ext", "--image_extension", help="extension of the image files, e.g., jpg or png", default='jpg')
     ap.add_argument("-m", "--mesh_filename", help="full filename to input obj file, i.e. the 3D model", required=True)
     ap.add_argument("-i", "--path_to_intrinsics", help="path to intrinsics yaml file", required=True)
@@ -76,6 +95,21 @@ if __name__ == "__main__":
 
     aruco_detector = OCArucoDetector.ArucoDetector(args)
     dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
+
+    # ---------------------------------------
+    # --- Extract the rgb_T_depth transform
+    # ---------------------------------------
+    # Confirm the structure of the txt files
+    for camera in dataset_cameras.cameras:
+        world_T_camera = camera.rgb.matrix
+        world_T_depth = camera.depth.matrix
+
+        dataset_cameras.rgb_T_depth = np.dot(np.linalg.inv(world_T_camera), world_T_depth)
+        # print('world_to_camera' + str(world_T_camera))
+        # print('world_to_depth' + str(world_T_depth))
+        # print('camera ' + camera.name + ' = ' + str(np.dot(world_T_camera, np.linalg.inv(world_T_depth))))
+        # print('camera ' + camera.name + ' = ' + str(np.dot(np.linalg.inv(world_T_camera), world_T_depth)))
+
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -165,13 +199,14 @@ if __name__ == "__main__":
         errors = []
         # Cycle all cameras in the dataset
         for camera in data_cameras.cameras:
-            # print("Cam " + str(camera.name))
+            print("Cam " + str(camera.name))
             for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
                 # print("Aruco " + str(aruco_id))
                 # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
 
                 # Find current position of aruco
                 world_T_camera = np.linalg.inv(camera.rgb.matrix)
+                # print('world_to_camera = ' + str(world_T_camera))
 
                 # Extract the translation from the transform matrix and create a np array with a 4,1 point coordinate
                 aruco_origin_world = data_arucos.arucos[aruco_id][0:4, 3]
@@ -185,7 +220,7 @@ if __name__ == "__main__":
                                                                     camera.rgb.camera_info.width,
                                                                     camera.rgb.camera_info.height,
                                                                     np.array(aruco_origin_camera,
-                                                                            dtype=np.float).reshape((4, 1)))
+                                                                             dtype=np.float).reshape((4, 1)))
                 aruco_detection.projected = (pixs[0][0], pixs[1][0])
                 global first_time
                 if first_time:
@@ -311,7 +346,6 @@ if __name__ == "__main__":
             exit(0)
 
 
-
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=10)
 
     # ---------------------------------------
@@ -330,4 +364,80 @@ if __name__ == "__main__":
     # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
     # if wm.waitForKey(time_to_wait=None, verbose=True):
     #     exit(0)
+
+    if args['path_to_output_dataset'] is None:
+        folders = args['path_to_images'].split('/')
+        while '' in folders:
+            folders.remove('')
+
+        # print(folders)
+        dataset_name = folders[-1]
+
+        args['path_to_output_dataset'] = args['path_to_images'] + '../' + dataset_name + '_optimized'
+        print('path_to_output_dataset = ' + args['path_to_output_dataset'])
+
+    # STEP 1
+    # full copy (system call for now)
+    bash('cp -r ' + args['path_to_images'] + ' ' + args['path_to_output_dataset'], blocking=True)
+
+    # STEP 2
+    # change txt files using new transform
+
+    for camera in opt.data_models['data_cameras'].cameras:
+        print("Cam " + str(camera.name))
+
+        world_T_camera = np.transpose(np.linalg.inv(camera.rgb.matrix))
+        print("world_T_camera = " + str(world_T_camera))
+
+        filename = args['path_to_output_dataset'] + '/' + camera.name.zfill(8) + '.txt'
+        print(filename)
+        fh = open(filename, 'w')
+
+        print(str(world_T_camera[0]))
+
+        fh.write('3\n')
+
+        for i in range(4):
+            fh.write(str(world_T_camera[i][0]) + ' ' + str(world_T_camera[i][1]) + ' ' + str(world_T_camera[i][2]) + ' ' + str(world_T_camera[i][3]) + '\n')
+
+        for i in range(4):
+            fh.write('0 0 0 0' + '\n')
+
+        for i in range(4):
+            fh.write('0 0 0 0' + '\n')
+
+        # fh.write(world_T_camera[1])
+
+        fh.close()
+
+        # STEP 3
+    # point clouds World to depth camera ref frame using old transform
+    # then point cloud from depth frame to world using new (optimized transform)
+
+    # Confirm the structure of the txt files
+    for camera in dataset_cameras.cameras:
+        world_T_camera = camera.rgb.matrix # optimized transformation
+
+        old_world_T_depth = camera.depth.matrix
+
+        # For some awkward reason the local point clouds (ply files) are stored in opengl coordinates.
+        # This matrix puts the coordinate frames back in opencv fashion
+        opengl2opencv = np.zeros((4, 4))
+        opengl2opencv[0, :] = [1, 0, 0, 0]
+        opengl2opencv[1, :] = [0, 0, 1, 0]
+        opengl2opencv[2, :] = [0, -1, 0, 0]
+        opengl2opencv[3, :] = [0, 0, 0, 1]
+
+        # print('world_to_camera' + str(world_T_camera))
+        # print('world_to_depth' + str(world_T_depth))
+        # print('camera ' + camera.name + ' = ' + str(np.dot(world_T_camera, np.linalg.inv(world_T_depth))))
+        print('camera ' + camera.name + ' = ' + str(np.dot(np.linalg.inv(world_T_camera), world_T_depth)))
+
+    exit(0)
+
+    # STEP 4
+    # Delete depthimage_speedup folder to enable recalculation
+
+
+
 
