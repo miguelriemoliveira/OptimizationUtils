@@ -361,40 +361,41 @@ if __name__ == "__main__":
     print("\n\nStarting optimization")
     opt.startOptimization()
 
-    # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
-    # if wm.waitForKey(time_to_wait=None, verbose=True):
-    #     exit(0)
+    # STEP 1
+    # Full copy of the dataset
 
+    print('\n---------------------------------------------------------------------------------------------------------')
+    print('Creating optimized dataset...\n')
+    # Get the dest folder name
     if args['path_to_output_dataset'] is None:
         folders = args['path_to_images'].split('/')
         while '' in folders:
             folders.remove('')
 
-        # print(folders)
         dataset_name = folders[-1]
 
         args['path_to_output_dataset'] = args['path_to_images'] + '../' + dataset_name + '_optimized'
-        print('path_to_output_dataset = ' + args['path_to_output_dataset'])
+        print('path_to_output_dataset= ' + args['path_to_output_dataset'])
 
-    # STEP 1
-    # full copy (system call for now)
+    # Copy
     bash('cp -r ' + args['path_to_images'] + ' ' + args['path_to_output_dataset'], blocking=True)
 
     # STEP 2
-    # change txt files using new transform
+    # Overwrite txt files with new transform
 
+    print('\n---------------------------------------------------------------------------------------------------------')
+    print('World to camera transformations')
     for camera in opt.data_models['data_cameras'].cameras:
-        print("Cam " + str(camera.name))
+        print("\nCamera " + str(camera.name) + ':')
 
         world_T_camera = np.transpose(np.linalg.inv(camera.rgb.matrix))
         print("world_T_camera = " + str(world_T_camera))
 
         filename = args['path_to_output_dataset'] + '/' + camera.name.zfill(8) + '.txt'
-        print(filename)
         fh = open(filename, 'w')
+        print('Writing to ' + filename)
 
-        print(str(world_T_camera[0]))
-
+        # Write to file
         fh.write('3\n')
 
         for i in range(4):
@@ -406,32 +407,45 @@ if __name__ == "__main__":
         for i in range(4):
             fh.write('0 0 0 0' + '\n')
 
-        # fh.write(world_T_camera[1])
-
         fh.close()
 
-        # STEP 3
+    # STEP 3
     # point clouds World to depth camera ref frame using old transform
-    # then point cloud from depth frame to world using new (optimized transform)
+    # then: point cloud from depth frame to world using new (optimized transform)
 
-    # Confirm the structure of the txt files
+    print('\n---------------------------------------------------------------------------------------------------------')
+    print('Camera to depth transformations')
     for camera in dataset_cameras.cameras:
-        world_T_camera = camera.rgb.matrix # optimized transformation
 
-        old_world_T_depth = camera.depth.matrix
+        print('\nCamera ' + camera.name + ':')
 
-        # For some awkward reason the local point clouds (ply files) are stored in opengl coordinates.
-        # This matrix puts the coordinate frames back in opencv fashion
+        # TODO: Convert from OpenGL to OpenCV:
+        # Apply opengl2opencv conversion
+
+        # For some awkward reason the local point clouds (ply files) are stored in openGL coordinates.
         opengl2opencv = np.zeros((4, 4))
         opengl2opencv[0, :] = [1, 0, 0, 0]
         opengl2opencv[1, :] = [0, 0, 1, 0]
         opengl2opencv[2, :] = [0, -1, 0, 0]
         opengl2opencv[3, :] = [0, 0, 0, 1]
 
-        # print('world_to_camera' + str(world_T_camera))
-        # print('world_to_depth' + str(world_T_depth))
-        # print('camera ' + camera.name + ' = ' + str(np.dot(world_T_camera, np.linalg.inv(world_T_depth))))
-        print('camera ' + camera.name + ' = ' + str(np.dot(np.linalg.inv(world_T_camera), world_T_depth)))
+        # TODO: Go from world to depth through old transformation:
+        # Apply old_world_T_depth transformation
+
+        old_world_T_depth = camera.depth.matrix
+        # print('old_world_T_depth =' + str(old_world_T_depth))
+
+        # TODO: Go from depth to world through new optimized transformation:
+        # Apply depth_T_camera then apply optimized camera_T_world transformation
+
+        # This is optimized ...right?
+        world_T_camera = camera.rgb.matrix
+        camera_T_world = np.linalg.inv(world_T_camera)
+        print("camera_T_world = " + str(camera_T_world))
+
+        camera_T_depth = np.dot(world_T_camera, old_world_T_depth)
+        depth_T_camera = np.linalg.inv(camera_T_depth)
+        print("depth_T_camera = " + str(depth_T_camera))
 
     exit(0)
 
