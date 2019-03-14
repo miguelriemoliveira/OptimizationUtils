@@ -15,6 +15,7 @@ import numpy as np
 import cv2
 from functools import partial
 import matplotlib.pyplot as plt
+import plyfile as plyfile
 from scipy.spatial.distance import euclidean
 import KeyPressManager.KeyPressManager
 import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
@@ -39,7 +40,7 @@ def bash(cmd, blocking=True):
     if blocking:
         for line in p.stdout.readlines():
             print line,
-            p.wait()
+        p.wait()
 
 
 # -------------------------------------------------------------------------------
@@ -101,16 +102,12 @@ if __name__ == "__main__":
     # ---------------------------------------
     # Confirm the structure of the txt files
     for camera in dataset_cameras.cameras:
-        world_T_camera = camera.rgb.matrix
-        world_T_depth = camera.depth.matrix
+        world_T_camera = np.linalg.inv(camera.rgb.matrix)
+        depth_T_world = camera.depth.matrix
 
-        dataset_cameras.rgb_T_depth = np.dot(np.linalg.inv(world_T_camera), world_T_depth)
-        # print('world_to_camera' + str(world_T_camera))
-        # print('world_to_depth' + str(world_T_depth))
-        # print('camera ' + camera.name + ' = ' + str(np.dot(world_T_camera, np.linalg.inv(world_T_depth))))
-        # print('camera ' + camera.name + ' = ' + str(np.dot(np.linalg.inv(world_T_camera), world_T_depth)))
+        dataset_cameras.depth_T_camera = np.dot(world_T_camera, depth_T_world)
 
-
+    # exit(0)
     # ---------------------------------------
     # --- Setup Optimizer
     # ---------------------------------------
@@ -377,8 +374,10 @@ if __name__ == "__main__":
         args['path_to_output_dataset'] = args['path_to_images'] + '../' + dataset_name + '_optimized'
         print('path_to_output_dataset= ' + args['path_to_output_dataset'])
 
+    #Delete old
+    bash('rm -rf ' + args['path_to_output_dataset'], blocking=True)
     # Copy
-    bash('cp -r ' + args['path_to_images'] + ' ' + args['path_to_output_dataset'], blocking=True)
+    bash('cp -rf ' + args['path_to_images'] + ' ' + args['path_to_output_dataset'], blocking=True)
 
     # STEP 2
     # Overwrite txt files with new transform
@@ -391,15 +390,16 @@ if __name__ == "__main__":
         world_T_camera = np.transpose(np.linalg.inv(camera.rgb.matrix))
         print("world_T_camera = " + str(world_T_camera))
 
-        filename = args['path_to_output_dataset'] + '/' + camera.name.zfill(8) + '.txt'
-        fh = open(filename, 'w')
-        print('Writing to ' + filename)
+        txt_filename = args['path_to_output_dataset'] + '/' + camera.name.zfill(8) + '.txt'
+        fh = open(txt_filename, 'w')
+        print('Writing to ' + txt_filename)
 
         # Write to file
         fh.write('3\n')
 
         for i in range(4):
-            fh.write(str(world_T_camera[i][0]) + ' ' + str(world_T_camera[i][1]) + ' ' + str(world_T_camera[i][2]) + ' ' + str(world_T_camera[i][3]) + '\n')
+            fh.write(str(world_T_camera[i][0]) + ' ' + str(world_T_camera[i][1]) + ' ' + str(
+                world_T_camera[i][2]) + ' ' + str(world_T_camera[i][3]) + '\n')
 
         for i in range(4):
             fh.write('0 0 0 0' + '\n')
@@ -415,13 +415,30 @@ if __name__ == "__main__":
 
     print('\n---------------------------------------------------------------------------------------------------------')
     print('Camera to depth transformations')
-    for camera in dataset_cameras.cameras:
+
+    for i, camera in enumerate(dataset_cameras.cameras):
 
         print('\nCamera ' + camera.name + ':')
 
-        # TODO: Convert from OpenGL to OpenCV:
-        # Apply opengl2opencv conversion
+        ###################################################################
+        # Show print .ply file with color
 
+        # Ply file corresponding to current camera
+        ply_filename = args['path_to_output_dataset'] + '/' + camera.name.zfill(8) + '.ply'
+        print('\nReading pointcloud from ' + ply_filename + '...')
+
+        # Read vertices from point cloud
+        imgData = plyfile.PlyData.read(ply_filename)["vertex"]
+        numVertex = len(imgData['x'])
+
+        # create array of 3d points                           add 1 to make homogeneous
+        xyz = np.c_[imgData['x'], imgData['y'], imgData['z'], np.ones(shape=(imgData['z'].size, 1))]
+
+        # TODO: Use plan for STEP 3
+        print("#################################################")
+        print('Computing point cloud tranformations')
+
+        # TODO: Define arguments
         # For some awkward reason the local point clouds (ply files) are stored in openGL coordinates.
         opengl2opencv = np.zeros((4, 4))
         opengl2opencv[0, :] = [1, 0, 0, 0]
@@ -429,29 +446,67 @@ if __name__ == "__main__":
         opengl2opencv[2, :] = [0, -1, 0, 0]
         opengl2opencv[3, :] = [0, 0, 0, 1]
 
-        # TODO: Go from world to depth through old transformation:
-        # Apply old_world_T_depth transformation
+        opencv2opengl = np.linalg.inv(opengl2opencv)
 
-        old_world_T_depth = camera.depth.matrix
-        # print('old_world_T_depth =' + str(old_world_T_depth))
+        old_world_T_depth = np.linalg.inv(camera.depth.matrix)
 
-        # TODO: Go from depth to world through new optimized transformation:
-        # Apply depth_T_camera then apply optimized camera_T_world transformation
+        depth_T_camera = dataset_cameras.depth_T_camera
 
-        # This is optimized ...right?
-        world_T_camera = camera.rgb.matrix
-        camera_T_world = np.linalg.inv(world_T_camera)
+        # This is optimized
+        camera_T_world = camera.rgb.matrix
+
+        print('old_world_T_depth =' + str(old_world_T_depth))
+        print("depth_T_camera = " + str(depth_T_camera))
         print("camera_T_world = " + str(camera_T_world))
 
-        camera_T_depth = np.dot(world_T_camera, old_world_T_depth)
-        depth_T_camera = np.linalg.inv(camera_T_depth)
-        print("depth_T_camera = " + str(depth_T_camera))
+        # Data structure for new points
+        pointsInNewWorld_opengl = np.zeros(shape=(len(xyz), 4))
 
-    exit(0)
+        for j in range(numVertex):
+            # TODO: Convert from OpenGL to OpenCV:
+            # Apply opengl2opencv conversion
+            pointInOpenCV = np.dot(opengl2opencv, xyz[j])
+
+            # TODO: Go from world to depth through old transformation:
+            # Apply old_world_T_depth transformation
+            pointInDepth = np.dot(old_world_T_depth, pointInOpenCV)
+            # print('pointInDepth= ' + str(pointInDepth))
+
+            # TODO: Go from depth to world through new optimized transformation:
+            # Apply depth_T_camera then apply optimized camera_T_world transformation
+
+            pointInNewWorld_opencv = np.dot(camera_T_world, np.dot(depth_T_camera, pointInDepth))
+
+            pointsInNewWorld_opengl[j] = np.dot(opencv2opengl, pointInNewWorld_opencv)
+
+            # pointsInNewWorld_opengl[j] = pointInDepth
+
+        print("New point cloud= ")
+        print(pointsInNewWorld_opengl)
+
+
+        # Write to the .ply file
+        file_object = open(ply_filename, "w")
+
+        # Write file header information
+        file_object.write('ply' + '\n')
+        file_object.write('format ascii 1.0' + '\n')
+        file_object.write('comment ---' + '\n')
+        file_object.write('element vertex ' + str(numVertex) + '\n')
+        file_object.write('property float x' + '\n')
+        file_object.write('property float y' + '\n')
+        file_object.write('property float z' + '\n')
+        file_object.write('element face 0' + '\n')
+        file_object.write('property list uchar uint vertex_indices' + '\n')
+        file_object.write('end_header' + '\n')
+
+        # Write the new points
+        for j in range(numVertex):
+            file_object.write(str(pointsInNewWorld_opengl[j][0]) + ' ' + str(pointsInNewWorld_opengl[j][1]) + ' '
+                              + str(pointsInNewWorld_opengl[j][2]) + '\n')
+
+        file_object.close()
+
 
     # STEP 4
     # Delete depthimage_speedup folder to enable recalculation
-
-
-
-
