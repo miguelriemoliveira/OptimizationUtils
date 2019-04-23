@@ -60,7 +60,7 @@ class Optimizer:
             raise ValueError('Data ' + name + ' already exits in model dict.')
         else:
             self.data_models[name] = data
-            print('Added data ' + name + ' to model dict.')
+            # print('Added data ' + name + ' to model dict.')
 
     def pushParamScalar(self, group_name, data_key, getter, setter, bound_max=+inf, bound_min=-inf):
         """
@@ -89,7 +89,7 @@ class Optimizer:
         self.groups[group_name] = ParamT(param_names, idx, data_key, getter, setter, [bound_max],
                                          [bound_min])  # add to group dict
         self.x.append(value[0])  # set initial value in x using the value from the data model
-        print('Pushed scalar param ' + group_name + ' to group ' + group_name)
+        # print('Pushed scalar param ' + group_name + ' to group ' + group_name)
 
     def pushParamVector3(self, group_name, data_key, getter, setter, bound_max=(+inf, +inf, +inf),
                          bound_min=(-inf, -inf, -inf), sufix=['x', 'y', 'z']):
@@ -127,7 +127,7 @@ class Optimizer:
         values = getter(self.data_models[data_key])
         for value in values:
             self.x.append(value)  # set initial value in x
-        print('Pushed translation group ' + group_name + ' with params ' + str(param_names))
+        # print('Pushed translation group ' + group_name + ' with params ' + str(param_names))
 
     def pushResidual(self, name, params=None):
         """Adds a new residual to the existing list of residuals
@@ -312,15 +312,15 @@ class Optimizer:
 
         for i, key in enumerate(self.residuals):
             for param in self.residuals[key]:
-                print("param = " + param)
+                # print("param = " + param)
                 for group_name, group in self.groups.items():
                     if param in group.param_names:
                         idx_in_group = group.param_names.index(param)
-                        print("param_names = " + str(group.param_names))
+                        # print("param_names = " + str(group.param_names))
                         idx = group.idx[idx_in_group]
-                        print("group.idx = " + str(group.idx))
-                        print("idx_in_group = " + str(idx_in_group))
-                        print("idx = " + str(idx))
+                        # print("group.idx = " + str(group.idx))
+                        # print("idx_in_group = " + str(idx_in_group))
+                        # print("idx = " + str(idx))
                         self.sparse_matrix[i, idx] = 1
 
         print('Sparsity matrix:')
