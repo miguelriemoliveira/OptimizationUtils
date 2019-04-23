@@ -197,7 +197,7 @@ class Optimizer:
 
         return errors
 
-    def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8,
+    def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-12, 'gtol': 1e-8,
                                                       'diff_step': 1e-3}):
         """ Initializes the optiization procedure.
 
@@ -221,7 +221,7 @@ class Optimizer:
 
         # Call optimization function (finally!)
         print("\n\nStarting optimization")
-        self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
+        self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, #jac_sparsity=self.sparse_matrix,
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
 
 
@@ -363,6 +363,8 @@ class Optimizer:
         rows = []  # get a list of parameters
         table = []
         for group_name, group in self.groups.items():
+            if group.data_key != 'A579':
+                continue
             values_in_data = group.getter(self.data_models[group.data_key])
             for i, param_name in enumerate(group.param_names):
                 rows.append(param_name)

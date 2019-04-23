@@ -128,6 +128,7 @@ if __name__ == "__main__":
 
     aruco_detector = OCArucoDetector.ArucoDetector(args)
     dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
+    print("\nDataset_cameras ACTUALLY contains " + str(len(dataset_cameras.cameras)) + " cameras")
 
     # ---------------------------------------
     # --- Extract the rgb_T_depth transform
@@ -236,6 +237,9 @@ if __name__ == "__main__":
                 aruco_origin_world = data_arucos.arucos[aruco_id][0:4, 3]
                 # print("aruco_origin_world = " + str(aruco_origin_world))
 
+                if int(aruco_id) == 579:
+                    print('ArUco 579 is in: ' + str(aruco_origin_world))
+
                 aruco_origin_camera = np.dot(world_T_camera, aruco_origin_world)
                 # print("aruco_origin_camera = " + str(aruco_origin_camera))
 
@@ -250,7 +254,6 @@ if __name__ == "__main__":
                 if first_time:
                     aruco_detection.first_projection = aruco_detection.projected
 
-                # print(aruco_detection.projected)
                 error = euclidean(aruco_detection.center, aruco_detection.projected)
                 # print("error = " + str(error))
                 if error > 150:
@@ -318,13 +321,14 @@ if __name__ == "__main__":
             # print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
 
         wm = KeyPressManager.WindowManager(fig)
-        if wm.waitForKey(time_to_wait=None, verbose=True):
+        if wm.waitForKey(time_to_wait=0.01, verbose=True):
             exit(0)
 
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
     def visualizationFunction(data):
+        font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
         # Get the data
         data_cameras = data['data_cameras']
         data_arucos = data['data_arucos']
@@ -340,6 +344,8 @@ if __name__ == "__main__":
 
                 utilities.drawSquare2D(image, aruco_detection.center[0], aruco_detection.center[1], 10,
                                        color=(0, 0, 255), thickness=2)
+
+                cv2.putText(image, "Id:" + str(aruco_id), aruco_detection.center, font, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
                 # cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
                 # print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
@@ -370,15 +376,19 @@ if __name__ == "__main__":
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
 
-
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=10)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
     # ---------------------------------------
-    # opt.x = opt.addNoiseToX(noise=0.01)
+    # opt.x = opt.addNoiseToX(noise=0.1)
     opt.fromXToData()
-    # opt.callObjectiveFunction()
+    opt.callObjectiveFunction()
+
+    visualizationFunction(opt.data_models)
+    wm = KeyPressManager.WindowManager(fig)
+    if wm.waitForKey(time_to_wait=None, verbose=True):
+        exit(0)
 
     # ---------------------------------------
     # --- Start Optimization
