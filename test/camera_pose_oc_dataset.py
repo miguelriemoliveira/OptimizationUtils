@@ -19,10 +19,13 @@ import plyfile as plyfile
 import cv2
 import argparse
 import subprocess
+import os
+import shutil
 from copy import deepcopy
 from functools import partial
 from matplotlib import cm
 from scipy.spatial.distance import euclidean
+from open3d import *
 
 
 # -------------------------------------------------------------------------------
@@ -54,19 +57,19 @@ def bash(cmd, blocking=True):
 def writePlyHeader(file_object, num_vertex):
     file_object.write('ply' + '\n')
     file_object.write('format ascii 1.0' + '\n')
-    file_object.write('comment ---' + '\n')
+    # file_object.write('comment ---' + '\n')
     file_object.write('element vertex ' + str(num_vertex) + '\n')
-    file_object.write('property float nx' + '\n')
-    file_object.write('property float ny' + '\n')
-    file_object.write('property float nz' + '\n')
+    # file_object.write('property float nx' + '\n')
+    # file_object.write('property float ny' + '\n')
+    # file_object.write('property float nz' + '\n')
     file_object.write('property float x' + '\n')
     file_object.write('property float y' + '\n')
     file_object.write('property float z' + '\n')
     file_object.write('property uchar red' + '\n')
     file_object.write('property uchar green' + '\n')
     file_object.write('property uchar blue' + '\n')
-    file_object.write('element face 0' + '\n')
-    file_object.write('property list uchar uint vertex_indices' + '\n')
+    # file_object.write('element face 0' + '\n')
+    # file_object.write('property list uchar uint vertex_indices' + '\n')
     file_object.write('end_header' + '\n')
 
 
@@ -112,14 +115,16 @@ if __name__ == "__main__":
     ap.add_argument("-vo", "--view_optimization", help="...", action='store_true', default=False)
 
     args = vars(ap.parse_args())
+    print("\nArgument list=")
     print(args)
+    print('\n')
 
     # ---------------------------------------
     # --- INITIALIZATION
     # ---------------------------------------
     dataset_loader = OCDatasetLoader.Loader(args)
     dataset_cameras = dataset_loader.loadDataset()
-    print("dataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
+    print("\nDataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
 
     aruco_detector = OCArucoDetector.ArucoDetector(args)
     dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
@@ -137,7 +142,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Setup Optimizer
     # ---------------------------------------
-    print('Initializing optimizer...')
+    print('\nInitializing optimizer...')
     opt = OptimizationUtils.Optimizer()
     opt.addModelData('data_cameras', dataset_cameras)
     opt.addModelData('data_arucos', dataset_arucos)
@@ -208,7 +213,7 @@ if __name__ == "__main__":
         Computes the vector of errors. Each error is associated with a camera, ans is computed from the Euclidean distance
         between the projected coordinates of aruco centers and the coordinates given by the detection of the aruco in the image.
         :param data: points to the camera and aruco dataset
-        :return: a vector of resuduals
+        :return: a vector of residuals
         """
         # Get the data
         data_cameras = data['data_cameras']
@@ -248,12 +253,13 @@ if __name__ == "__main__":
                 # print(aruco_detection.projected)
                 error = euclidean(aruco_detection.center, aruco_detection.projected)
                 # print("error = " + str(error))
+                if error > 150:
+                    print(camera.name + 'is an outlier')
                 errors.append(error)
 
         first_time = False
         # Return the errors
         return errors
-
 
     opt.setObjectiveFunction(objectiveFunction)
 
@@ -276,43 +282,44 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- SETUP THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    # position the windows in the proper place
-    for i, camera in enumerate(dataset_cameras.cameras):
-        cv2.namedWindow('Cam ' + camera.name, cv2.WINDOW_NORMAL)
-        cv2.moveWindow('Cam ' + camera.name, 300 * i, 50)
-        cv2.imshow('Cam ' + camera.name, camera.rgb.image)
+    if args['view_optimization']:
+        # position the windows in the proper place
+        for i, camera in enumerate(dataset_cameras.cameras):
+            cv2.namedWindow('Cam ' + camera.name, cv2.WINDOW_NORMAL)
+            cv2.moveWindow('Cam ' + camera.name, 300 * i, 50)
+            cv2.imshow('Cam ' + camera.name, camera.rgb.image)
 
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
 
-    ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
-    ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
-    limit = 1.5
-    ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
-    ax.view_init(elev=122, azim=-87)
+        ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
+        ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
+        limit = 1.5
+        ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
+        ax.view_init(elev=122, azim=-87)
 
-    # Draw world axis
-    world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
-    utilities.drawAxis3D(ax, world_T_world, "world", axis_scale=0.7, line_width=3)
+        # Draw world axis
+        world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
+        utilities.drawAxis3D(ax, world_T_world, "world", axis_scale=0.7, line_width=3)
 
-    # Draw cameras
-    for camera in dataset_cameras.cameras:
-        camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3,
-                                                   line_width=2)
-        # print("camera " + camera.name + " " + str(camera.handle_frame))
+        # Draw cameras
+        for camera in dataset_cameras.cameras:
+            camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3,
+                                                       line_width=2)
+            # print("camera " + camera.name + " " + str(camera.handle_frame))
 
-    # Draw Arucos
-    dataset_arucos.handles = {}
-    for aruco_id, transform in dataset_arucos.arucos.items():
-        dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id),
-                                                                      line_width=1.0,
-                                                                      fontsize=8,
-                                                                      handles=None)
-        # print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
+        # Draw Arucos
+        dataset_arucos.handles = {}
+        for aruco_id, transform in dataset_arucos.arucos.items():
+            dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id),
+                                                                          line_width=1.0,
+                                                                          fontsize=8,
+                                                                          handles=None)
+            # print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
 
-    wm = KeyPressManager.WindowManager(fig)
-    if wm.waitForKey(time_to_wait=None, verbose=True):
-        exit(0)
+        wm = KeyPressManager.WindowManager(fig)
+        if wm.waitForKey(time_to_wait=None, verbose=True):
+            exit(0)
 
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
@@ -341,7 +348,7 @@ if __name__ == "__main__":
                         and 0 < aruco_detection.projected[1] < camera.rgb.camera_info.height:
                     cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
 
-                # TODO: improve drawing first detection code
+                # TODO: debug drawing first detection code
                 if 0 < aruco_detection.first_projection[0] < camera.rgb.camera_info.width \
                         and 0 < aruco_detection.first_projection[1] < camera.rgb.camera_info.height:
                     cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
@@ -369,7 +376,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Create X0 (First Guess)
     # ---------------------------------------
-    opt.x = opt.addNoiseToX(noise=0.01)
+    # opt.x = opt.addNoiseToX(noise=0.01)
     opt.fromXToData()
     # opt.callObjectiveFunction()
 
@@ -395,25 +402,32 @@ if __name__ == "__main__":
 
         dataset_name = folders[-1]
 
-        args['path_to_output_dataset'] = args['path_to_images'] + '../' + dataset_name + '_optimized'
+        args['path_to_output_dataset'] = args['path_to_images'] + '/../' + dataset_name + '_optimized'
 
-    # Delete old folder
-    bash('rm -rf ' + args['path_to_output_dataset'], blocking=True)
-    # Copy dataset
-    bash('cp -rf ' + args['path_to_images'] + ' ' + args['path_to_output_dataset'], blocking=True)
+    # If an old version of the optimization exists
+    if os.path.exists(args['path_to_output_dataset']):
+        # Delete old folder
+        shutil.rmtree(args['path_to_output_dataset'])
+
+    # Create the new folder
+    os.mkdir(args['path_to_output_dataset'])
+
+    # TODO: use shutil to copy .png files and other things
 
     # STEP 2
     # Overwrite txt files with new transform
 
+    print('\nWriting new .txt files...')
+
     for camera in opt.data_models['data_cameras'].cameras:
-        print("\nCamera " + str(camera.name) + ':')
+        # print("\nCamera " + str(camera.name) + ':')
 
         world_T_camera = np.transpose(np.linalg.inv(camera.rgb.matrix))
         # print("world_T_camera = " + str(world_T_camera))
 
         txt_filename = args['path_to_output_dataset'] + '/' + camera.name.zfill(8) + '.txt'
         fh = open(txt_filename, 'w')
-        print('Writing transformations to ' + txt_filename)
+        print('Transformations writen to ' + txt_filename)
 
         # Write to file
         fh.write('3\n')
@@ -441,13 +455,15 @@ if __name__ == "__main__":
     all_point_clouds = []
     all_old_point_clouds = []
 
+    print("\nWriting new .ply files...")
+
     for cam_idx, camera in enumerate(dataset_cameras.cameras):
 
-        print('\nCamera ' + camera.name + ':')
+        # print('\nCamera ' + camera.name + ':')
 
         # Ply file corresponding to current camera
         ply_input_filename = args['path_to_images'] + '/' + camera.name.zfill(8) + '.ply'
-        print('Read pointcloud from ' + ply_input_filename)
+        # print('Read pointcloud from ' + ply_input_filename)
 
         # Read vertices from point cloud
         imgData = plyfile.PlyData.read(ply_input_filename)["vertex"]
@@ -456,11 +472,11 @@ if __name__ == "__main__":
         # Create array of read 3d points                      add 1 to make homogeneous
         xyz = np.c_[imgData['x'], imgData['y'], imgData['z'], np.ones(shape=(imgData['z'].size, 1))]
         # Create array of read normals                            add 1 to make homogeneous
-        nxyz = np.c_[imgData['nx'], imgData['ny'], imgData['nz'], np.ones(shape=(imgData['nz'].size, 1))]
+        # nxyz = np.c_[imgData['nx'], imgData['ny'], imgData['nz'], np.ones(shape=(imgData['nz'].size, 1))]
 
-        print('Computing point cloud transformations...')
+        # print('Computing point cloud transformations...')
 
-        # For some awkward reason the local point clouds (ply files) are stored in openGL coordinates.
+        # The local point clouds (ply files) are stored in openGL coordinates.
         opengl2opencv = np.zeros((4, 4))
         opengl2opencv[0, :] = [1, 0, 0, 0]
         opengl2opencv[1, :] = [0, 0, 1, 0]
@@ -484,7 +500,7 @@ if __name__ == "__main__":
         T = np.dot(opencv2opengl, np.dot(camera_T_world, np.dot(depth_T_camera, np.dot(old_world_T_depth, opengl2opencv))))
 
         pointsInNewWorld = np.transpose(np.dot(T, np.transpose(xyz)))
-        normalsInNewWorld = np.transpose(np.dot(T, np.transpose(nxyz)))
+        # normalsInNewWorld = np.transpose(np.dot(T, np.transpose(nxyz)))
 
         # Use colour map on new point clouds
         r, g, b = (cmap[cam_idx, 0:3] * 255)
@@ -500,11 +516,13 @@ if __name__ == "__main__":
         # Write the new points
         for j in range(num_vertex):
             line = \
-                str(normalsInNewWorld[j][0]) + ' ' + str(normalsInNewWorld[j][1]) + ' ' + str(normalsInNewWorld[j][2]) \
-                + ' ' + \
                 str(pointsInNewWorld[j][0]) + ' ' + str(pointsInNewWorld[j][1]) + ' ' + str(pointsInNewWorld[j][2]) \
                 + ' ' + \
-                str(r) + ' ' + str(g) + ' ' + str(b) + '\n'
+                str(r) + ' ' + str(g) + ' ' + str(b) \
+                + '\n'
+
+                # str(normalsInNewWorld[j][0]) + ' ' + str(normalsInNewWorld[j][1]) + ' ' + str(normalsInNewWorld[j][2]) \
+                # + ' ' + \
 
             # Write to ply file
             file_object.write(line)
@@ -514,11 +532,13 @@ if __name__ == "__main__":
 
             # Get old line to merge clouds before optimization
             oldLine = \
-                str(nxyz[j][0]) + ' ' + str(nxyz[j][1]) + ' ' + str(nxyz[j][2]) \
-                + ' ' + \
                 str(xyz[j][0]) + ' ' + str(xyz[j][1]) + ' ' + str(xyz[j][2]) \
                 + ' ' + \
-                str(r) + ' ' + str(g) + ' ' + str(b) + '\n'
+                str(r) + ' ' + str(g) + ' ' + str(b) \
+                + '\n'
+
+                # str(nxyz[j][0]) + ' ' + str(nxyz[j][1]) + ' ' + str(nxyz[j][2]) \
+                # + ' ' + \
 
             all_old_point_clouds.append(oldLine)
 
@@ -538,9 +558,16 @@ if __name__ == "__main__":
 
     # Write the points
     for point_cloud in all_old_point_clouds:
-        file_object.write(point_cloud)
+        file_object.write(str(point_cloud))
 
     print('\nOriginal pointclouds merged to ' + ply_combined_output_filename)
+
+    # Downsampling of combined point clouds
+    # tmpPc = read_point_cloud(ply_combined_output_filename)
+    # mergedOriginalPointClouds = voxel_down_sample(tmpPc, 0.05)
+    # draw_geometries([mergedOriginalPointClouds])
+    # write_point_cloud(ply_combined_output_filename, mergedOriginalPointClouds)
+    # print('\nFile ' + ply_combined_output_filename + ' was downsampled')
 
     # Write to the .ply file
     ply_combined_output_filename = args['path_to_output_dataset'] + '/optimized_clouds.ply'
@@ -551,8 +578,15 @@ if __name__ == "__main__":
 
     # Write the points
     for point_cloud in all_point_clouds:
-        file_object.write(point_cloud)
+        file_object.write(str(point_cloud))
 
     print('Optimized pointclouds merged to ' + ply_combined_output_filename)
+
+    # Downsampling of combined point clouds
+    # tmpPc = read_point_cloud(ply_combined_output_filename)
+    # mergedOriginalPointClouds = voxel_down_sample(tmpPc, 0.05)
+    # draw_geometries([mergedOriginalPointClouds])
+    # write_point_cloud(ply_combined_output_filename, mergedOriginalPointClouds)
+    # print('\nFile ' + ply_combined_output_filename + ' was downsampled')
 
 
