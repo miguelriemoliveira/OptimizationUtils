@@ -195,9 +195,9 @@ if __name__ == "__main__":
             error = np.linalg.norm(colors_a.astype(np.float) - colors_b.astype(np.float), ord=2, axis=1)
             # utilities.printNumPyArray({'colors_a': colors_a, 'colors_b': colors_b, 'error': error})
 
-            # utilities.drawProjectionErrors(cam_a.rgb.image_changed, pts2D_a[:, valid_mask], cam_b.rgb.image_changed,
-            #                                pts2D_b[:, valid_mask],
-            #                                error, cam_a.name + '_' + cam_b.name, skip=10)
+            utilities.drawProjectionErrors(cam_a.rgb.image_changed, pts2D_a[:, valid_mask], cam_b.rgb.image_changed,
+                                           pts2D_b[:, valid_mask],
+                                           error, cam_a.name + '_' + cam_b.name, skip=10)
 
             errors.append(np.mean(error))
 

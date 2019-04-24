@@ -237,8 +237,8 @@ if __name__ == "__main__":
                 aruco_origin_world = data_arucos.arucos[aruco_id][0:4, 3]
                 # print("aruco_origin_world = " + str(aruco_origin_world))
 
-                if int(aruco_id) == 579:
-                    print('ArUco 579 is in: ' + str(aruco_origin_world))
+                # if int(aruco_id) == 579:
+                #     print('ArUco 579 is in: ' + str(aruco_origin_world))
 
                 aruco_origin_camera = np.dot(world_T_camera, aruco_origin_world)
                 # print("aruco_origin_camera = " + str(aruco_origin_camera))
@@ -250,14 +250,18 @@ if __name__ == "__main__":
                                                                     np.array(aruco_origin_camera,
                                                                              dtype=np.float).reshape((4, 1)))
                 aruco_detection.projected = (pixs[0][0], pixs[1][0])
+                # if int(aruco_id) == 579:
+                #     print('ArUco 579 is projected to : ' + str(aruco_detection.projected))
+
                 global first_time
                 if first_time:
                     aruco_detection.first_projection = aruco_detection.projected
 
+                # print("aruco " + str(aruco_id) + " = " + str(aruco_detection.center))
                 error = euclidean(aruco_detection.center, aruco_detection.projected)
                 # print("error = " + str(error))
-                if error > 150:
-                    print(camera.name + 'is an outlier')
+                # if error > 150:
+                #     print(camera.name + 'is an outlier')
                 errors.append(error)
 
         first_time = False
@@ -352,12 +356,18 @@ if __name__ == "__main__":
 
                 if 0 < aruco_detection.projected[0] < camera.rgb.camera_info.width \
                         and 0 < aruco_detection.projected[1] < camera.rgb.camera_info.height:
-                    cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
+                    x = int(aruco_detection.projected[0])
+                    y = int(aruco_detection.projected[1])
+                    # cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
+                    cv2.line(image, (x,y), (x,y), (255, 0, 0), 10)
 
                 # TODO: debug drawing first detection code
                 if 0 < aruco_detection.first_projection[0] < camera.rgb.camera_info.width \
                         and 0 < aruco_detection.first_projection[1] < camera.rgb.camera_info.height:
-                    cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
+                    x = int(aruco_detection.first_projection[0])
+                    y = int(aruco_detection.first_projection[1])
+                    # cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
+                    cv2.line(image, (x,y), (x,y), (0, 255, 0), 10)
 
             cv2.imshow('Cam ' + camera.name, image)
 
@@ -385,17 +395,25 @@ if __name__ == "__main__":
     opt.fromXToData()
     opt.callObjectiveFunction()
 
-    visualizationFunction(opt.data_models)
-    wm = KeyPressManager.WindowManager(fig)
-    if wm.waitForKey(time_to_wait=None, verbose=True):
-        exit(0)
+
+    if args['view_optimization']:
+        visualizationFunction(opt.data_models)
+        wm = KeyPressManager.WindowManager(fig)
+        if wm.waitForKey(time_to_wait=None, verbose=True):
+            exit(0)
 
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
     # print("\n\nStarting optimization")
-    opt.startOptimization()
 
+    # This optimizes well
+    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5,
+                                                      'diff_step': 1e-4})
+
+
+    # This optimized forever but was already at 1.5 pixels avg errror and going when I interrupted it
+    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4})
     ################################################################################################################
     # Creating the optimized dataset
     print('\n---------------------------------------------------------------------------------------------------------')
