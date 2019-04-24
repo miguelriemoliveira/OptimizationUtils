@@ -199,7 +199,7 @@ class Optimizer:
 
     def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8,
                                                       'diff_step': 1e-4}):
-        """ Initializes the optiization procedure.
+        """ Initializes the optimization procedure.
 
         :param optimization_options: dict with options for the least squares scipy function.
         Check https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
@@ -207,6 +207,7 @@ class Optimizer:
         self.x0 = deepcopy(self.x)  # store current x as initial parameter values
         self.fromXToData()  # copy from x to data models
         self.residuals0 = self.objective_function(self.data_models)  # call obj. func. (once) to get initial residuals
+        errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
 
         # Setup boundaries for parameters
         bounds_min = []
@@ -218,6 +219,18 @@ class Optimizer:
 
         if self.always_visualize:
             self.drawResidualsFigure()  # First draw of residuals figure
+            self.vis_counter = 0  # reset counter
+            self.vis_function_handle(self.data_models)  # call visualization function
+            self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
+            self.ax.relim()  # recompute new limits
+            self.ax.autoscale_view()  # re-enable auto scale
+            self.wm.waitForKey(time_to_wait=0.01, verbose=True)  # wait a bit
+
+            # Printing information
+            self.printParameters(flg_simple=True)
+            self.printResiduals(errors)
+            print('\nAverage error = ' + str(np.average(errors)) + '\n')
+            self.wm.waitForKey(time_to_wait=None, verbose=True)  # wait a bit
 
         # Call optimization function (finally!)
         print("\n\nStarting optimization")

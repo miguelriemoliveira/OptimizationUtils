@@ -47,6 +47,7 @@ def bash(cmd, blocking=True):
             print line,
         p.wait()
 
+
 ##
 # @brief Writes out the ply header into the provided file object
 #
@@ -148,6 +149,7 @@ if __name__ == "__main__":
     opt.addModelData('data_cameras', dataset_cameras)
     opt.addModelData('data_arucos', dataset_arucos)
 
+
     # ------------  Cameras -----------------
     # Each camera will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
     # thus, the getter should return a list of size 6
@@ -182,6 +184,7 @@ if __name__ == "__main__":
                              getter=partial(getterCameraRotation, cam_idx=cam_idx),
                              setter=partial(setterCameraRotation, cam_idx=cam_idx),
                              sufix=['1', '2', '3'])
+
 
     # ------------  ArUcos -----------------
     # Each ArUco will only have the position (tx,ty,tz)
@@ -223,18 +226,18 @@ if __name__ == "__main__":
         errors = []
 
         # Cycle all cameras in the dataset
-        for camera in data_cameras.cameras:
+        for _camera in data_cameras.cameras:
             # print("Cam " + str(camera.name))
-            for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
+            for _aruco_id, _aruco_detection in _camera.rgb.aruco_detections.items():
                 # print("Aruco " + str(aruco_id))
                 # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
 
                 # Find current position of aruco
-                world_T_camera = np.linalg.inv(camera.rgb.matrix)
+                world_T_camera = np.linalg.inv(_camera.rgb.matrix)
                 # print('world_to_camera = ' + str(world_T_camera))
 
                 # Extract the translation from the transform matrix and create a np array with a 4,1 point coordinate
-                aruco_origin_world = data_arucos.arucos[aruco_id][0:4, 3]
+                aruco_origin_world = data_arucos.arucos[_aruco_id][0:4, 3]
                 # print("aruco_origin_world = " + str(aruco_origin_world))
 
                 # if int(aruco_id) == 579:
@@ -243,22 +246,22 @@ if __name__ == "__main__":
                 aruco_origin_camera = np.dot(world_T_camera, aruco_origin_world)
                 # print("aruco_origin_camera = " + str(aruco_origin_camera))
 
-                pixs, valid_pixs, dists = utilities.projectToCamera(np.array(camera.rgb.camera_info.K).reshape((3, 3)),
-                                                                    camera.rgb.camera_info.D,
-                                                                    camera.rgb.camera_info.width,
-                                                                    camera.rgb.camera_info.height,
+                pixs, valid_pixs, dists = utilities.projectToCamera(np.array(_camera.rgb.camera_info.K).reshape((3, 3)),
+                                                                    _camera.rgb.camera_info.D,
+                                                                    _camera.rgb.camera_info.width,
+                                                                    _camera.rgb.camera_info.height,
                                                                     np.array(aruco_origin_camera,
                                                                              dtype=np.float).reshape((4, 1)))
-                aruco_detection.projected = (pixs[0][0], pixs[1][0])
+                _aruco_detection.projected = (pixs[0][0], pixs[1][0])
                 # if int(aruco_id) == 579:
                 #     print('ArUco 579 is projected to : ' + str(aruco_detection.projected))
 
                 global first_time
                 if first_time:
-                    aruco_detection.first_projection = aruco_detection.projected
+                    _aruco_detection.first_projection = _aruco_detection.projected
 
                 # print("aruco " + str(aruco_id) + " = " + str(aruco_detection.center))
-                error = euclidean(aruco_detection.center, aruco_detection.projected)
+                error = euclidean(_aruco_detection.center, _aruco_detection.projected)
                 # print("error = " + str(error))
                 # if error > 150:
                 #     print(camera.name + 'is an outlier')
@@ -267,6 +270,7 @@ if __name__ == "__main__":
         first_time = False
         # Return the errors
         return errors
+
 
     opt.setObjectiveFunction(objectiveFunction)
 
@@ -328,6 +332,7 @@ if __name__ == "__main__":
         if wm.waitForKey(time_to_wait=0.01, verbose=True):
             exit(0)
 
+
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
@@ -339,68 +344,65 @@ if __name__ == "__main__":
 
         # print("data_cameras\n" + str(data_cameras.cameras[0].rgb.matrix))
 
-        for i, camera in enumerate(data_cameras.cameras):
-            image = deepcopy(camera.rgb.image)
+        for i, _camera in enumerate(data_cameras.cameras):
+            image = deepcopy(_camera.rgb.image)
             # print("Cam " + str(camera.name))
-            for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
+            for _aruco_id, _aruco_detection in _camera.rgb.aruco_detections.items():
                 # print("Aruco " + str(aruco_id))
                 # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
 
-                utilities.drawSquare2D(image, aruco_detection.center[0], aruco_detection.center[1], 10,
+                utilities.drawSquare2D(image, _aruco_detection.center[0], _aruco_detection.center[1], 10,
                                        color=(0, 0, 255), thickness=2)
 
-                cv2.putText(image, "Id:" + str(aruco_id), aruco_detection.center, font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                cv2.putText(image, "Id:" + str(_aruco_id), _aruco_detection.center, font, 1, (0, 255, 0), 2,
+                            cv2.LINE_AA)
 
                 # cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
                 # print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
 
-                if 0 < aruco_detection.projected[0] < camera.rgb.camera_info.width \
-                        and 0 < aruco_detection.projected[1] < camera.rgb.camera_info.height:
-                    x = int(aruco_detection.projected[0])
-                    y = int(aruco_detection.projected[1])
+                if 0 < _aruco_detection.projected[0] < _camera.rgb.camera_info.width \
+                        and 0 < _aruco_detection.projected[1] < _camera.rgb.camera_info.height:
+                    x = int(_aruco_detection.projected[0])
+                    y = int(_aruco_detection.projected[1])
                     # cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
-                    cv2.line(image, (x,y), (x,y), (255, 0, 0), 10)
+                    cv2.line(image, (x, y), (x, y), (255, 0, 0), 10)
 
                 # TODO: debug drawing first detection code
-                if 0 < aruco_detection.first_projection[0] < camera.rgb.camera_info.width \
-                        and 0 < aruco_detection.first_projection[1] < camera.rgb.camera_info.height:
-                    x = int(aruco_detection.first_projection[0])
-                    y = int(aruco_detection.first_projection[1])
+                if 0 < _aruco_detection.first_projection[0] < _camera.rgb.camera_info.width \
+                        and 0 < _aruco_detection.first_projection[1] < _camera.rgb.camera_info.height:
+                    x = int(_aruco_detection.first_projection[0])
+                    y = int(_aruco_detection.first_projection[1])
                     # cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
-                    cv2.line(image, (x,y), (x,y), (0, 255, 0), 10)
+                    cv2.line(image, (x, y), (x, y), (0, 255, 0), 10)
 
-            cv2.imshow('Cam ' + camera.name, image)
+            cv2.imshow('Cam ' + _camera.name, image)
 
         # Draw camera's axes
-        for camera in data_cameras.cameras:
-            utilities.drawAxis3D(ax=ax, transform=camera.rgb.matrix, text="C" + camera.name, axis_scale=0.3,
+        for _camera in data_cameras.cameras:
+            utilities.drawAxis3D(ax=ax, transform=_camera.rgb.matrix, text="C" + _camera.name, axis_scale=0.3,
                                  line_width=2,
-                                 handles=camera.handle_frame)
+                                 handles=_camera.handle_frame)
 
         # Draw Arucos
-        for aruco_id, transform in data_arucos.arucos.items():
-            utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id), line_width=1.0,
-                                       handles=data_arucos.handles[aruco_id])
+        for _aruco_id, transform in data_arucos.arucos.items():
+            utilities.drawAxis3DOrigin(ax, transform, 'A' + str(_aruco_id), line_width=1.0,
+                                       handles=data_arucos.handles[_aruco_id])
 
         wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
+
 
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=10)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
     # ---------------------------------------
+    # Already created when pushing the parameters
+
     # opt.x = opt.addNoiseToX(noise=0.1)
-    opt.fromXToData()
-    opt.callObjectiveFunction()
-
-
-    if args['view_optimization']:
-        visualizationFunction(opt.data_models)
-        wm = KeyPressManager.WindowManager(fig)
-        if wm.waitForKey(time_to_wait=None, verbose=True):
-            exit(0)
+    # opt.fromXToData()
+    # opt.callObjectiveFunction()
 
     # ---------------------------------------
     # --- Start Optimization
@@ -408,12 +410,12 @@ if __name__ == "__main__":
     # print("\n\nStarting optimization")
 
     # This optimizes well
-    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5,
-                                                      'diff_step': 1e-4})
-
+    opt.startOptimization(
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     # This optimized forever but was already at 1.5 pixels avg errror and going when I interrupted it
-    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4})
+    # opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4})
+
     ################################################################################################################
     # Creating the optimized dataset
     print('\n---------------------------------------------------------------------------------------------------------')
@@ -525,7 +527,8 @@ if __name__ == "__main__":
         # Go from world to depth through old transformation: Apply old_world_T_depth transformation
         # Go from depth to camera: Apply depth_T_camera transformation
         # Go from camera to new world: Apply optimized camera_T_world transformation
-        T = np.dot(opencv2opengl, np.dot(camera_T_world, np.dot(depth_T_camera, np.dot(old_world_T_depth, opengl2opencv))))
+        T = np.dot(opencv2opengl,
+                   np.dot(camera_T_world, np.dot(depth_T_camera, np.dot(old_world_T_depth, opengl2opencv))))
 
         pointsInNewWorld = np.transpose(np.dot(T, np.transpose(xyz)))
         # normalsInNewWorld = np.transpose(np.dot(T, np.transpose(nxyz)))
@@ -549,8 +552,8 @@ if __name__ == "__main__":
                 str(r) + ' ' + str(g) + ' ' + str(b) \
                 + '\n'
 
-                # str(normalsInNewWorld[j][0]) + ' ' + str(normalsInNewWorld[j][1]) + ' ' + str(normalsInNewWorld[j][2]) \
-                # + ' ' + \
+            # str(normalsInNewWorld[j][0]) + ' ' + str(normalsInNewWorld[j][1]) + ' ' + str(normalsInNewWorld[j][2]) \
+            # + ' ' + \
 
             # Write to ply file
             file_object.write(line)
@@ -565,8 +568,8 @@ if __name__ == "__main__":
                 str(r) + ' ' + str(g) + ' ' + str(b) \
                 + '\n'
 
-                # str(nxyz[j][0]) + ' ' + str(nxyz[j][1]) + ' ' + str(nxyz[j][2]) \
-                # + ' ' + \
+            # str(nxyz[j][0]) + ' ' + str(nxyz[j][1]) + ' ' + str(nxyz[j][2]) \
+            # + ' ' + \
 
             all_old_point_clouds.append(oldLine)
 
@@ -616,5 +619,3 @@ if __name__ == "__main__":
     # draw_geometries([mergedOriginalPointClouds])
     # write_point_cloud(ply_combined_output_filename, mergedOriginalPointClouds)
     # print('\nFile ' + ply_combined_output_filename + ' was downsampled')
-
-
