@@ -36,9 +36,6 @@ if __name__ == "__main__":
     # --- Parse command line argument
     # ---------------------------------------
     ap = argparse.ArgumentParser()
-
-    # Dataset loader arguments
-    ap.add_argument("-p", "--path_to_images", help="path to the folder that contains the OC dataset", required=True)
     ap = OCDatasetLoader.addArguments(ap) # Dataset loader arguments
     ap = OptimizationUtils.addArguments(ap) # OptimizationUtils arguments
     args = vars(ap.parse_args())
@@ -48,10 +45,9 @@ if __name__ == "__main__":
     # ---------------------------------------
     dataset_loader = OCDatasetLoader.Loader(args)
     dataset_cameras = dataset_loader.loadDataset()
-    print("dataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
-
     aruco_detector = OCArucoDetector.ArucoDetector(args)
     dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
+    print("dataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
 
     # ---------------------------------------
     # --- Setup Optimizer
