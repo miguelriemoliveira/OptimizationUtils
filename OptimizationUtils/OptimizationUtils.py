@@ -19,6 +19,24 @@ import KeyPressManager.KeyPressManager
 ParamT = namedtuple('ParamT', 'param_names idx data_key getter setter bound_max bound_min')
 
 
+# ------------------------
+# FUNCTION DEFINITION
+# ------------------------
+def addArguments(ap):
+    """ Adds to an argument parser struct the list of command line arguments necessary or used by the Optimization utils
+
+    :param ap:
+    :return:
+    """
+    ap.add_argument("-sv", "--skip_vertices", help="skip vertices. Useful for fast testing", type=int, default=1)
+    ap.add_argument("-z", "--z_inconsistency_threshold", help="threshold for max z inconsistency value", type=float,
+                    default=0.05)
+    ap.add_argument("-vpv", "--view_projected_vertices", help="visualize projections of vertices onto images",
+                    action='store_true', default=False)
+    ap.add_argument("-vo", "--view_optimization", help="...", action='store_true', default=False)
+    return ap
+
+
 # -------------------------------------------------------------------------------
 # CLASS
 # -------------------------------------------------------------------------------
@@ -236,7 +254,6 @@ class Optimizer:
         print("\n\nStarting optimization")
         self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
-
 
         self.xf = deepcopy(list(self.result.x))  # Store final x values
         self.finalOptimizationReport()  # print an informative report

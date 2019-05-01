@@ -53,23 +53,8 @@ if __name__ == "__main__":
     #--- Parse command line argument
     #---------------------------------------
     ap = argparse.ArgumentParser()
-
-    #Dataset loader arguments
-    ap.add_argument("-p", "--path_to_images", help="path to the folder that contains the OC dataset", required=True)
-    ap.add_argument("-ext", "--image_extension", help="extension of the image files, e.g., jpg or png", default='jpg')
-    ap.add_argument("-m", "--mesh_filename", help="full filename to input obj file, i.e. the 3D model", required=True)
-    ap.add_argument("-i", "--path_to_intrinsics", help="path to intrinsics yaml file", required=True)
-    ap.add_argument("-ucci", "--use_color_corrected_images", help="Use previously color corrected images", action='store_true', default=False)
-    ap.add_argument("-si", "--skip_images", help="skip images. Useful for fast testing", type=int, default=1)
-    ap.add_argument("-vri", "--view_range_image", help="visualize sparse and dense range images", action='store_true', default=False)
-    
-    #OptimizationUtils arguments
-    ap.add_argument("-sv", "--skip_vertices", help="skip vertices. Useful for fast testing", type=int, default=1)
-    ap.add_argument("-z", "--z_inconsistency_threshold", help="threshold for max z inconsistency value", type=float, default=0.05)
-    ap.add_argument("-vpv", "--view_projected_vertices", help="visualize projections of vertices onto images", action='store_true', default=False)
-    ap.add_argument("-vo", "--view_optimization", help="...", action='store_true', default=False)
-
-
+    ap = OCDatasetLoader.addArguments(ap) # Dataset loader arguments
+    ap = OptimizationUtils.addArguments(ap) # OptimizationUtils arguments
     args = vars(ap.parse_args())
     print(args)
 

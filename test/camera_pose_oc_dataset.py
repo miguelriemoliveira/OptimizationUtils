@@ -83,57 +83,8 @@ if __name__ == "__main__":
     # --- Parse command line argument
     # ---------------------------------------
     ap = argparse.ArgumentParser()
-
-    # Dataset loader arguments
-    ap.add_argument("-p", "--path_to_images", help="path to the folder that contains the OC dataset", required=True)
-    ap.add_argument("-o", "--path_to_output_dataset", help="path to the folder that will contain the output OC dataset",
-                    type=str, default=None, required=False)
-    ap.add_argument("-ext", "--image_extension", help="extension of the image files, e.g., jpg or png", default='jpg')
-    ap.add_argument("-m", "--mesh_filename", help="full filename to input obj file, i.e. the 3D model", required=True)
-    ap.add_argument("-i", "--path_to_intrinsics", help="path to intrinsics yaml file", required=True)
-    ap.add_argument("-ucci", "--use_color_corrected_images", help="Use previously color corrected images",
-                    action='store_true', default=False)
-    ap.add_argument("-si", "--skip_images", help="skip images. Useful for fast testing", type=int, default=1)
-    ap.add_argument("-vri", "--view_range_image", help="visualize sparse and dense range images", action='store_true',
-                    default=False)
-    ap.add_argument("-ms", "--marker_size", help="Size in meters of the ArUco markers in the images", type=float,
-                    required=True)
-
-    #Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
-    def create_lambda_with_globals(s):
-        return eval(s, globals())
-
-    ap.add_argument("-csf", "--camera_name_selection_function", default=None, type=create_lambda_with_globals,
-                    help='A string to be evaluated into a lambda function that receives a camera name as input and '
-                         'returns True or False to indicate if the camera should be loaded. The Syntax is lambda '
-                         'name: f(x), where f(x) is the function in python language. Example: lambda name: 40 < int('
-                         'name) < 50 , to load only images between 40 and 50.')
-
-    ap.add_argument("-mnai", "--minimum_number_arucos_per_image", help="The minumim number of arucos an image must contain not to be discarded.", type=int, default=0)
-
-    ap.add_argument("-asf", "--aruco_id_selection_function", default=None, type=create_lambda_with_globals,
-                    help='A string to be evaluated into a lambda function that receives the aruco id as input and '
-                         'returns True or False to indicate if the aruco should be considered. The Syntax is lambda '
-                         'id: f(x), where f(x) is the function in python language. Example: lambda id: 540 < int('
-                         'name) < 550 , to load only arucos between 540 and 550.')
-
-    ap.add_argument("-vad", "--view_aruco_detections", help="visualize ArUco detections in the camera images",
-                    action='store_true',
-                    default=False)
-    ap.add_argument("-va3d", "--view_aruco_3d", help="visualize ArUco detections in a 3d window", action='store_true',
-                    default=False)
-    ap.add_argument("-va3dpc", "--view_aruco_3d_per_camera",
-                    help="visualize all ArUco detections in a 3D window (plot becomes quite dense)",
-                    action='store_true',
-                    default=False)
-    # OptimizationUtils arguments
-    ap.add_argument("-sv", "--skip_vertices", help="skip vertices. Useful for fast testing", type=int, default=1)
-    ap.add_argument("-z", "--z_inconsistency_threshold", help="threshold for max z inconsistency value", type=float,
-                    default=0.05)
-    ap.add_argument("-vpv", "--view_projected_vertices", help="visualize projections of vertices onto images",
-                    action='store_true', default=False)
-    ap.add_argument("-vo", "--view_optimization", help="...", action='store_true', default=False)
-
+    ap = OCDatasetLoader.addArguments(ap) # Dataset loader arguments
+    ap = OptimizationUtils.addArguments(ap) # OptimizationUtils arguments
     args = vars(ap.parse_args())
     print("\nArgument list=")
     print(args)
