@@ -98,6 +98,18 @@ if __name__ == "__main__":
                     default=False)
     ap.add_argument("-ms", "--marker_size", help="Size in meters of the ArUco markers in the images", type=float,
                     required=True)
+
+    #Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
+    def create_lambda_with_globals(s):
+        return eval(s, globals())
+
+    ap.add_argument("-csf", "--camera_name_selection_function", default=None, type=create_lambda_with_globals,
+                    help='A string to be evaluated into a lambda function that receives a camera name as input and '
+                         'returns True or False to indicate if the camera should be loaded. The Syntax is lambda '
+                         'name: f(x), where f(x) is the function in python language. Example: lambda name: 40 < int('
+                         'name) < 50 , to load only images between 40 and 50.')
+
+    ap.add_argument("-mapi", "--minimum_number_arucos_per_image", help="The minumim number of arucos an image must contain not to be discarded.", type=int, default=0)
     ap.add_argument("-vad", "--view_aruco_detections", help="visualize ArUco detections in the camera images",
                     action='store_true',
                     default=False)
