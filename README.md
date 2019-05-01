@@ -35,6 +35,12 @@ to view the aruco detections run:
 test/camera_pose_oc_dataset.py -p ~/datasets/red_book_aruco/ -m ~/datasets/red_book_aruco/1528885039597.obj -i ~/datasets/red_book_aruco/calibrations/camera.yaml -ms 0.082 -vad -va3d -si 15
 ```
 
+and to skip images or select only a few arucos
+
+```bash
+test/camera_pose_oc_dataset.py -p ~/datasets/lobby2/ -m ~/datasets/lobby2/1553614275334.obj -i ~/datasets/lobby2/calibrations/camera.yaml -ms 0.082 -si 1 -vo -csf 'lambda name: int(name)<20' -mnai 1 -asf 'lambda id: int(id) > 560'
+```
+
 ### Pose and color optimization using an OC dataset
 
 Uses the OCDatasetLoader to load an OC dataset and runs a camera pose plus camera color optimization.
