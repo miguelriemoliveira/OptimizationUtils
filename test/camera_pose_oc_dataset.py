@@ -109,7 +109,14 @@ if __name__ == "__main__":
                          'name: f(x), where f(x) is the function in python language. Example: lambda name: 40 < int('
                          'name) < 50 , to load only images between 40 and 50.')
 
-    ap.add_argument("-mapi", "--minimum_number_arucos_per_image", help="The minumim number of arucos an image must contain not to be discarded.", type=int, default=0)
+    ap.add_argument("-mnai", "--minimum_number_arucos_per_image", help="The minumim number of arucos an image must contain not to be discarded.", type=int, default=0)
+
+    ap.add_argument("-asf", "--aruco_id_selection_function", default=None, type=create_lambda_with_globals,
+                    help='A string to be evaluated into a lambda function that receives the aruco id as input and '
+                         'returns True or False to indicate if the aruco should be considered. The Syntax is lambda '
+                         'id: f(x), where f(x) is the function in python language. Example: lambda id: 540 < int('
+                         'name) < 550 , to load only arucos between 540 and 550.')
+
     ap.add_argument("-vad", "--view_aruco_detections", help="visualize ArUco detections in the camera images",
                     action='store_true',
                     default=False)
@@ -137,11 +144,10 @@ if __name__ == "__main__":
     # ---------------------------------------
     dataset_loader = OCDatasetLoader.Loader(args)
     dataset_cameras = dataset_loader.loadDataset()
-    print("\nDataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
 
     aruco_detector = OCArucoDetector.ArucoDetector(args)
     dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
-    print("\nDataset_cameras ACTUALLY contains " + str(len(dataset_cameras.cameras)) + " cameras")
+    print("\nDataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
 
     # ---------------------------------------
     # --- Extract the rgb_T_depth transform
