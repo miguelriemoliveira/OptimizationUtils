@@ -109,7 +109,6 @@ def drawAxis3DOrigin(ax, transform, text, line_width=1.0, fontsize=12, handles=N
 
     if handles is None:
         handles_out = {}
-        print(pt_origin[2, 0])
         handles_out['point'] = ax.plot([pt_origin[0, 0], pt_origin[0, 0]], [pt_origin[1, 0], pt_origin[1, 0]],
                                        [pt_origin[2, 0], pt_origin[2, 0]], 'k.')[0]
         handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black',

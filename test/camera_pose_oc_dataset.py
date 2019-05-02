@@ -159,11 +159,11 @@ if __name__ == "__main__":
     # Each ArUco will only have the position (tx,ty,tz)
     # thus, the getter should return a list of size 3
     def getterArucoTranslation(data, aruco_id):
-        return data.arucos[aruco_id][0:3, 3]
+        return data.arucos[aruco_id].matrix[0:3, 3]
 
 
     def setterArucoTranslation(data, value, aruco_id):
-        data.arucos[aruco_id][0:3, 3] = value
+        data.arucos[aruco_id].matrix[0:3, 3] = value
 
 
     # Add parameters related to the ArUcos
@@ -206,7 +206,7 @@ if __name__ == "__main__":
                 # print('world_to_camera = ' + str(world_T_camera))
 
                 # Extract the translation from the transform matrix and create a np array with a 4,1 point coordinate
-                aruco_origin_world = data_arucos.arucos[_aruco_id][0:4, 3]
+                aruco_origin_world = data_arucos.arucos[_aruco_id].matrix[0:4, 3]
                 # print("aruco_origin_world = " + str(aruco_origin_world))
 
                 # if int(aruco_id) == 579:
@@ -290,8 +290,8 @@ if __name__ == "__main__":
 
         # Draw Arucos
         dataset_arucos.handles = {}
-        for aruco_id, transform in dataset_arucos.arucos.items():
-            dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id),
+        for aruco_id, aruco in dataset_arucos.arucos.items():
+            dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, aruco.matrix, 'A' + str(aruco_id),
                                                                           line_width=1.0,
                                                                           fontsize=8,
                                                                           handles=None)
@@ -300,6 +300,7 @@ if __name__ == "__main__":
         wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(time_to_wait=0.01, verbose=True):
             exit(0)
+
 
 
     # ---------------------------------------
@@ -353,8 +354,8 @@ if __name__ == "__main__":
                                  handles=_camera.handle_frame)
 
         # Draw Arucos
-        for _aruco_id, transform in data_arucos.arucos.items():
-            utilities.drawAxis3DOrigin(ax, transform, 'A' + str(_aruco_id), line_width=1.0,
+        for _aruco_id, _aruco in data_arucos.arucos.items():
+            utilities.drawAxis3DOrigin(ax, _aruco.matrix, 'A' + str(_aruco_id), line_width=1.0,
                                        handles=data_arucos.handles[_aruco_id])
 
         wm = KeyPressManager.WindowManager(fig)

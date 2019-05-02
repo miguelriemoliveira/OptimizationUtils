@@ -385,7 +385,6 @@ class Optimizer:
         :param x: list of parameters. If None prints the currently stored list.
         :param flg_simple:
         """
-        # type: (list, bool) -> object
         if x is None:
             x = self.x
 
