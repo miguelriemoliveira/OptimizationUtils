@@ -255,7 +255,7 @@ def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
 
     k1, k2, p1, p2, k3 = distortion
     # fx, _, cx, _, fy, cy, _, _, _ = intrinsic_matrix
-    print('intrinsic=\n' + str(intrinsic_matrix))
+    # print('intrinsic=\n' + str(intrinsic_matrix))
     fx = intrinsic_matrix[0, 0]
     fy = intrinsic_matrix[1, 1]
     cx = intrinsic_matrix[0, 2]
