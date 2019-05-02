@@ -57,6 +57,128 @@ if __name__ == "__main__":
     opt.addModelData('data_arucos', dataset_arucos)
 
 
+    # ---------------------------------------
+    # --- Compute the list of points that will be used by the cost function
+    # ---------------------------------------
+    # For some awkward reason the local point clouds (ply files) are stored in opengl coordinates.
+    # This matrix puts the coordinate frames back in opencv fashion
+    opengl2opencv = np.zeros((4, 4))
+    opengl2opencv[0, :] = [1, 0, 0, 0]
+    opengl2opencv[1, :] = [0, 0, 1, 0]
+    opengl2opencv[2, :] = [0, -1, 0, 0]
+    opengl2opencv[3, :] = [0, 0, 0, 1]
+    opencv2opengl = np.linalg.inv(opengl2opencv)
+
+    cam_pairs = []
+    for cam_a, cam_b in combinations(dataset_cameras.cameras, 2):
+        print(cam_a.name + ' with ' + cam_b.name)
+
+        # ---------------------------------------------------------------------------------------
+        # STEP 1: Get a list of 3D points by concatenating the 3D measurements of cam_a and cam_b
+        # ---------------------------------------------------------------------------------------
+
+        cam_a_vertices_opencv = np.dot(opencv2opengl, cam_a.depth.vertices[:, 0::args['skip_vertices']])
+        pts3D_in_map_a = np.dot(np.linalg.inv(cam_a.depth.matrix), cam_a_vertices_opencv )
+        # print('pts3D_in_map_a contains ' + str(pts3D_in_map_a.shape[1]) + ' points.')
+
+        cam_b_vertices_opencv = np.dot(opencv2opengl, cam_b.depth.vertices[:, 0::args['skip_vertices']])
+        pts3D_in_map_b = np.dot(cam_b.depth.matrix, cam_b_vertices_opencv)
+        # print('pts3D_in_map_b contains ' + str(pts3D_in_map_b.shape[1]) + ' points.')
+
+        pts3D_in_map = np.concatenate([pts3D_in_map_a, pts3D_in_map_b], axis=1)
+        # print('pts3D_in_map = \n' + str(pts3D_in_map))
+
+        # ---------------------------------------------------------------------------------------
+        # STEP 2: project 3D points to cam_a
+        # ---------------------------------------------------------------------------------------
+        pts3D_in_cam_a = np.dot(np.linalg.inv(cam_a.rgb.matrix), pts3D_in_map)
+        # print('pts3D_in_cam_a = \n' + str(pts3D_in_cam_a))
+        pts2D_a, pts_valid_a, pts_range_a = utilities.projectToCamera(
+            np.array(cam_a.rgb.camera_info.K).reshape((3, 3)),
+            cam_a.rgb.camera_info.D,
+            cam_a.rgb.camera_info.width,
+            cam_a.rgb.camera_info.height,
+            pts3D_in_cam_a)
+        print('pts2D_a=\n' + str(pts2D_a))
+
+        pts2D_a = np.where(pts_valid_a, pts2D_a, 0)
+        range_meas_a = cam_a.rgb.range_dense[(pts2D_a[1, :]).astype(np.int), (pts2D_a[0, :]).astype(int)]
+
+        print('pts_range_a = \n' + str(pts_range_a))
+        print('range_meas_a = \n' + str(range_meas_a))
+        z_valid_a = abs(pts_range_a - range_meas_a) < args['z_inconsistency_threshold']
+
+        # ---------------------------------------------------------------------------------------
+        # STEP 3: project 3D points to cam_a
+        # ---------------------------------------------------------------------------------------
+        pts3D_in_cam_b = np.dot(np.linalg.inv(cam_b.rgb.matrix), pts3D_in_map)
+        pts2D_b, pts_valid_b, pts_range_b = utilities.projectToCamera(
+            np.array(cam_b.rgb.camera_info.K).reshape((3, 3)),
+            cam_b.rgb.camera_info.D,
+            cam_b.rgb.camera_info.width,
+            cam_b.rgb.camera_info.height,
+            pts3D_in_cam_b)
+
+        pts2D_b = np.where(pts_valid_b, pts2D_b, 0)
+        range_meas_b = cam_b.rgb.range_dense[(pts2D_b[1, :]).astype(np.int), (pts2D_b[0, :]).astype(np.int)]
+        z_valid_b = abs(pts_range_b - range_meas_b) < args['z_inconsistency_threshold']
+
+        # ---------------------------------------------------------------------------------------
+        # STEP 4: Verify valid projections
+        # ---------------------------------------------------------------------------------------
+        mask = np.logical_and(pts_valid_a, pts_valid_b)
+        z_mask = np.logical_and(z_valid_a, z_valid_b)
+        final_mask = np.logical_and(mask, z_mask)
+
+        def draw_line(image, pt0, pt1, color, thickness):
+            cv2.line(image, (int(pt0[0]), int(pt0[1])), (int(pt1[0]), int(pt1[1])), color=color, thickness=thickness)
+
+        if args['view_projected_vertices']:
+            print("pts2d_a has " + str(np.count_nonzero(pts_valid_a)) + ' valid projections')
+            print("pts2d_b has " + str(np.count_nonzero(pts_valid_b)) + ' valid projections')
+            print("there are " + str(np.count_nonzero(mask)) + ' valid projection pairs')
+            cam_a_image = deepcopy(cam_a.rgb.image)
+            cam_b_image = deepcopy(cam_b.rgb.image)
+            for i, val in enumerate(mask):
+                if pts_valid_a[i]:
+                    x0 = pts2D_a[0, i]
+                    y0 = pts2D_a[1, i]
+                    draw_line(cam_a_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=2)
+
+                if pts_valid_b[i]:
+                    x0 = pts2D_b[0, i]
+                    y0 = pts2D_b[1, i]
+                    draw_line(cam_b_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=2)
+
+                if val:
+                    x0 = pts2D_a[0, i]
+                    y0 = pts2D_a[1, i]
+                    draw_line(cam_a_image, (x0, y0), (x0, y0), color=(0, 0, 210), thickness=2)
+
+                    x0 = pts2D_b[0, i]
+                    y0 = pts2D_b[1, i]
+                    draw_line(cam_b_image, (x0, y0), (x0, y0), color=(0, 0, 210), thickness=2)
+
+                if z_mask[i]:
+                    x0 = pts2D_a[0, i]
+                    y0 = pts2D_a[1, i]
+                    draw_line(cam_a_image, (x0, y0), (x0, y0), color=(0, 210, 0), thickness=2)
+
+                    x0 = pts2D_b[0, i]
+                    y0 = pts2D_b[1, i]
+                    draw_line(cam_b_image, (x0, y0), (x0, y0), color=(0, 210, 0), thickness=2)
+
+            cv2.namedWindow('cam_a', cv2.WINDOW_NORMAL)
+            cv2.imshow('cam_a', cam_a_image)
+            cv2.namedWindow('cam_b', cv2.WINDOW_NORMAL)
+            cv2.imshow('cam_b', cam_b_image)
+
+            wm = KeyPressManager.WindowManager()
+            if wm.waitForKey(time_to_wait=None, verbose=False):
+                exit(0)
+
+    exit(0)
+
     # ------------  Cameras -----------------
     # Each camera will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
     # thus, the getter should return a list of size 6
@@ -132,11 +254,8 @@ if __name__ == "__main__":
                 # print('world_to_camera = ' + str(world_T_camera))
 
                 # Extract the translation from the transform matrix and create a np array with a 4,1 point coordinate
-                aruco_origin_world = data_arucos.arucos[_aruco_id].matrix[0:4, 3]
+                aruco_origin_world = data_arucos.arucos[_aruco_id].getTranslation(homogeneous=True)
                 # print("aruco_origin_world = " + str(aruco_origin_world))
-
-                # if int(aruco_id) == 579:
-                #     print('ArUco 579 is in: ' + str(aruco_origin_world))
 
                 aruco_origin_camera = np.dot(world_T_camera, aruco_origin_world)
                 # print("aruco_origin_camera = " + str(aruco_origin_camera))
@@ -148,8 +267,6 @@ if __name__ == "__main__":
                                                                     np.array(aruco_origin_camera,
                                                                              dtype=np.float).reshape((4, 1)))
                 _aruco_detection.projected = (pixs[0][0], pixs[1][0])
-                # if int(aruco_id) == 579:
-                #     print('ArUco 579 is projected to : ' + str(aruco_detection.projected))
 
                 global first_time
                 if first_time:
@@ -165,57 +282,6 @@ if __name__ == "__main__":
         first_time = False
         # Return the errors
         return errors
-
-
-    # def objectiveFunction(data):
-    #     """
-    #     :param data: points to the camera and aruco dataset
-    #     :return: a vector of residuals
-    #     """
-    #     # Get the data
-    #     data_cameras = data['data_cameras']
-    #     data_arucos = data['data_arucos']
-    #
-    #     # print("data_cameras\n" + str(data_cameras.cameras[0].rgb.matrix))
-    #     # print("data_arucos" + str(data_arucos))
-    #
-    #     errors = []
-    #     # Cycle all cameras in the dataset
-    #     for camera in data_cameras.cameras:
-    #         # print("Cam " + str(camera.name))
-    #         for aruco_id, aruco_detection in camera.rgb.aruco_detections.items():
-    #             # print("Aruco " + str(aruco_id))
-    #             # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
-    #
-    #             # Find current position of aruco
-    #             world_T_camera = np.linalg.inv(camera.rgb.matrix)
-    #
-    #             # Extract the translation from the transform matrix and create a np array with a 4,1 point coordinate
-    #             aruco_origin_world = data_arucos.arucos[aruco_id][0:4, 3]
-    #             # print("aruco_origin_world = " + str(aruco_origin_world))
-    #
-    #             aruco_origin_camera = np.dot(world_T_camera, aruco_origin_world)
-    #             # print("aruco_origin_camera = " + str(aruco_origin_camera))
-    #
-    #             pixs, valid_pixs, dists = utilities.projectToCamera(np.array(camera.rgb.camera_info.K).reshape((3, 3)),
-    #                                                                 camera.rgb.camera_info.D,
-    #                                                                 camera.rgb.camera_info.width,
-    #                                                                 camera.rgb.camera_info.height,
-    #                                                                 np.array(aruco_origin_camera,
-    #                                                                          dtype=np.float).reshape((4, 1)))
-    #             aruco_detection.projected = (pixs[0][0], pixs[1][0])
-    #             global first_time
-    #             if first_time:
-    #                 aruco_detection.first_projection = aruco_detection.projected
-    #
-    #             # print(aruco_detection.projected)
-    #             error = euclidean(aruco_detection.center, aruco_detection.projected)
-    #             # print("error = " + str(error))
-    #             errors.append(error)
-    #
-    #     first_time = False
-    #     # Return the errors
-    #     return errors
 
     opt.setObjectiveFunction(objectiveFunction)
 
@@ -235,182 +301,51 @@ if __name__ == "__main__":
     # ---------------------------------------
     opt.computeSparseMatrix()
 
+
+
+
+
     # ---------------------------------------
-    # --- SETUP THE VISUALIZATION FUNCTION
+    # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    # position the windows in the proper place
-    for i, camera in enumerate(dataset_cameras.cameras):
-        cv2.namedWindow('Cam ' + camera.name, cv2.WINDOW_NORMAL)
-        cv2.moveWindow('Cam ' + camera.name, 300 * i, 50)
-        cv2.imshow('Cam ' + camera.name, camera.rgb.image)
+    if args['view_optimization']:
+        # position the windows in the proper place
+        for i, camera in enumerate(dataset_cameras.cameras):
+            cv2.namedWindow('Cam ' + camera.name, cv2.WINDOW_NORMAL)
+            cv2.moveWindow('Cam ' + camera.name, 300 * i, 50)
+            cv2.imshow('Cam ' + camera.name, camera.rgb.image)
 
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
 
-    ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
-    ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
-    limit = 1.5
-    ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
-    ax.view_init(elev=122, azim=-87)
+        ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
+        ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
+        limit = 1.5
+        ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
+        ax.view_init(elev=122, azim=-87)
 
-    # Draw world axis
-    world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
-    utilities.drawAxis3D(ax, world_T_world, "world", axis_scale=0.7, line_width=3)
+        # Draw world axis
+        world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
+        utilities.drawAxis3D(ax, world_T_world, "world", axis_scale=0.7, line_width=3)
 
-    # Draw cameras
-    for camera in dataset_cameras.cameras:
-        camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3,
-                                                   line_width=2)
-        # print("camera " + camera.name + " " + str(camera.handle_frame))
+        # Draw cameras
+        for camera in dataset_cameras.cameras:
+            camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3,
+                                                       line_width=2)
+            # print("camera " + camera.name + " " + str(camera.handle_frame))
 
-    # Draw Arucos
-    dataset_arucos.handles = {}
-    for aruco_id, aruco in dataset_arucos.arucos.items():
-        dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, aruco.matrix, 'A' + str(aruco_id),
-                                                                      line_width=1.0,
-                                                                      fontsize=8,
-                                                                      handles=None)
-        print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
+        # Draw Arucos
+        dataset_arucos.handles = {}
+        for aruco_id, aruco in dataset_arucos.arucos.items():
+            dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, aruco.matrix, 'A' + str(aruco_id),
+                                                                          line_width=1.0,
+                                                                          fontsize=8,
+                                                                          handles=None)
+            # print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
 
-    wm = KeyPressManager.WindowManager(fig)
-    if wm.waitForKey(time_to_wait=None, verbose=True):
-        exit(0)
-
-        # Obtaining the 3D measurements for each camera
-        # ---------------------------------------
-        # --- Compute the list of points that will be used by the cost function
-        # ---------------------------------------
-        # cam_pairs = []
-        # for cam_a, cam_b in combinations(dataset_cameras.cameras, 2):
-        #     print(cam_a.name + ' with ' + cam_b.name)
-        #
-        #     # get a list of 3D points by concatenating the 3D measurements of cam_a and cam_b
-        #     print(cam_a.depth.vertices[:, 0::args['skip_vertices']])
-        #     # exit(0)
-        #
-        #     print('depth matrix=\n' + str(cam_a.depth.matrix))
-        #     pts3D_in_map_a = np.dot(cam_a.depth.matrix, cam_a.depth.vertices[:, 0::args['skip_vertices']])
-        #     print('pts3D_in_map_a=\n' + str(pts3D_in_map_a))
-        #     pts3D_in_map_b = np.dot(cam_b.depth.matrix, cam_b.depth.vertices[:, 0::args['skip_vertices']])
-        #     pts3D_in_map = np.concatenate([pts3D_in_map_a, pts3D_in_map_b], axis=1)
-        #
-        #     # project 3D points to cam_a
-        #     pts3D_in_cam_a = np.dot(np.linalg.inv(cam_a.rgb.matrix), pts3D_in_map)
-        #     pts2D_a, pts_valid_a, pts_range_a = utilities.projectToCamera(
-        #         np.array(cam_a.rgb.camera_info.K).reshape((3, 3)),
-        #         cam_a.rgb.camera_info.D,
-        #         cam_a.rgb.camera_info.width,
-        #         cam_a.rgb.camera_info.height,
-        #         pts3D_in_cam_a)
-        #
-        #     pts2D_a = np.where(pts_valid_a, pts2D_a, 0)
-        #     range_meas_a = cam_a.rgb.range_dense[pts2D_a[1, :], pts2D_a[0, :]]
-        #     z_valid_a = abs(pts_range_a - range_meas_a) < args['z_inconsistency_threshold']
-        #
-        #     # project 3D points to cam_b
-        #     pts3D_in_cam_b = np.dot(np.linalg.inv(cam_b.rgb.matrix), pts3D_in_map)
-        #     pts2D_b, pts_valid_b, pts_range_b = utilities.projectToCamera(
-        #         np.array(cam_b.rgb.camera_info.K).reshape((3, 3)),
-        #         cam_b.rgb.camera_info.D,
-        #         cam_b.rgb.camera_info.width,
-        #         cam_b.rgb.camera_info.height,
-        #         pts3D_in_cam_b)
-        #
-        #     pts2D_b = np.where(pts_valid_b, pts2D_b, 0)
-        #     range_meas_b = cam_b.rgb.range_dense[pts2D_b[1, :], pts2D_b[0, :]]
-        #     z_valid_b = abs(pts_range_b - range_meas_b) < args['z_inconsistency_threshold']
-        #
-        #     # Compute masks for the valid projections
-        #     mask = np.logical_and(pts_valid_a, pts_valid_b)
-        #     z_mask = np.logical_and(z_valid_a, z_valid_b)
-        #     final_mask = np.logical_and(mask, z_mask)
-        #
-        #     if args['view_projected_vertices']:
-        #         print("pts2d_a has " + str(np.count_nonzero(pts_valid_a)) + ' valid projections')
-        #         print("pts2d_b has " + str(np.count_nonzero(pts_valid_b)) + ' valid projections')
-        #         print("there are " + str(np.count_nonzero(mask)) + ' valid projection pairs')
-        #         cam_a_image = deepcopy(cam_a.rgb.image)
-        #         cam_b_image = deepcopy(cam_b.rgb.image)
-        #         for i, val in enumerate(mask):
-        #             if pts_valid_a[i] == True:
-        #                 x0 = pts2D_a[0, i]
-        #                 y0 = pts2D_a[1, i]
-        #                 cv2.line(cam_a_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=2)
-        #
-        #             if pts_valid_b[i] == True:
-        #                 x0 = pts2D_b[0, i]
-        #                 y0 = pts2D_b[1, i]
-        #                 cv2.line(cam_b_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=2)
-        #
-        #             if val == True:
-        #                 x0 = pts2D_a[0, i]
-        #                 y0 = pts2D_a[1, i]
-        #                 cv2.line(cam_a_image, (x0, y0), (x0, y0), color=(0, 0, 210), thickness=2)
-        #
-        #                 x0 = pts2D_b[0, i]
-        #                 y0 = pts2D_b[1, i]
-        #                 cv2.line(cam_b_image, (x0, y0), (x0, y0), color=(0, 0, 210), thickness=2)
-        #
-        #             if z_mask[i] == True:
-        #                 x0 = pts2D_a[0, i]
-        #                 y0 = pts2D_a[1, i]
-        #                 cv2.line(cam_a_image, (x0, y0), (x0, y0), color=(0, 210, 0), thickness=2)
-        #
-        #                 x0 = pts2D_b[0, i]
-        #                 y0 = pts2D_b[1, i]
-        #                 cv2.line(cam_b_image, (x0, y0), (x0, y0), color=(0, 210, 0), thickness=2)
-        #
-        #         cv2.namedWindow('cam_a', cv2.WINDOW_NORMAL)
-        #         cv2.imshow('cam_a', cam_a_image)
-        #         cv2.namedWindow('cam_b', cv2.WINDOW_NORMAL)
-        #         cv2.imshow('cam_b', cam_b_image)
-        #
-        #         if wm.waitForKey(time_to_wait=None, verbose=False):
-        #             exit(0)
-
-        # exit(0)
-
-        # ---------------------------------------
-        # --- DEFINE THE VISUALIZATION FUNCTION
-        # ---------------------------------------
-        if args['view_optimization']:
-            # position the windows in the proper place
-            for i, camera in enumerate(dataset_cameras.cameras):
-                cv2.namedWindow('Cam ' + camera.name, cv2.WINDOW_NORMAL)
-                cv2.moveWindow('Cam ' + camera.name, 300 * i, 50)
-                cv2.imshow('Cam ' + camera.name, camera.rgb.image)
-
-            fig = plt.figure()
-            ax = fig.gca(projection='3d')
-
-            ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
-            ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
-            limit = 1.5
-            ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
-            ax.view_init(elev=122, azim=-87)
-
-            # Draw world axis
-            world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
-            utilities.drawAxis3D(ax, world_T_world, "world", axis_scale=0.7, line_width=3)
-
-            # Draw cameras
-            for camera in dataset_cameras.cameras:
-                camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3,
-                                                           line_width=2)
-                # print("camera " + camera.name + " " + str(camera.handle_frame))
-
-            # Draw Arucos
-            dataset_arucos.handles = {}
-            for aruco_id, transform in dataset_arucos.arucos.items():
-                dataset_arucos.handles[aruco_id] = utilities.drawAxis3DOrigin(ax, transform, 'A' + str(aruco_id),
-                                                                              line_width=1.0,
-                                                                              fontsize=8,
-                                                                              handles=None)
-                # print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
-
-            wm = KeyPressManager.WindowManager(fig)
-            if wm.waitForKey(time_to_wait=0.01, verbose=True):
-                exit(0)
+        wm = KeyPressManager.WindowManager(fig)
+        if wm.waitForKey(time_to_wait=0.01, verbose=True):
+            exit(0)
 
 
     # ---------------------------------------

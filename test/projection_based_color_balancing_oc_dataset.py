@@ -162,8 +162,8 @@ if __name__ == "__main__":
                 visualize=args['view_projected_vertices'])
 
             # Compute the error with the valid projections
-            colors_a = cam_a.rgb.image_changed[pts2D_a[1, valid_mask], pts2D_a[0, valid_mask]]
-            colors_b = cam_b.rgb.image_changed[pts2D_b[1, valid_mask], pts2D_b[0, valid_mask]]
+            colors_a = cam_a.rgb.image_changed[(pts2D_a[1, valid_mask]).astype(np.int), (pts2D_a[0, valid_mask]).astype(np.int)]
+            colors_b = cam_b.rgb.image_changed[(pts2D_b[1, valid_mask]).astype(np.int), (pts2D_b[0, valid_mask]).astype(np.int)]
             error = np.linalg.norm(colors_a.astype(np.float) - colors_b.astype(np.float), ord=2, axis=1)
             # utilities.printNumPyArray({'colors_a': colors_a, 'colors_b': colors_b, 'error': error})
 

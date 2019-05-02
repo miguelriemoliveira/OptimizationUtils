@@ -166,7 +166,7 @@ def projectToCameraPair(intrinsic_matrix_a, distortion_a, width_a, height_a, map
         pts3D_in_cam_a)
 
     pts2D_a = np.where(pts_valid_a, pts2D_a, 0)
-    range_meas_a = depth_a[pts2D_a[1, :], pts2D_a[0, :]]
+    range_meas_a = depth_a[(pts2D_a[1, :]).astype(np.int), (pts2D_a[0, :]).astype(np.int)]
     z_valid_a = abs(pts_range_a - range_meas_a) < z_inconsistency_threshold
 
     # project 3D points to cam_b
@@ -179,7 +179,7 @@ def projectToCameraPair(intrinsic_matrix_a, distortion_a, width_a, height_a, map
         pts3D_in_cam_b)
 
     pts2D_b = np.where(pts_valid_b, pts2D_b, 0)
-    range_meas_b = depth_b[pts2D_b[1, :], pts2D_b[0, :]]
+    range_meas_b = depth_b[(pts2D_b[1, :]).astype(np.int), (pts2D_b[0, :]).astype(np.int)]
     z_valid_b = abs(pts_range_b - range_meas_b) < z_inconsistency_threshold
 
     # Compute masks for the valid projections
@@ -255,6 +255,7 @@ def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
 
     k1, k2, p1, p2, k3 = distortion
     # fx, _, cx, _, fy, cy, _, _, _ = intrinsic_matrix
+    print('intrinsic=\n' + str(intrinsic_matrix))
     fx = intrinsic_matrix[0, 0]
     fy = intrinsic_matrix[1, 1]
     cx = intrinsic_matrix[0, 2]

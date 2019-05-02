@@ -482,7 +482,6 @@ if __name__ == "__main__":
         opengl2opencv[1, :] = [0, 0, 1, 0]
         opengl2opencv[2, :] = [0, -1, 0, 0]
         opengl2opencv[3, :] = [0, 0, 0, 1]
-
         opencv2opengl = np.linalg.inv(opengl2opencv)
 
         old_world_T_depth = np.linalg.inv(camera.depth.matrix)
