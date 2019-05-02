@@ -115,15 +115,15 @@ if __name__ == "__main__":
         #                     setter=partial(setterGamma, i=idx_camera),
         #                     bound_max=bound_max, bound_min=bound_min)
 
-        opt.pushParamVector3(group_name='C' + camera.name + '_bias_', data_key='data_cameras',
-                             getter=partial(getterCameraBias, i=idx_camera),
-                             setter=partial(setterCameraBias, i=idx_camera),
-                             sufix=['lum', 'alf', 'bet'])
+        opt.pushParamV3(group_name='C' + camera.name + '_bias_', data_key='data_cameras',
+                        getter=partial(getterCameraBias, i=idx_camera),
+                        setter=partial(setterCameraBias, i=idx_camera),
+                        sufix=['lum', 'alf', 'bet'])
 
-        opt.pushParamVector3(group_name='C' + camera.name + '_scale_', data_key='data_cameras',
-                             getter=partial(getterCameraScale, i=idx_camera),
-                             setter=partial(setterCameraScale, i=idx_camera),
-                             sufix=['lum', 'alf', 'bet'])
+        opt.pushParamV3(group_name='C' + camera.name + '_scale_', data_key='data_cameras',
+                        getter=partial(getterCameraScale, i=idx_camera),
+                        setter=partial(setterCameraScale, i=idx_camera),
+                        sufix=['lum', 'alf', 'bet'])
 
     # # ------------  Arucos -----------------
     # # Each aruco will only have the position (tx,ty,tz)

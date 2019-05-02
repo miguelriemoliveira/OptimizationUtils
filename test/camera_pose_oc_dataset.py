@@ -143,16 +143,16 @@ if __name__ == "__main__":
     # Add parameters related to the cameras
     for cam_idx, camera in enumerate(dataset_cameras.cameras):
         # Add the translation
-        opt.pushParamVector3(group_name='C' + camera.name + '_t', data_key='data_cameras',
-                             getter=partial(getterCameraTranslation, cam_idx=cam_idx),
-                             setter=partial(setterCameraTranslation, cam_idx=cam_idx),
-                             sufix=['x', 'y', 'z'])
+        opt.pushParamV3(group_name='C' + camera.name + '_t', data_key='data_cameras',
+                        getter=partial(getterCameraTranslation, cam_idx=cam_idx),
+                        setter=partial(setterCameraTranslation, cam_idx=cam_idx),
+                        sufix=['x', 'y', 'z'])
 
         # Add the rotation
-        opt.pushParamVector3(group_name='C' + camera.name + '_r', data_key='data_cameras',
-                             getter=partial(getterCameraRotation, cam_idx=cam_idx),
-                             setter=partial(setterCameraRotation, cam_idx=cam_idx),
-                             sufix=['1', '2', '3'])
+        opt.pushParamV3(group_name='C' + camera.name + '_r', data_key='data_cameras',
+                        getter=partial(getterCameraRotation, cam_idx=cam_idx),
+                        setter=partial(setterCameraRotation, cam_idx=cam_idx),
+                        sufix=['1', '2', '3'])
 
 
     # ------------  ArUcos -----------------
@@ -168,10 +168,10 @@ if __name__ == "__main__":
 
     # Add parameters related to the ArUcos
     for aruco_id, aruco in dataset_arucos.arucos.items():
-        opt.pushParamVector3(group_name='A' + str(aruco_id), data_key='data_arucos',
-                             getter=partial(getterArucoTranslation, aruco_id=aruco_id),
-                             setter=partial(setterArucoTranslation, aruco_id=aruco_id),
-                             sufix=['_tx', '_ty', '_tz'])
+        opt.pushParamV3(group_name='A' + str(aruco_id), data_key='data_arucos',
+                        getter=partial(getterArucoTranslation, aruco_id=aruco_id),
+                        setter=partial(setterArucoTranslation, aruco_id=aruco_id),
+                        sufix=['_tx', '_ty', '_tz'])
 
     opt.printParameters()
 

@@ -109,8 +109,8 @@ class Optimizer:
         self.x.append(value[0])  # set initial value in x using the value from the data model
         # print('Pushed scalar param ' + group_name + ' to group ' + group_name)
 
-    def pushParamVector3(self, group_name, data_key, getter, setter, bound_max=(+inf, +inf, +inf),
-                         bound_min=(-inf, -inf, -inf), sufix=['x', 'y', 'z']):
+    def pushParamV3(self, group_name, data_key, getter, setter, bound_max=(+inf, +inf, +inf),
+                    bound_min=(-inf, -inf, -inf), sufix=['x', 'y', 'z']):
         """
         Pushes a new parameter group of type translation to the parameter vector.
         There will be 3 parameters, *_tx, *_ty, *_tz per translation group
