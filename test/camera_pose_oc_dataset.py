@@ -449,7 +449,7 @@ if __name__ == "__main__":
     # then: point cloud from depth frame to world using new (optimized transform)
 
     # Colour map initialization
-    cmap = cm.YlOrRd(np.linspace(0, 1, len(dataset_cameras.cameras)))
+    cmap = cm.tab10(np.linspace(0, 1, 10))
 
     # Structure to hold all point clouds
     all_point_clouds = []
@@ -503,7 +503,7 @@ if __name__ == "__main__":
         # normalsInNewWorld = np.transpose(np.dot(T, np.transpose(nxyz)))
 
         # Use colour map on new point clouds
-        r, g, b = (cmap[cam_idx, 0:3] * 255)
+        r, g, b = (cmap[cam_idx%10, 0:3] * 255)
         r, g, b = int(r), int(g), int(b)
 
         # Write to the .ply file
