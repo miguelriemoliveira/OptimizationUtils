@@ -151,39 +151,25 @@ def traslationRodriguesToTransform(translation, rodrigues):
 # ---------------------------------------
 # --- Computer Vision functions
 # ---------------------------------------
-def projectToCameraPair(intrinsic_matrix_a, distortion_a, width_a, height_a, map_T_cam_a, image_a, depth_a,
-                        intrinsic_matrix_b, distortion_b, width_b, height_b, map_T_cam_b, image_b, depth_b,
-                        pts3D_in_map, z_inconsistency_threshold=0.1, visualize=False):
-    # type: (object, object, object, object, object, object, object, object, object, object, object, object, object, object, object, object, object) -> (np.array, np.array, np.array)
+def projectToCameraPair(cam_a, cam_b, pts3D_in_map, z_inconsistency_threshold=0.1, visualize=False):
 
     # project 3D points to cam_a image (first the transformation from map to camera is done)
-    pts3D_in_cam_a = np.dot(map_T_cam_a, pts3D_in_map)
-    pts2D_a, pts_valid_a, pts_range_a = projectToCamera(
-        np.array(intrinsic_matrix_a).reshape((3, 3)),
-        distortion_a,
-        width_a,
-        height_a,
-        pts3D_in_cam_a)
+    pts3D_in_cam_a = cam_a.rgb.transformToCamera(pts3D_in_map)
+    pts2D_a, pts_valid_a, pts_range_a = cam_a.rgb.projectToCamera(pts3D_in_cam_a)
 
     pts2D_a = np.where(pts_valid_a, pts2D_a, 0)
-    range_meas_a = depth_a[(pts2D_a[1, :]).astype(np.int), (pts2D_a[0, :]).astype(np.int)]
+    range_meas_a = cam_a.rgb.range_dense[(pts2D_a[1, :]).astype(np.int), (pts2D_a[0, :]).astype(np.int)]
     z_valid_a = abs(pts_range_a - range_meas_a) < z_inconsistency_threshold
 
     # project 3D points to cam_b
-    pts3D_in_cam_b = np.dot(map_T_cam_b, pts3D_in_map)
-    pts2D_b, pts_valid_b, pts_range_b = projectToCamera(
-        np.array(intrinsic_matrix_b).reshape((3, 3)),
-        distortion_b,
-        width_b,
-        height_b,
-        pts3D_in_cam_b)
+    pts3D_in_cam_b = cam_b.rgb.transformToCamera(pts3D_in_map)
+    pts2D_b, pts_valid_b, pts_range_b = cam_b.rgb.projectToCamera(pts3D_in_cam_b)
 
     pts2D_b = np.where(pts_valid_b, pts2D_b, 0)
-    range_meas_b = depth_b[(pts2D_b[1, :]).astype(np.int), (pts2D_b[0, :]).astype(np.int)]
+    range_meas_b = cam_b.rgb.range_dense[(pts2D_b[1, :]).astype(np.int), (pts2D_b[0, :]).astype(np.int)]
     z_valid_b = abs(pts_range_b - range_meas_b) < z_inconsistency_threshold
 
     # Compute masks for the valid projections
-
     mask = np.logical_and(pts_valid_a, pts_valid_b)
     z_mask = np.logical_and(z_valid_a, z_valid_b)
     final_mask = np.logical_and(mask, z_mask)

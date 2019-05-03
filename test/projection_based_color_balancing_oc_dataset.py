@@ -121,6 +121,14 @@ if __name__ == "__main__":
     # ---------------------------------------
     first_time = True
 
+    # For some awkward reason the local point clouds (ply files) are stored in opengl coordinates.
+    # This matrix puts the coordinate frames back in opencv fashion
+    opencv2opengl = np.zeros((4, 4))
+    opencv2opengl[0, :] = [1, 0, 0, 0]
+    opencv2opengl[1, :] = [0, 0, 1, 0]
+    opencv2opengl[2, :] = [0, -1, 0, 0]
+    opencv2opengl[3, :] = [0, 0, 0, 1]
+
 
     def objectiveFunction(data):
         """
@@ -145,10 +153,13 @@ if __name__ == "__main__":
             ci_a = cam_a.rgb.camera_info
             ci_b = cam_b.rgb.camera_info
 
+            # ---------------------------------------------------------------------------------------
+            # STEP 1: Get a list of 3D points by concatenating the 3D measurements of cam_a and cam_b
+            # ---------------------------------------------------------------------------------------
             # Option1: get a list of 3D points in the map frame by concatenating the 3D measurements of cam_a and cam_b
             pts3D_in_map = np.concatenate([
-                np.dot(cam_a.depth.matrix, cam_a.depth.vertices[:, 0::args['skip_vertices']]),
-                np.dot(cam_b.depth.matrix, cam_b.depth.vertices[:, 0::args['skip_vertices']])], axis=1)
+                np.dot(opencv2opengl, cam_a.depth.vertices[:, 0::args['skip_vertices']]),
+                np.dot(opencv2opengl, cam_b.depth.vertices[:, 0::args['skip_vertices']])], axis=1)
 
             # Option2: use the vertices of the mesh as the list of 3D points to project
             # pts3D_in_map = data_cameras.pts_map[:, 0::args['skip_vertices']] # use only a subset of the points
