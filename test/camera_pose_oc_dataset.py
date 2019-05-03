@@ -96,6 +96,9 @@ if __name__ == "__main__":
     dataset_loader = OCDatasetLoader.Loader(args)
     dataset_cameras = dataset_loader.loadDataset()
 
+    # print(dataset_cameras.cameras[0].rgb.stamp)
+    # exit(0)
+
     aruco_detector = OCArucoDetector.ArucoDetector(args)
     dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
     print("\nDataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
@@ -105,10 +108,9 @@ if __name__ == "__main__":
     # ---------------------------------------
     # Confirm the structure of the txt files
     for camera in dataset_cameras.cameras:
-        world_T_camera = np.linalg.inv(camera.rgb.matrix)
+        world_T_camera_transposed = np.linalg.inv(camera.rgb.matrix)
         depth_T_world = camera.depth.matrix
-
-        dataset_cameras.depth_T_camera = np.dot(world_T_camera, depth_T_world)
+        dataset_cameras.depth_T_camera = np.dot(world_T_camera_transposed, depth_T_world)
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -381,7 +383,7 @@ if __name__ == "__main__":
 
     # This optimizes well
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-3, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     # This optimized forever but was already at 1.5 pixels avg errror and going when I interrupted it
     # opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4})
@@ -414,6 +416,12 @@ if __name__ == "__main__":
 
     # TODO: use shutil to copy .png files and other things
 
+    for camera in opt.data_models['data_cameras'].cameras:
+        print()
+        src = args['path_to_images'] + '/' + os.path.basename(camera.rgb.filename)
+        dst = args['path_to_output_dataset'] + '/' + os.path.basename(camera.rgb.filename)
+        shutil.copyfile(src,dst)
+
     # STEP 2
     # Overwrite txt files with new transform
 
@@ -422,8 +430,10 @@ if __name__ == "__main__":
     for camera in opt.data_models['data_cameras'].cameras:
         # print("\nCamera " + str(camera.name) + ':')
 
-        world_T_camera = np.transpose(np.linalg.inv(camera.rgb.matrix))
-        # print("world_T_camera = " + str(world_T_camera))
+        world_T_camera_transposed = np.transpose(np.linalg.inv(camera.rgb.matrix))
+        world_T_depth_transposed =  np.transpose(np.dot(np.linalg.inv(dataset_cameras.depth_T_camera), np.linalg.inv(camera.rgb.matrix)))
+        print("world_T_camera = " + str(world_T_camera_transposed))
+        print("world_T_depth = " + str(world_T_depth_transposed))
 
         txt_filename = args['path_to_output_dataset'] + '/' + camera.name.zfill(8) + '.txt'
         fh = open(txt_filename, 'w')
@@ -433,15 +443,17 @@ if __name__ == "__main__":
         fh.write('3\n')
 
         for i in range(4):
-            fh.write(str(world_T_camera[i][0]) + ' ' + str(world_T_camera[i][1]) + ' ' + str(
-                world_T_camera[i][2]) + ' ' + str(world_T_camera[i][3]) + '\n')
+            fh.write(str(world_T_camera_transposed[i][0]) + ' ' + str(world_T_camera_transposed[i][1]) + ' ' + str(
+                world_T_camera_transposed[i][2]) + ' ' + str(world_T_camera_transposed[i][3]) + '\n')
+
+        for i in range(4):
+            fh.write(str(world_T_depth_transposed[i][0]) + ' ' + str(world_T_depth_transposed[i][1]) + ' ' + str(
+                world_T_depth_transposed[i][2]) + ' ' + str(world_T_depth_transposed[i][3]) + '\n')
 
         for i in range(4):
             fh.write('0 0 0 0' + '\n')
 
-        for i in range(4):
-            fh.write('0 0 0 0' + '\n')
-
+        fh.write(str(camera.rgb.stamp))
         fh.close()
 
     # STEP 3
