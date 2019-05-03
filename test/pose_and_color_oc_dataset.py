@@ -62,12 +62,11 @@ if __name__ == "__main__":
     # ---------------------------------------
     # For some awkward reason the local point clouds (ply files) are stored in opengl coordinates.
     # This matrix puts the coordinate frames back in opencv fashion
-    opengl2opencv = np.zeros((4, 4))
-    opengl2opencv[0, :] = [1, 0, 0, 0]
-    opengl2opencv[1, :] = [0, 0, 1, 0]
-    opengl2opencv[2, :] = [0, -1, 0, 0]
-    opengl2opencv[3, :] = [0, 0, 0, 1]
-    opencv2opengl = np.linalg.inv(opengl2opencv)
+    opencv2opengl = np.zeros((4, 4))
+    opencv2opengl[0, :] = [1, 0, 0, 0]
+    opencv2opengl[1, :] = [0, 0, 1, 0]
+    opencv2opengl[2, :] = [0, -1, 0, 0]
+    opencv2opengl[3, :] = [0, 0, 0, 1]
 
     cam_pairs = []
     for cam_a, cam_b in combinations(dataset_cameras.cameras, 2):
@@ -76,29 +75,21 @@ if __name__ == "__main__":
         # ---------------------------------------------------------------------------------------
         # STEP 1: Get a list of 3D points by concatenating the 3D measurements of cam_a and cam_b
         # ---------------------------------------------------------------------------------------
-
-        cam_a_vertices_opencv = np.dot(opencv2opengl, cam_a.depth.vertices[:, 0::args['skip_vertices']])
-        pts3D_in_map_a = np.dot(np.linalg.inv(cam_a.depth.matrix), cam_a_vertices_opencv )
+        pts3D_in_map_a = np.dot(opencv2opengl, cam_a.depth.vertices[:, 0::args['skip_vertices']])
         # print('pts3D_in_map_a contains ' + str(pts3D_in_map_a.shape[1]) + ' points.')
 
-        cam_b_vertices_opencv = np.dot(opencv2opengl, cam_b.depth.vertices[:, 0::args['skip_vertices']])
-        pts3D_in_map_b = np.dot(cam_b.depth.matrix, cam_b_vertices_opencv)
+        pts3D_in_map_b = np.dot(opencv2opengl, cam_b.depth.vertices[:, 0::args['skip_vertices']])
         # print('pts3D_in_map_b contains ' + str(pts3D_in_map_b.shape[1]) + ' points.')
 
         pts3D_in_map = np.concatenate([pts3D_in_map_a, pts3D_in_map_b], axis=1)
+        # pts3D_in_map = pts3D_in_map_a
         # print('pts3D_in_map = \n' + str(pts3D_in_map))
 
         # ---------------------------------------------------------------------------------------
         # STEP 2: project 3D points to cam_a
         # ---------------------------------------------------------------------------------------
-        pts3D_in_cam_a = np.dot(np.linalg.inv(cam_a.rgb.matrix), pts3D_in_map)
-        # print('pts3D_in_cam_a = \n' + str(pts3D_in_cam_a))
-        pts2D_a, pts_valid_a, pts_range_a = utilities.projectToCamera(
-            np.array(cam_a.rgb.camera_info.K).reshape((3, 3)),
-            cam_a.rgb.camera_info.D,
-            cam_a.rgb.camera_info.width,
-            cam_a.rgb.camera_info.height,
-            pts3D_in_cam_a)
+        pts3D_in_cam_a = cam_a.rgb.transformToCamera(pts3D_in_map)
+        pts2D_a, pts_valid_a, pts_range_a = cam_a.rgb.projectToCamera(pts3D_in_cam_a)
         print('pts2D_a=\n' + str(pts2D_a))
 
         pts2D_a = np.where(pts_valid_a, pts2D_a, 0)
@@ -111,13 +102,8 @@ if __name__ == "__main__":
         # ---------------------------------------------------------------------------------------
         # STEP 3: project 3D points to cam_a
         # ---------------------------------------------------------------------------------------
-        pts3D_in_cam_b = np.dot(np.linalg.inv(cam_b.rgb.matrix), pts3D_in_map)
-        pts2D_b, pts_valid_b, pts_range_b = utilities.projectToCamera(
-            np.array(cam_b.rgb.camera_info.K).reshape((3, 3)),
-            cam_b.rgb.camera_info.D,
-            cam_b.rgb.camera_info.width,
-            cam_b.rgb.camera_info.height,
-            pts3D_in_cam_b)
+        pts3D_in_cam_b = cam_b.rgb.transformToCamera(pts3D_in_map)
+        pts2D_b, pts_valid_b, pts_range_b = cam_b.rgb.projectToCamera(pts3D_in_cam_b)
 
         pts2D_b = np.where(pts_valid_b, pts2D_b, 0)
         range_meas_b = cam_b.rgb.range_dense[(pts2D_b[1, :]).astype(np.int), (pts2D_b[0, :]).astype(np.int)]
@@ -143,12 +129,12 @@ if __name__ == "__main__":
                 if pts_valid_a[i]:
                     x0 = pts2D_a[0, i]
                     y0 = pts2D_a[1, i]
-                    draw_line(cam_a_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=2)
+                    draw_line(cam_a_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=3)
 
                 if pts_valid_b[i]:
                     x0 = pts2D_b[0, i]
                     y0 = pts2D_b[1, i]
-                    draw_line(cam_b_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=2)
+                    draw_line(cam_b_image, (x0, y0), (x0, y0), color=(80, 80, 80), thickness=3)
 
                 if val:
                     x0 = pts2D_a[0, i]
@@ -159,7 +145,7 @@ if __name__ == "__main__":
                     y0 = pts2D_b[1, i]
                     draw_line(cam_b_image, (x0, y0), (x0, y0), color=(0, 0, 210), thickness=2)
 
-                if z_mask[i]:
+                if final_mask[i] == True:
                     x0 = pts2D_a[0, i]
                     y0 = pts2D_a[1, i]
                     draw_line(cam_a_image, (x0, y0), (x0, y0), color=(0, 210, 0), thickness=2)
