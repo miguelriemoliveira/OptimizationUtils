@@ -378,12 +378,13 @@ class Optimizer:
 
         print(self.x)
 
-    def printParameters(self, x=None, flg_simple=False):
+    def printParameters(self, x=None, flg_simple=False, text=None):
         """ Prints the current values of the parameters in the parameter list as well as the corresponding data
         models.
 
         :param x: list of parameters. If None prints the currently stored list.
         :param flg_simple:
+        :param text: string to write as a header for the table of parameter values
         """
         if x is None:
             x = self.x
@@ -397,7 +398,12 @@ class Optimizer:
                 rows.append(param_name)
                 table.append([group_name, x[group.idx[i]], values_in_data[i]])
 
-        print('\nParameters:')
+        if text is None:
+            print('\nParameters:')
+        else:
+            print(text)
+
+
         df = pandas.DataFrame(table, rows, ['Group', 'x', 'data'])
         if flg_simple:
             # https://medium.com/dunder-data/selecting-subsets-of-data-in-pandas-6fcd0170be9c

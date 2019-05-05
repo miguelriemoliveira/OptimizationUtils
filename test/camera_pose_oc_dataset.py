@@ -83,8 +83,8 @@ if __name__ == "__main__":
     # --- Parse command line argument
     # ---------------------------------------
     ap = argparse.ArgumentParser()
-    ap = OCDatasetLoader.addArguments(ap) # Dataset loader arguments
-    ap = OptimizationUtils.addArguments(ap) # OptimizationUtils arguments
+    ap = OCDatasetLoader.addArguments(ap)  # Dataset loader arguments
+    ap = OptimizationUtils.addArguments(ap)  # OptimizationUtils arguments
     args = vars(ap.parse_args())
     print("\nArgument list=")
     print(args)
@@ -103,15 +103,22 @@ if __name__ == "__main__":
     dataset_arucos, dataset_cameras = aruco_detector.detect(dataset_cameras)
     print("\nDataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
 
-    # ---------------------------------------
-    # --- Extract the rgb_T_depth transform
-    # ---------------------------------------
-    # Confirm the structure of the txt files
-    for camera in dataset_cameras.cameras:
-        world_T_camera_transposed = np.linalg.inv(camera.rgb.matrix)
-        depth_T_world = camera.depth.matrix
-        dataset_cameras.depth_T_camera = np.dot(world_T_camera_transposed, depth_T_world)
 
+    # ---------------------------------------
+    # --- Extract the rgb_T_depth and rgb_T_device transforms
+    # ---------------------------------------
+    # TODO we are using the final camera for computing depth_T_camera. It should be fixed but of course there will be
+    #  slight variations because we infer it from a matrix multiplication. Should we average?
+
+    for camera in dataset_cameras.cameras:
+        world_T_camera= np.linalg.inv(camera.rgb.matrix)
+        depth_T_world = camera.depth.matrix
+        dataset_cameras.depth_T_camera = np.dot(world_T_camera, depth_T_world)
+
+    for camera in dataset_cameras.cameras:
+        world_T_camera= np.linalg.inv(camera.rgb.matrix)
+        device_T_world = camera.matrix
+        dataset_cameras.device_T_camera = np.dot(world_T_camera, device_T_world)
     # ---------------------------------------
     # --- Setup Optimizer
     # ---------------------------------------
@@ -304,7 +311,6 @@ if __name__ == "__main__":
             exit(0)
 
 
-
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
@@ -382,16 +388,43 @@ if __name__ == "__main__":
     # print("\n\nStarting optimization")
 
     # This optimizes well
+    # opt.startOptimization(
+    #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4})
+
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-3, 'gtol': 1e-5, 'diff_step': 1e-4})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
+                              'max_nfev': 1})
 
     # This optimized forever but was already at 1.5 pixels avg errror and going when I interrupted it
     # opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4})
+
+    print('\n-----------------')
+    opt.printParameters(opt.x0, text='Initial parameters')
+    print('\n')
+    opt.printParameters(opt.xf, text='Final parameters')
 
     ################################################################################################################
     # Creating the optimized dataset
     print('\n---------------------------------------------------------------------------------------------------------')
     print('Creating optimized dataset...\n')
+
+    # STEP 0
+    # Compute the camera.depth.matrix usign the optimized camera.rgb.matrix and the depth_T_camera matrix (fixed)
+    # print('\n\n\nDepth matrix before')
+    # print(camera.depth.matrix)
+    for camera in opt.data_models['data_cameras'].cameras:
+        # TODO I don't understand why this multiplication should be like this. I have reached this through trial and
+        #  error. Must be clarified
+
+        # camera.depth.matrix =  np.dot(np.linalg.inv(opt.data_models['data_cameras'].depth_T_camera), np.linalg.inv(camera.rgb.matrix))
+        camera.depth.matrix = np.dot(camera.rgb.matrix, opt.data_models['data_cameras'].depth_T_camera)
+
+        camera.matrix = np.dot(camera.rgb.matrix, opt.data_models['data_cameras'].device_T_camera)
+
+        # print('Depth matrix')
+        # print(camera.depth.matrix)
+
+
 
     # STEP 1
     # Full copy of the dataset
@@ -414,13 +447,12 @@ if __name__ == "__main__":
     # Create the new folder
     os.mkdir(args['path_to_output_dataset'])
 
-    # TODO: use shutil to copy .png files and other things
-
+    # Copy the images
     for camera in opt.data_models['data_cameras'].cameras:
         print()
         src = args['path_to_images'] + '/' + os.path.basename(camera.rgb.filename)
         dst = args['path_to_output_dataset'] + '/' + os.path.basename(camera.rgb.filename)
-        shutil.copyfile(src,dst)
+        shutil.copyfile(src, dst)
 
     # STEP 2
     # Overwrite txt files with new transform
@@ -430,31 +462,40 @@ if __name__ == "__main__":
     for camera in opt.data_models['data_cameras'].cameras:
         # print("\nCamera " + str(camera.name) + ':')
 
-        world_T_camera_transposed = np.transpose(np.linalg.inv(camera.rgb.matrix))
-        world_T_depth_transposed =  np.transpose(np.dot(np.linalg.inv(dataset_cameras.depth_T_camera), np.linalg.inv(camera.rgb.matrix)))
-        print("world_T_camera = " + str(world_T_camera_transposed))
-        print("world_T_depth = " + str(world_T_depth_transposed))
+        world_T_camera_transposed = np.transpose(camera.rgb.matrix)
+        # world_T_camera_transposed = np.linalg.inv(camera.rgb.matrix)
+        world_T_depth_transposed = np.transpose(camera.depth.matrix)
+        world_T_device_transposed = np.transpose(camera.matrix)
+
+        # print("world_T_camera = " + str(world_T_camera_transposed))
+        # print("world_T_depth = " + str(world_T_depth_transposed))
 
         txt_filename = args['path_to_output_dataset'] + '/' + camera.name.zfill(8) + '.txt'
         fh = open(txt_filename, 'w')
-        print('Transformations writen to ' + txt_filename)
 
         # Write to file
         fh.write('3\n')
 
-        for i in range(4):
-            fh.write(str(world_T_camera_transposed[i][0]) + ' ' + str(world_T_camera_transposed[i][1]) + ' ' + str(
-                world_T_camera_transposed[i][2]) + ' ' + str(world_T_camera_transposed[i][3]) + '\n')
+        def p6d(s):
+            """ Prints string with 6 decimal places """
+            return "{0:.6f}".format(s)
+
 
         for i in range(4):
-            fh.write(str(world_T_depth_transposed[i][0]) + ' ' + str(world_T_depth_transposed[i][1]) + ' ' + str(
-                world_T_depth_transposed[i][2]) + ' ' + str(world_T_depth_transposed[i][3]) + '\n')
+            fh.write(p6d(world_T_camera_transposed[i][0]) + ' ' + p6d(world_T_camera_transposed[i][1]) + ' ' + p6d(
+                world_T_camera_transposed[i][2]) + ' ' + p6d(world_T_camera_transposed[i][3]) + '\n')
 
         for i in range(4):
-            fh.write('0 0 0 0' + '\n')
+            fh.write(p6d(world_T_depth_transposed[i][0]) + ' ' + p6d(world_T_depth_transposed[i][1]) + ' ' + p6d(
+                world_T_depth_transposed[i][2]) + ' ' + p6d(world_T_depth_transposed[i][3]) + '\n')
+
+        for i in range(4):
+            fh.write(p6d(world_T_device_transposed[i][0]) + ' ' + p6d(world_T_device_transposed[i][1]) + ' ' + p6d(
+                world_T_device_transposed[i][2]) + ' ' + p6d(world_T_device_transposed[i][3]) + '\n')
 
         fh.write(str(camera.rgb.stamp))
         fh.close()
+        print('Transformations writen to ' + txt_filename)
 
     # STEP 3
     # point clouds World to depth camera ref frame using old transform
@@ -515,7 +556,7 @@ if __name__ == "__main__":
         # normalsInNewWorld = np.transpose(np.dot(T, np.transpose(nxyz)))
 
         # Use colour map on new point clouds
-        r, g, b = (cmap[cam_idx%10, 0:3] * 255)
+        r, g, b = (cmap[cam_idx % 10, 0:3] * 255)
         r, g, b = int(r), int(g), int(b)
 
         # Write to the .ply file
