@@ -456,8 +456,11 @@ if __name__ == "__main__":
 
     # STEP 2
     # Overwrite txt files with new transform
-
     print('\nWriting new .txt files...')
+
+    def p6d(s):
+        """ Prints string with 6 decimal places """
+        return "{0:.6f}".format(s)
 
     for camera in opt.data_models['data_cameras'].cameras:
         # print("\nCamera " + str(camera.name) + ':')
@@ -475,11 +478,6 @@ if __name__ == "__main__":
 
         # Write to file
         fh.write('3\n')
-
-        def p6d(s):
-            """ Prints string with 6 decimal places """
-            return "{0:.6f}".format(s)
-
 
         for i in range(4):
             fh.write(p6d(world_T_camera_transposed[i][0]) + ' ' + p6d(world_T_camera_transposed[i][1]) + ' ' + p6d(
@@ -553,7 +551,6 @@ if __name__ == "__main__":
                    np.dot(camera_T_world, np.dot(depth_T_camera, np.dot(old_world_T_depth, opengl2opencv))))
 
         pointsInNewWorld = np.transpose(np.dot(T, np.transpose(xyz)))
-        # normalsInNewWorld = np.transpose(np.dot(T, np.transpose(nxyz)))
 
         # Use colour map on new point clouds
         r, g, b = (cmap[cam_idx % 10, 0:3] * 255)
