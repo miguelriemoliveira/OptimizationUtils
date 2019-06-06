@@ -224,7 +224,7 @@ class Optimizer:
         """
         self.x0 = deepcopy(self.x)  # store current x as initial parameter values
         self.fromXToData()  # copy from x to data models
-        self.residuals0 = self.objective_function(self.data_models)  # call obj. func. (once) to get initial residuals
+        self.errors0 = self.objective_function(self.data_models)  # call obj. func. (once) to get initial residuals
         errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
 
         # Setup boundaries for parameters
@@ -448,10 +448,10 @@ class Optimizer:
         self.figure_residuals = matplotlib.pyplot.figure()
         self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figure_residuals)
         self.ax = self.figure_residuals.add_subplot(1, 1, 1)
-        x = range(0, len(self.residuals0))
-        self.initial_residuals_handle, = self.ax.plot(x, self.residuals0, color='green', marker='o',
+        x = range(0, len(self.errors0))
+        self.initial_residuals_handle, = self.ax.plot(x, self.errors0, color='green', marker='o',
                                                       linestyle='solid', linewidth=2, markersize=6)
-        self.ax.plot(x, [0] * len(self.residuals0), color='black', linestyle='dashed', linewidth=2, markersize=6)
+        self.ax.plot(x, [0] * len(self.errors0), color='black', linestyle='dashed', linewidth=2, markersize=6)
         self.ax.set_xticks(x, minor=False)
         self.ax.set_xticks([], minor=True)
         self.ax.set_xticklabels(list(self.residuals.keys()))
@@ -464,7 +464,7 @@ class Optimizer:
 
         self.wm.waitForKey(time_to_wait=0.01, verbose=True)
 
-        self.plot_handle, = self.ax.plot(range(0, len(self.residuals0)), self.residuals0, color='blue', marker='s',
+        self.plot_handle, = self.ax.plot(range(0, len(self.errors0)), self.errors0, color='blue', marker='s',
                                          linestyle='solid', linewidth=2, markersize=6)
         matplotlib.pyplot.legend((self.initial_residuals_handle, self.plot_handle), ('Initial', 'Current'))
         self.ax.relim()

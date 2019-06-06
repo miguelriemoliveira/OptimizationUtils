@@ -90,21 +90,13 @@ if __name__ == "__main__":
     def objectiveFunction(model):
 
         # Get the dataset from the model dictionary
-        dataset = model['dataset']
+        # dataset = model['dataset']
 
-        # Apply changes to all camera images using parameter vector
-        for camera in dataset.cameras:
-            camera.rgb.image_changed = utilities.addSafe(camera.rgb.image, camera.rgb.bias)
 
-        # Compute the average color per image
-        for camera in dataset.cameras:
-            camera.rgb.avg_changed = np.average(camera.rgb.image_changed)
-
-        # Compute all the pair wise combinations of the set of cameras
-        # Each element in the vector of errors is the difference of the average color for the combination
         error = []
-        for cam_a, cam_b in combinations(dataset.cameras, 2):
-            error.append(abs(cam_a.rgb.avg_changed - cam_b.rgb.avg_changed))
+
+        # compute the errors ...
+
 
         return error
 

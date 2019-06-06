@@ -378,9 +378,15 @@ if __name__ == "__main__":
     # ---------------------------------------
     # Already created when pushing the parameters
 
-    # opt.x = opt.addNoiseToX(noise=0.1)
-    # opt.fromXToData()
+
+    print('\n-----------------')
+    opt.printParameters(opt.x, text='Initial parameters')
+
+    opt.x = opt.addNoiseToX(noise=0.1)
+    opt.fromXToData()
     # opt.callObjectiveFunction()
+    print('\n')
+    opt.printParameters(opt.x, text='Final parameters')
 
     # ---------------------------------------
     # --- Start Optimization
@@ -391,17 +397,16 @@ if __name__ == "__main__":
     # opt.startOptimization(
     #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4})
 
+    # opt.startOptimization(
+    #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
+    #                           'max_nfev': 1})
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
-                              'max_nfev': 1})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     # This optimized forever but was already at 1.5 pixels avg errror and going when I interrupted it
     # opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4})
 
-    print('\n-----------------')
-    opt.printParameters(opt.x0, text='Initial parameters')
-    print('\n')
-    opt.printParameters(opt.xf, text='Final parameters')
+
 
     ################################################################################################################
     # Creating the optimized dataset
@@ -423,8 +428,6 @@ if __name__ == "__main__":
 
         # print('Depth matrix')
         # print(camera.depth.matrix)
-
-
 
     # STEP 1
     # Full copy of the dataset
@@ -508,7 +511,8 @@ if __name__ == "__main__":
 
     print("\nWriting new .ply files...")
 
-    for cam_idx, camera in enumerate(dataset_cameras.cameras):
+    # for cam_idx, camera in enumerate(dataset_cameras.cameras):
+    for cam_idx, camera in enumerate(opt.data_models['data_cameras'].cameras):
 
         # print('\nCamera ' + camera.name + ':')
 
