@@ -378,15 +378,9 @@ if __name__ == "__main__":
     # ---------------------------------------
     # Already created when pushing the parameters
 
-
-    print('\n-----------------')
-    opt.printParameters(opt.x, text='Initial parameters')
-
-    opt.x = opt.addNoiseToX(noise=0.1)
-    opt.fromXToData()
+    # opt.x = opt.addNoiseToX(noise=0.1)
+    # opt.fromXToData()
     # opt.callObjectiveFunction()
-    print('\n')
-    opt.printParameters(opt.x, text='Final parameters')
 
     # ---------------------------------------
     # --- Start Optimization
@@ -394,19 +388,20 @@ if __name__ == "__main__":
     # print("\n\nStarting optimization")
 
     # This optimizes well
-    # opt.startOptimization(
-    #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4})
-
-    # opt.startOptimization(
-    #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
-    #                           'max_nfev': 1})
     opt.startOptimization(
         optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4})
+
+    #opt.startOptimization(
+    #    optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
+    #                          'max_nfev': 1})
 
     # This optimized forever but was already at 1.5 pixels avg errror and going when I interrupted it
     # opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4})
 
-
+    print('\n-----------------')
+    opt.printParameters(opt.x0, text='Initial parameters')
+    print('\n')
+    opt.printParameters(opt.xf, text='Final parameters')
 
     ################################################################################################################
     # Creating the optimized dataset
@@ -421,6 +416,9 @@ if __name__ == "__main__":
         # TODO I don't understand why this multiplication should be like this. I have reached this through trial and
         #  error. Must be clarified
 
+        # Save this first for point cloud transformation
+        camera.old_world_T_depth = np.linalg.inv(camera.depth.matrix)
+
         # camera.depth.matrix =  np.dot(np.linalg.inv(opt.data_models['data_cameras'].depth_T_camera), np.linalg.inv(camera.rgb.matrix))
         camera.depth.matrix = np.dot(camera.rgb.matrix, opt.data_models['data_cameras'].depth_T_camera)
 
@@ -428,6 +426,8 @@ if __name__ == "__main__":
 
         # print('Depth matrix')
         # print(camera.depth.matrix)
+
+
 
     # STEP 1
     # Full copy of the dataset
@@ -511,8 +511,7 @@ if __name__ == "__main__":
 
     print("\nWriting new .ply files...")
 
-    # for cam_idx, camera in enumerate(dataset_cameras.cameras):
-    for cam_idx, camera in enumerate(opt.data_models['data_cameras'].cameras):
+    for cam_idx, camera in enumerate(dataset_cameras.cameras):
 
         # print('\nCamera ' + camera.name + ':')
 
@@ -539,7 +538,7 @@ if __name__ == "__main__":
         opengl2opencv[3, :] = [0, 0, 0, 1]
         opencv2opengl = np.linalg.inv(opengl2opencv)
 
-        old_world_T_depth = np.linalg.inv(camera.depth.matrix)
+        #old_world_T_depth = np.linalg.inv(camera.depth.matrix)
 
         depth_T_camera = dataset_cameras.depth_T_camera
 
@@ -552,7 +551,7 @@ if __name__ == "__main__":
         # Go from depth to camera: Apply depth_T_camera transformation
         # Go from camera to new world: Apply optimized camera_T_world transformation
         T = np.dot(opencv2opengl,
-                   np.dot(camera_T_world, np.dot(depth_T_camera, np.dot(old_world_T_depth, opengl2opencv))))
+                   np.dot(camera_T_world, np.dot(depth_T_camera, np.dot(camera.old_world_T_depth, opengl2opencv))))
 
         pointsInNewWorld = np.transpose(np.dot(T, np.transpose(xyz)))
 
