@@ -50,7 +50,7 @@ if __name__ == "__main__":
     # Change camera's colors just to better see optimization working
     for i, camera in enumerate(dataset.cameras):
         # if i>0:
-        dataset.cameras[i].rgb.image = utilities.addSafe(dataset.cameras[i].rgb.image, random.randint(-170, 170))
+        dataset.cameras[i].rgb.image = utilities.addSafe(dataset.cameras[i].rgb.image, random.randint(-70, 70))
 
     # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
     for i, camera in enumerate(dataset.cameras):
@@ -94,6 +94,7 @@ if __name__ == "__main__":
 
         # Apply changes to all camera images using parameter vector
         for camera in dataset.cameras:
+            print('camera ' + str(camera.name) + ' = ' + str(camera.rgb.bias))
             camera.rgb.image_changed = utilities.addSafe(camera.rgb.image, camera.rgb.bias)
 
         # Compute the average color per image
@@ -109,7 +110,8 @@ if __name__ == "__main__":
         return error
 
 
-    opt.setObjectiveFunction(objectiveFunction)
+    # opt.setObjectiveFunction(objectiveFunction)
+    opt.setObjectiveFunction(None)
 
     # ---------------------------------------
     # --- Define THE RESIDUALS

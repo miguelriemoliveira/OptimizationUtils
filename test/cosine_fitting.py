@@ -9,9 +9,11 @@ The OCDatasetLoader is used to collect data from a OpenConstructor dataset
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import argparse  # to read command line arguments
+import math
+
 import numpy as np
-import pylab as pl
 from functools import partial
+import matplotlib.pyplot as plt
 import KeyPressManager.KeyPressManager
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
@@ -29,10 +31,10 @@ from OptimizationUtils import utilities
 class Polynomial:
 
     def __init__(self):
+        self.param0 = 0
         self.param1 = 0
         self.param2 = 0
         self.params_3_and_4 = [0, 0]
-
 
 
 if __name__ == "__main__":
@@ -44,16 +46,16 @@ if __name__ == "__main__":
     # It will be the number of polynomial degree
     # for now, i will work with 4
 
-    # ap = argparse.ArgumentParser()
-    # ap = OCDatasetLoader.addArguments(ap) # Dataset loader arguments
-    # ap = OptimizationUtils.addArguments(ap) # OptimizationUtils arguments
-    # args = vars(ap.parse_args())
-    # print(args)
+    ap = argparse.ArgumentParser()
+    ap = OptimizationUtils.addArguments(ap)  # OptimizationUtils arguments
+    args = vars(ap.parse_args())
+    print(args)
 
     # ---------------------------------------
     # --- INITIALIZATION
     # ---------------------------------------
     polynomial = Polynomial()
+    x = (np.linspace(-1 * np.pi / 2, np.pi / 2, 100)).tolist()
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -62,8 +64,12 @@ if __name__ == "__main__":
     opt = OptimizationUtils.Optimizer()
     opt.addModelData('polynomial', polynomial)
 
+
+    # Create specialized getter and setter functions
     def setter(polynomial, value, i):
-        if i == 1:
+        if i == 0:
+            polynomial.param0 = value
+        elif i == 1:
             polynomial.param1 = value
         elif i == 2:
             polynomial.param2 = value
@@ -74,7 +80,9 @@ if __name__ == "__main__":
 
 
     def getter(polynomial, i):
-        if i == 1:
+        if i == 0:
+            return [polynomial.param0]
+        elif i == 1:
             return [polynomial.param1]
         elif i == 2:
             return [polynomial.param2]
@@ -83,31 +91,22 @@ if __name__ == "__main__":
         elif i == 4:
             return [polynomial.params_3_and_4[1]]
 
-    #
-    #
-    # # Create specialized getter and setter functions
-    # for idx_camera, camera in enumerate(dataset.cameras):
-    #     if idx_camera == 0:# First camera with static color
-    #         bound_max = camera.rgb.bias + 0.00001
-    #         bound_min = camera.rgb.bias - 0.00001
-    #     else:
-    #         bound_max = camera.rgb.bias + 250
-    #         bound_min = camera.rgb.bias - 250
-    #
-    for idx in range(1, 5):
+
+    for idx in range(0, 5):
         opt.pushParamScalar(group_name='p' + str(idx), data_key='polynomial', getter=partial(getter, i=idx),
                             setter=partial(setter, i=idx))
 
-    # # ---------------------------------------
-    # # --- Define THE OBJECTIVE FUNCTION
-    # # ---------------------------------------
+
+    # ---------------------------------------
+    # --- Define THE OBJECTIVE FUNCTION
+    # ---------------------------------------
     def objectiveFunction(model):
 
         polynomial = model['polynomial']
 
-        x = np.arange(-1*np.pi/2, np.pi/2, np.pi/30)
         def pol(u):
-            y = (polynomial.param1 * u) + (polynomial.param2 * u**2) + (polynomial.params_3_and_4[0] * u**3) + (polynomial.params_3_and_4[1] * u**4)
+            y = polynomial.param0[0] + (polynomial.param1[0] * u) + (polynomial.param2[0] * u ** 2) + (
+                        polynomial.params_3_and_4[0][0] * u ** 3) + (polynomial.params_3_and_4[1][0] * u ** 4)
             return y
 
         error = []
@@ -115,37 +114,81 @@ if __name__ == "__main__":
             error.append(abs(pol(a) - np.cos(a)))
 
         return error
+
+
     opt.setObjectiveFunction(objectiveFunction)
 
-    # # ---------------------------------------
-    # # --- Define THE RESIDUALS
-    # # ---------------------------------------
-    for a in range(1,31):
-        opt.pushResidual(name='x' + str(a), params=['p1', 'p2', 'p3', 'p4'])
+    # ---------------------------------------
+    # --- Define THE RESIDUALS
+    # ---------------------------------------
+    for a in range(0, len(x)):
+        opt.pushResidual(name='x' + str(a), params=['p0', 'p1', 'p2', 'p3', 'p4'])
 
     print('residuals = ' + str(opt.residuals))
 
     opt.computeSparseMatrix()
 
+    # ---------------------------------------
+    # --- Define THE VISUALIZATION FUNCTION
+    # ---------------------------------------
+
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111)
+    fig = plt.figure()
+    ax = fig.gca()
+
+    ax.set_xlabel('X'), ax.set_ylabel('Y'),
+    ax.set_xticklabels([]), ax.set_yticklabels([])
+    ax.set_xlim(-math.pi/2, math.pi/2), ax.set_ylim(-5, 5)
+
+    # Draw cosine fucntion
+    f = np.cos(x)
+    ax.plot(x, f, label="cosine")
+    legend = ax.legend(loc='upper right', shadow=True, fontsize='x-large')
+
+    y = 0 + \
+        np.multiply(0, np.power(x, 1)) + \
+        np.multiply(0, np.power(x, 2)) + \
+        np.multiply(0, np.power(x, 3)) + \
+        np.multiply(0, np.power(x, 4))
+
+    handle_plot = ax.plot(x, y, label="polynomial")
+    print(type(handle_plot))
+    print((handle_plot))
+
+    wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    if wm.waitForKey(0., verbose=False):
+        exit(0)
+
+    # handles_out = {}
+    # handles_out['point'] = ax.plot([pt_origin[0, 0], pt_origin[0, 0]], [pt_origin[1, 0], pt_origin[1, 0]],
+    #                                [pt_origin[2, 0], pt_origin[2, 0]], 'k.')[0]
+    # handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black',
+    #                               fontsize=fontsize)
+    # else:
+    #     handles['point'].set_xdata([pt_origin[0, 0], pt_origin[0, 0]])
+    #     handles['point'].set_ydata([pt_origin[1, 0], pt_origin[1, 0]])
+    #     handles['point'].set_3d_properties(zs=[pt_origin[2, 0], pt_origin[2, 0]])
     #
-    # # ---------------------------------------
-    # # --- Define THE VISUALIZATION FUNCTION
-    # # ---------------------------------------
-    def visualizationFunction(polynomial):
-        x = np.arange(-1 * np.pi / 2, np.pi / 2, np.pi / 30)
-        y = (polynomial.param1 * x) + (polynomial.param2 * x**2) + (polynomial.params_3_and_4[0] * x**3) + (polynomial.params_3_and_4[1] * x**4)
-        f = np.cos(x)
+    #     handles['text'].set_position((pt_origin[0, 0], pt_origin[1, 0]))
+    #     handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='x')
 
-        fig = pl.plt.figure()
-        ax = fig.add_subplot(111)
+    def visualizationFunction(model):
 
-        pl.plt.xlabel("30 points beetween -pi/2 to pi/2")
-        pl.plt.ylabel("value of polynomial and cos")
+        polynomial = model['polynomial']
 
-        pl.plt.plot(x, y, label="polynomial")
-        pl.plt.plot(x, f, label="cosine")
-        legend = ax.legend(loc='upper right', shadow=True, fontsize='x-large')
+        y = polynomial.param0[0] + \
+            np.multiply(polynomial.param1[0], np.power(x, 1)) + \
+            np.multiply(polynomial.param2[0], np.power(x, 2)) + \
+            np.multiply(polynomial.params_3_and_4[0][0], np.power(x, 3)) + \
+            np.multiply(polynomial.params_3_and_4[1][0], np.power(x, 4))
 
+        handle_plot[0].set_ydata(y)
+
+
+        wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+        if wm.waitForKey(0.01, verbose=False):
+            exit(0)
 
     opt.setVisualizationFunction(visualizationFunction, True)
 
@@ -162,7 +205,8 @@ if __name__ == "__main__":
     # --- Start Optimization
     # ---------------------------------------
     print("\n\nStarting optimization")
-    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-0})
+    opt.startOptimization(
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-12, 'gtol': 1e-8, 'diff_step': 1e-4})
 
     wm = KeyPressManager.KeyPressManager.WindowManager()
     if wm.waitForKey():
