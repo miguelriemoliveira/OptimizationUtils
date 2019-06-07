@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-This code shows how the optimizer class may be used for changing the colors of a set of images so that the average
+This code shows how the optimizer 8 may be used for changing the colors of a set of images so that the average
 color in all images is very similar. This is often called color correction.
 The OCDatasetLoader is used to collect data from a OpenConstructor dataset
 """

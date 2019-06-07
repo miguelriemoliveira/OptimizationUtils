@@ -9,12 +9,9 @@ The OCDatasetLoader is used to collect data from a OpenConstructor dataset
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import argparse  # to read command line arguments
-from itertools import combinations
 import numpy as np
-import cv2
+import pylab as pl
 from functools import partial
-import random
-import OCDatasetLoader.OCDatasetLoader as OCDatasetLoader
 import KeyPressManager.KeyPressManager
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
@@ -28,112 +25,126 @@ import OptimizationUtils.OptimizationUtils as OptimizationUtils
 # -------------------------------------------------------------------------------
 from OptimizationUtils import utilities
 
+
+class Polynomial:
+
+    def __init__(self):
+        self.param1 = 0
+        self.param2 = 0
+        self.params_3_and_4 = [0, 0]
+
+
+
 if __name__ == "__main__":
 
     # ---------------------------------------
     # --- Parse command line argument
     # ---------------------------------------
-    ap = argparse.ArgumentParser()
-    ap = OCDatasetLoader.addArguments(ap) # Dataset loader arguments
-    ap = OptimizationUtils.addArguments(ap) # OptimizationUtils arguments
-    args = vars(ap.parse_args())
-    print(args)
+
+    # It will be the number of polynomial degree
+    # for now, i will work with 4
+
+    # ap = argparse.ArgumentParser()
+    # ap = OCDatasetLoader.addArguments(ap) # Dataset loader arguments
+    # ap = OptimizationUtils.addArguments(ap) # OptimizationUtils arguments
+    # args = vars(ap.parse_args())
+    # print(args)
 
     # ---------------------------------------
     # --- INITIALIZATION
     # ---------------------------------------
-    dataset_loader = OCDatasetLoader.Loader(args)
-    dataset = dataset_loader.loadDataset()
-    num_cameras = len(dataset.cameras)
-    print(num_cameras)
-
-    # Change camera's colors just to better see optimization working
-    for i, camera in enumerate(dataset.cameras):
-        # if i>0:
-        dataset.cameras[i].rgb.image = utilities.addSafe(dataset.cameras[i].rgb.image, random.randint(-170, 170))
-
-    # lets add a bias variable to each camera.rgb. This value will be used to change the image and optimize
-    for i, camera in enumerate(dataset.cameras):
-        # camera.rgb.bias = random.randint(-30, 30)
-        camera.rgb.bias = 0
+    polynomial = Polynomial()
 
     # ---------------------------------------
     # --- Setup Optimizer
     # ---------------------------------------
     print('Initializing optimizer')
     opt = OptimizationUtils.Optimizer()
-    opt.addModelData('dataset', dataset)
-    opt.addModelData('another_thing', [])
+    opt.addModelData('polynomial', polynomial)
 
-    def setter(dataset, value, i):
-        dataset.cameras[i].rgb.bias = value
+    def setter(polynomial, value, i):
+        if i == 1:
+            polynomial.param1 = value
+        elif i == 2:
+            polynomial.param2 = value
+        elif i == 3:
+            polynomial.params_3_and_4[0] = value
+        elif i == 4:
+            polynomial.params_3_and_4[1] = value
 
-    def getter(dataset, i):
-        return [dataset.cameras[i].rgb.bias]
 
+    def getter(polynomial, i):
+        if i == 1:
+            return [polynomial.param1]
+        elif i == 2:
+            return [polynomial.param2]
+        elif i == 3:
+            return [polynomial.params_3_and_4[0]]
+        elif i == 4:
+            return [polynomial.params_3_and_4[1]]
 
-    # Create specialized getter and setter functions
-    for idx_camera, camera in enumerate(dataset.cameras):
-        if idx_camera == 0:# First camera with static color
-            bound_max = camera.rgb.bias + 0.00001
-            bound_min = camera.rgb.bias - 0.00001
-        else:
-            bound_max = camera.rgb.bias + 250
-            bound_min = camera.rgb.bias - 250
+    #
+    #
+    # # Create specialized getter and setter functions
+    # for idx_camera, camera in enumerate(dataset.cameras):
+    #     if idx_camera == 0:# First camera with static color
+    #         bound_max = camera.rgb.bias + 0.00001
+    #         bound_min = camera.rgb.bias - 0.00001
+    #     else:
+    #         bound_max = camera.rgb.bias + 250
+    #         bound_min = camera.rgb.bias - 250
+    #
+    for idx in range(1, 5):
+        opt.pushParamScalar(group_name='p' + str(idx), data_key='polynomial', getter=partial(getter, i=idx),
+                            setter=partial(setter, i=idx))
 
-        opt.pushParamScalar(group_name='bias_' + camera.name, data_key='dataset', getter=partial(getter, i=idx_camera),
-                            setter=partial(setter, i=idx_camera), bound_max=bound_max, bound_min=bound_min)
-
-    # ---------------------------------------
-    # --- Define THE OBJECTIVE FUNCTION
-    # ---------------------------------------
+    # # ---------------------------------------
+    # # --- Define THE OBJECTIVE FUNCTION
+    # # ---------------------------------------
     def objectiveFunction(model):
 
-        # Get the dataset from the model dictionary
-        # dataset = model['dataset']
+        polynomial = model['polynomial']
 
+        x = np.arange(-1*np.pi/2, np.pi/2, np.pi/30)
+        def pol(u):
+            y = (polynomial.param1 * u) + (polynomial.param2 * u**2) + (polynomial.params_3_and_4[0] * u**3) + (polynomial.params_3_and_4[1] * u**4)
+            return y
 
         error = []
-
-        # compute the errors ...
-
+        for a in x:
+            error.append(abs(pol(a) - np.cos(a)))
 
         return error
-
-
     opt.setObjectiveFunction(objectiveFunction)
 
-    # ---------------------------------------
-    # --- Define THE RESIDUALS
-    # ---------------------------------------
-    # The error is computed from the difference of the average color of one image with another
-    # Thus, we will use all pairwise combinations of available images
-    # For example, if we have 3 cameras c0, c1 and c2, the residuals should be:
-    #    c0-c1, c0-c2, c1-c2
-
-    for cam_a, cam_b in combinations(dataset.cameras, 2):
-        opt.pushResidual(name='c' + cam_a.name + '-c' + cam_b.name, params=['bias_' + cam_a.name, 'bias_' + cam_b.name])
+    # # ---------------------------------------
+    # # --- Define THE RESIDUALS
+    # # ---------------------------------------
+    for a in range(1,31):
+        opt.pushResidual(name='x' + str(a), params=['p1', 'p2', 'p3', 'p4'])
 
     print('residuals = ' + str(opt.residuals))
 
     opt.computeSparseMatrix()
 
+    #
+    # # ---------------------------------------
+    # # --- Define THE VISUALIZATION FUNCTION
+    # # ---------------------------------------
+    def visualizationFunction(polynomial):
+        x = np.arange(-1 * np.pi / 2, np.pi / 2, np.pi / 30)
+        y = (polynomial.param1 * x) + (polynomial.param2 * x**2) + (polynomial.params_3_and_4[0] * x**3) + (polynomial.params_3_and_4[1] * x**4)
+        f = np.cos(x)
 
-    # ---------------------------------------
-    # --- Define THE VISUALIZATION FUNCTION
-    # ---------------------------------------
-    def visualizationFunction(model):
-        # Get the dataset from the model dictionary
-        dataset = model['dataset']
+        fig = pl.plt.figure()
+        ax = fig.add_subplot(111)
 
-        for i, camera in enumerate(dataset.cameras):
-            cv2.namedWindow('Initial Cam ' + str(i), cv2.WINDOW_NORMAL)
-            cv2.imshow('Initial Cam ' + str(i), camera.rgb.image)
+        pl.plt.xlabel("30 points beetween -pi/2 to pi/2")
+        pl.plt.ylabel("value of polynomial and cos")
 
-        for i, camera in enumerate(dataset.cameras):
-            cv2.namedWindow('Changed Cam ' + str(i), cv2.WINDOW_NORMAL)
-            cv2.imshow('Changed Cam ' + str(i), camera.rgb.image_changed)
-        cv2.waitKey(20)
+        pl.plt.plot(x, y, label="polynomial")
+        pl.plt.plot(x, f, label="cosine")
+        legend = ax.legend(loc='upper right', shadow=True, fontsize='x-large')
 
 
     opt.setVisualizationFunction(visualizationFunction, True)
@@ -146,7 +157,7 @@ if __name__ == "__main__":
     # wm = KeyPressManager.KeyPressManager.WindowManager()
     # if wm.waitForKey():
     #     exit(0)
-
+    #
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
