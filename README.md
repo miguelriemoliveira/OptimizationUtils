@@ -54,3 +54,8 @@ test/pose_and_color_oc_dataset.py -p ~/datasets/red_book_aruco/ -m ~/datasets/re
 ```bash
 clear && test/projection_based_color_balancing_oc_dataset.py -p ~/datasets/red_book_aruco/ -m ~/datasets/red_book_aruco/1528885039597.obj -i ~/datasets/red_book_aruco/calibrations/camera.yaml -ms 0.082 -si 25 -sv 50 -z 0.1 -vo
 ```
+ 
+### to read json file in your datasets 
+```
+  test/sensor_pose_json.py -json <json_:path_to_your_json>
+```
