@@ -53,11 +53,7 @@ if __name__ == "__main__":
     f = open(args['json_file'], 'r')
     dataset = json.load(f)
 
-    print(dataset)
-    exit(0)
-
-    # TODO output a report about the read json
-    # print("\nDataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
+    print('Loaded dataset containing ' + str(len(dataset['sensors'].keys())) + ' sensors and ' + str(len(dataset['collections'].keys())) + ' collections.')
 
     # ---------------------------------------
     # --- Setup Optimizer
