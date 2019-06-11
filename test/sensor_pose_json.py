@@ -8,6 +8,8 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # -------------------------------------------------------------------------------
 import json
 
+from tf import transformations
+
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 import KeyPressManager.KeyPressManager as KeyPressManager
 import OptimizationUtils.utilities as utilities
@@ -48,12 +50,12 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- INITIALIZATION
     # ---------------------------------------
-
     """ Loads a json file containing the detections"""
     f = open(args['json_file'], 'r')
     dataset = json.load(f)
 
-    print('Loaded dataset containing ' + str(len(dataset['sensors'].keys())) + ' sensors and ' + str(len(dataset['collections'].keys())) + ' collections.')
+    print('Loaded dataset containing ' + str(len(dataset['sensors'].keys())) + ' sensors and ' + str(
+        len(dataset['collections'].keys())) + ' collections.')
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -61,46 +63,97 @@ if __name__ == "__main__":
     print('\nInitializing optimizer...')
     opt = OptimizationUtils.Optimizer()
 
-    # TODO add model data. We can just include the super dictionary read from the json or convert it to a class first?
-    # opt.addModelData('data_cameras', dataset_cameras)
+    opt.addModelData('dataset', dataset)
+
 
     # ------------  Sensors -----------------
     # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
     # TODO implement getters and setters for the sensor poses.
 
-    # def getterCameraTranslation(data, cam_idx):
-    #     return data.cameras[cam_idx].rgb.matrix[0:3, 3]
-    #
-    # def setterCameraTranslation(data, value, cam_idx):
-    #     data.cameras[cam_idx].rgb.matrix[0:3, 3] = value
-    #
-    # def getterCameraRotation(data, cam_idx):
-    #     matrix = data.cameras[cam_idx].rgb.matrix[0:3, 0:3]
-    #     return utilities.matrixToRodrigues(matrix)
-    #
-    # def setterCameraRotation(data, value, cam_idx):
-    #     matrix = utilities.rodriguesToMatrix(value)
-    #     data.cameras[cam_idx].rgb.matrix[0:3, 0:3] = matrix
+    def getterSensorTranslation(data, sensor_name):
+        calibration_parent = data['sensors'][sensor_name]['calibration_parent']
+        calibration_child = data['sensors'][sensor_name]['calibration_child']
+        transform_key = calibration_parent + '-' + calibration_child
+        # We use collection "0" and assume they are all the same
+        return data['collections']['0']['transforms'][transform_key]['trans']
+
+
+    def setterSensorTranslation(data, value, sensor_name):
+        assert len(value) == 3, "value must be a list with length 3."
+
+        calibration_parent = data['sensors'][sensor_name]['calibration_parent']
+        calibration_child = data['sensors'][sensor_name]['calibration_child']
+        transform_key = calibration_parent + '-' + calibration_child
+
+        for collection in data['collections']:
+            data['collections'][collection]['transforms'][transform_key]['trans'] = value
+
+
+    def getterSensorRotation(data, sensor_name):
+        calibration_parent = data['sensors'][sensor_name]['calibration_parent']
+        calibration_child = data['sensors'][sensor_name]['calibration_child']
+        transform_key = calibration_parent + '-' + calibration_child
+
+        # We use collection "0" and assume they are all the same
+        quat = data['collections']['0']['transforms'][transform_key]['quat']
+        hmatrix = transformations.quaternion_matrix(quat)
+        matrix = hmatrix[0:3, 0:3]
+
+        return utilities.matrixToRodrigues(matrix)
+
+
+    def setterSensorRotation(data, value, sensor_name):
+        assert len(value) == 3, "value must be a list with length 3."
+
+        matrix = utilities.rodriguesToMatrix(value)
+        hmatrix = np.identity(4)
+        hmatrix[0:3, 0:3] = matrix
+        rod = transformations.quaternion_from_matrix(hmatrix, isprecise=False)
+
+        calibration_parent = data['sensors'][sensor_name]['calibration_parent']
+        calibration_child = data['sensors'][sensor_name]['calibration_child']
+        transform_key = calibration_parent + '-' + calibration_child
+
+        for collection in data['collections']:
+            data['collections'][collection]['transforms'][transform_key]['quat'] = rod
+
 
     # Add parameters related to the sensors
     # TODO create sensor pose related params
-    # for cam_idx, camera in enumerate(dataset_cameras.cameras):
-    #     # Add the translation
-    #     opt.pushParamV3(group_name='C' + camera.name + '_t', data_key='data_cameras',
-    #                     getter=partial(getterCameraTranslation, cam_idx=cam_idx),
-    #                     setter=partial(setterCameraTranslation, cam_idx=cam_idx),
-    #                     sufix=['x', 'y', 'z'])
-    #
-    #     # Add the rotation
-    #     opt.pushParamV3(group_name='C' + camera.name + '_r', data_key='data_cameras',
-    #                     getter=partial(getterCameraRotation, cam_idx=cam_idx),
-    #                     setter=partial(setterCameraRotation, cam_idx=cam_idx),
-    #                     sufix=['1', '2', '3'])
+    for sensor_key, sensor in dataset['sensors'].items():
+        # Add the translation
+        opt.pushParamV3(group_name='S_' + sensor['_name'] + '_t', data_key='dataset',
+                        getter=partial(getterSensorTranslation, sensor_name=sensor['_name']),
+                        setter=partial(setterSensorTranslation, sensor_name=sensor['_name']),
+                        sufix=['x', 'y', 'z'])
+
+        # Add the rotation
+        opt.pushParamV3(group_name='S' + sensor['_name'] + '_r', data_key='dataset',
+                        getter=partial(getterSensorRotation, sensor_name=sensor['_name']),
+                        setter=partial(setterSensorRotation, sensor_name=sensor['_name']),
+                        sufix=['1', '2', '3'])
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
     # TODO add getter and setters for translation and rotation
     # TODO how to get the first guess for each chessboard pose?
+
+    for sensor_key, sensor in dataset['sensors'].items():
+        if sensor['msg_type'] == 'Image' and sensor_key == 'top_right_camera':
+            collection = "0"
+            filename = os.path.dirname(args['json_file']) + \
+                       '/' + dataset['collections'][collection]['data'][sensor_key]['data_file']
+            image_gray = cv2.imread(filename, cv2.COLOR_BGR2GRAY)
+            # image_gray = cv2.imread(filename, 0)
+
+            # Find chessboard corners
+            #TODO give chessboard size as argumento (or in json)
+            found, corners = cv2.findChessboardCorners(image_gray, (8, 6))
+            image = deepcopy(image_gray)
+            cv2.drawChessboardCorners(image, (8, 6), corners, found)  # Draw and display the corners
+
+            cv2.imshow(sensor_key, image)
+            cv2.waitKey(0)
 
     # def getterArucoTranslation(data, aruco_id):
     #     return data.arucos[aruco_id].matrix[0:3, 3]
@@ -115,7 +168,19 @@ if __name__ == "__main__":
     #                     setter=partial(setterArucoTranslation, aruco_id=aruco_id),
     #                     sufix=['_tx', '_ty', '_tz'])
 
+    # opt.x[14] = 77
     # opt.printParameters()
+    # opt.fromXToData()
+    #
+    # sensor_name = "frontal_camera"
+    # calibration_parent = dataset['sensors'][sensor_name]['calibration_parent']
+    # calibration_child = dataset['sensors'][sensor_name]['calibration_child']
+    # transform_key = calibration_parent + '-' + calibration_child
+    # for collection in dataset['collections']:
+    #     print("Collection " + collection + ' = ' + str(dataset['collections'][collection]['transforms'][transform_key]['trans']))
+
+    opt.printParameters()
+    exit(0)
 
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
@@ -142,7 +207,7 @@ if __name__ == "__main__":
         # for collection in collections
         #       for sensor in sensors
         #           if chessboad detected by this sensor in collection
-                        # compute the error
+        # compute the error
         #               errors.append(error)
 
         first_time = False
