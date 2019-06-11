@@ -6,6 +6,8 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # -------------------------------------------------------------------------------
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
+import json
+
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 import KeyPressManager.KeyPressManager as KeyPressManager
 import OptimizationUtils.utilities as utilities
@@ -37,6 +39,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     ap = argparse.ArgumentParser()
     ap = OptimizationUtils.addArguments(ap)  # OptimizationUtils arguments
+    ap.add_argument("-json", "--json_file", help="Json file containing input dataset.", type=str, required=True)
     args = vars(ap.parse_args())
     print("\nArgument list=")
     print(args)
@@ -46,7 +49,12 @@ if __name__ == "__main__":
     # --- INITIALIZATION
     # ---------------------------------------
 
-    # TODO read the json file
+    """ Loads a json file containing the detections"""
+    f = open(args['json_file'], 'r')
+    dataset = json.load(f)
+
+    print(dataset)
+    exit(0)
 
     # TODO output a report about the read json
     # print("\nDataset_cameras contains " + str(len(dataset_cameras.cameras)) + " cameras")
