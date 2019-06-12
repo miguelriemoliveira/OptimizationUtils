@@ -44,6 +44,12 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap = OptimizationUtils.addArguments(ap)  # OptimizationUtils arguments
     ap.add_argument("-json", "--json_file", help="Json file containing input dataset.", type=str, required=True)
+    ap.add_argument("-csize", "--chess_size", help="Size in meters of the side of the chessboard's squares.",
+                    type=float, required=True)
+    ap.add_argument("-cnumx", "--chess_num_x", help="Chessboard's number of squares in horizontal dimension.",
+                    type=int, required=True)
+    ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of squares in vertical dimension.",
+                    type=int, required=True)
     args = vars(ap.parse_args())
     print("\nArgument list=")
     print(args)
@@ -56,6 +62,7 @@ if __name__ == "__main__":
     f = open(args['json_file'], 'r')
     dataset_sensors = json.load(f)
 
+    # Remove some sensors if desired. Should be done here according to the examples bellow.
     del dataset_sensors['sensors']['frontal_laser']
     del dataset_sensors['sensors']['left_laser']
     del dataset_sensors['sensors']['right_laser']
@@ -63,32 +70,40 @@ if __name__ == "__main__":
     print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
         len(dataset_sensors['collections'].keys())) + ' collections.')
 
+    # Load images from files into memory. Images in the json file are stored in separate png files and in their place
+    # a field "data_file" is saved with the path to the file. We must load the images from the disk.
+    for collection_key, collection in dataset_sensors['collections'].items():
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            if not sensor['msg_type'] == 'Image':  # nothing to do here.
+                continue
+
+            filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
+            collection['data'][sensor_key]['data'] = cv2.imread(filename)
+
     # ---------------------------------------
-    # --- CREATE CHESSBOARD DATASET:w
+    # --- CREATE CHESSBOARD DATASET
     # ---------------------------------------
     dataset_chessboard = {}
 
-    chessboard_size = 0.1054
-    objp = np.zeros((6 * 8, 3), np.float32)
-    objp[:, :2] = chessboard_size * np.mgrid[0:8, 0:6].T.reshape(-1, 2)
+    objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
+    objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1, 2)
     chessboard_points = np.transpose(objp)
-    chessboard_points = np.vstack((chessboard_points, np.ones((1, 48), dtype=np.float)))
+    chessboard_points = np.vstack((chessboard_points, np.ones((1, args['chess_num_x'] * args['chess_num_y']), dtype=np.float)))
 
     for sensor_key, sensor in dataset_sensors['sensors'].items():
         # if sensor['msg_type'] == 'Image' and sensor_key == 'top_right_camera':
         if sensor['msg_type'] == 'Image' and sensor_key == 'frontal_camera':
 
-            for collection in dataset_sensors['collections']:
-                filename = os.path.dirname(args['json_file']) + \
-                           '/' + dataset_sensors['collections'][collection]['data'][sensor_key]['data_file']
+            for collection_key, collection in dataset_sensors['collections'].items():
 
-                image_rgb = cv2.imread(filename)
+                print collection['data'][sensor_key]
+                image_rgb = collection['data'][sensor_key]['data']
 
-                mtx = dataset_sensors['sensors'][sensor_key]['camera_info']['K']
-                mtx = np.ndarray((3, 3), buffer=np.array(mtx), dtype=np.float)
+                mtx = np.ndarray((3, 3), dtype=np.float,
+                                 buffer=np.array(sensor['camera_info']['K']))
 
-                dist = dataset_sensors['sensors'][sensor_key]['camera_info']['D']
-                dist = np.ndarray((5, 1), buffer=np.array(dist), dtype=np.float)
+                dist = np.ndarray((5, 1), dtype=np.float,
+                                  buffer=np.array(sensor['camera_info']['D']))
 
 
                 def draw(img, corners, imgpts):
@@ -99,15 +114,14 @@ if __name__ == "__main__":
                     return img
 
 
-                chessboard_size = 0.1054
                 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-                objp = np.zeros((6 * 8, 3), np.float32)
-                objp[:, :2] = chessboard_size * np.mgrid[0:8, 0:6].T.reshape(-1, 2)
+                objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
+                objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1, 2)
 
                 axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, 3]]).reshape(-1, 3)
 
                 gray = cv2.cvtColor(image_rgb, cv2.COLOR_BGR2GRAY)
-                ret, corners = cv2.findChessboardCorners(gray, (8, 6), None)
+                ret, corners = cv2.findChessboardCorners(gray, (args['chess_num_x'], args['chess_num_y']), None)
                 if ret == True:
                     corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
                     # Find the rotation and translation vectors.
@@ -119,25 +133,23 @@ if __name__ == "__main__":
                     image_rgb = draw(image_rgb, corners2, imgpts)
                     # cv2.imshow('img', image_rgb)
 
-                    car_center_T_sensor = utilities.getAggregateTransform(
-                        dataset_sensors['sensors'][sensor_key]['chain'],
-                        dataset_sensors['collections'][collection]['transforms'])
-                    print('car_center_T_sensor=\n' + str(car_center_T_sensor) + '\n\n')
+                    root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                    print('root_T_sensor=\n' + str(root_T_sensor) + '\n\n')
 
                     sensor_T_chessboard = utilities.traslationRodriguesToTransform(tvecs, rvecs)
                     print('sensor_T_chessboard =\n ' + str(sensor_T_chessboard))
 
-                    car_center_T_chessboard = np.dot(car_center_T_sensor, sensor_T_chessboard)
-                    print('car_center_T_chessboard =\n ' + str(car_center_T_chessboard))
+                    root_T_chessboard = np.dot(root_T_sensor, sensor_T_chessboard)
+                    print('root_T_chessboard =\n ' + str(root_T_chessboard))
 
                     d = {}
-                    d['trans'] = list(car_center_T_chessboard[0:3, 3])
+                    d['trans'] = list(root_T_chessboard[0:3, 3])
 
-                    T = deepcopy(car_center_T_chessboard)
+                    T = deepcopy(root_T_chessboard)
                     T[0:3, 3] = 0  # remove translation component from 4x4 matrix
                     d['quat'] = list(transformations.quaternion_from_matrix(T))
 
-                    dataset_chessboard[collection] = d
+                    dataset_chessboard[collection_key] = d
 
                     # cv2.waitKey(10)
 
@@ -267,7 +279,6 @@ if __name__ == "__main__":
     # ---------------------------------------
     first_time = True
 
-
     def objectiveFunction(data):
         """
         Computes the vector of errors. There should be an error for each stamp, sensor and chessboard tuple.
@@ -299,19 +310,19 @@ if __name__ == "__main__":
                     # Compute chessboard points in local sensor reference frame
                     trans = dataset_chessboard[collection_key]['trans']
                     quat = dataset_chessboard[collection_key]['quat']
-                    car_center_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
-                    # print('car_center_T_chessboard=\n' + str(car_center_T_chessboard))
+                    root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
+                    # print('root_T_chessboard=\n' + str(root_T_chessboard))
 
-                    sensor_T_car_center = np.linalg.inv(utilities.getAggregateTransform(
-                        sensor['chain'], collection['transforms']))
-                    # print('sensor_T_car_center=\n' + str(sensor_T_car_center))
+                    sensor_T_root = np.linalg.inv(utilities.getAggregateTransform(sensor['chain'],
+                                                                                  collection['transforms']))
+                    # print('sensor_T_root=\n' + str(sensor_T_root))
 
-                    # pts_car_center = np.dot(chessboard_T_car_center, chessboard_points)
-                    pts_car_center = np.dot(car_center_T_chessboard, chessboard_points)
-                    # print('pts_car_center')
-                    # print(pts_car_center)
+                    # pts_root = np.dot(chessboard_T_root, chessboard_points)
+                    pts_root = np.dot(root_T_chessboard, chessboard_points)
+                    # print('pts_root')
+                    # print(pts_root)
 
-                    pts_sensor = np.dot(sensor_T_car_center, pts_car_center)
+                    pts_sensor = np.dot(sensor_T_root, pts_root)
                     # print('pts_sensor')
                     # print(pts_sensor)
 
@@ -349,11 +360,11 @@ if __name__ == "__main__":
                     # error = math.sqrt( (pixs[0,0] - array_gt[0,0])**2 + (pixs[1,0] - array_gt[1,0])**2 )
 
                     error_sum = 0
-                    for idx in range(0, 8 * 6):
+                    for idx in range(0, args['chess_num_x'] * args['chess_num_y']):
                         error_sum += math.sqrt(
                             (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
 
-                    error = error_sum / 48
+                    error = error_sum / (args['chess_num_x'] * args['chess_num_y'])
                     print('error for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(error))
                     errors.append(error)
 
@@ -364,13 +375,18 @@ if __name__ == "__main__":
 
                     collection['labels'][sensor_key]['idxs_projected'] = idxs_projected
 
+                    global first_time
+                    if first_time:
+                        collection['labels'][sensor_key]['idxs_initial'] = deepcopy(idxs_projected)
+                        first_time = False
+
                 elif sensor['msg_type'] == 'LaserScan':
                     # TODO compute the error for lasers
                     errors.append(0)
                 else:
                     raise ValueError("Unknown sensor msg_type")
 
-        # first_time = False
+
 
         # Return the errors
         return errors
@@ -382,7 +398,7 @@ if __name__ == "__main__":
     # --- Define THE RESIDUALS
     # ---------------------------------------
     # TODO residuals: each error is computed after the sensor and the chessboard of a collection.
-    #  Thus, each error will be affected by the parameters tx,ty,tz,r1,r2,r3 of the sensor and the chessboar
+    #  Thus, each error will be affected by the parameters tx,ty,tz,r1,r2,r3 of the sensor and the chessboard
 
     for collection_key, collection in dataset_sensors['collections'].items():
         # print('for collection_key ' + str(collection_key))
@@ -412,6 +428,7 @@ if __name__ == "__main__":
 
     if args['view_optimization']:
 
+        # Create opencv windows. One per sensor image and collection
         counter = 0
         for collection_key, collection in dataset_sensors['collections'].items():
             # print('for collection_key ' + str(collection_key))
@@ -431,6 +448,7 @@ if __name__ == "__main__":
                     cv2.imshow(window_name, image)
                     counter += 1
 
+        # Create a 3D plot in which the sensor poses and chessboards are drawn
         fig = plt.figure()
         ax = fig.gca(projection='3d')
         #
@@ -468,6 +486,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
 
+
     def visualizationFunction(data):
         # Get the data from the model
         dataset_sensors = data['dataset_sensors']
@@ -488,7 +507,7 @@ if __name__ == "__main__":
                     image = cv2.imread(filename)
                     width = collection['data'][sensor_key]['width']
                     height = collection['data'][sensor_key]['height']
-                    diagonal = math.sqrt(width**2 + height**2)
+                    diagonal = math.sqrt(width ** 2 + height ** 2)
 
                     points_projected = collection['labels'][sensor_key]['idxs_projected']
                     for point_projected in points_projected:
@@ -500,7 +519,7 @@ if __name__ == "__main__":
                     for point_ground_truth in points_ground_truth:
                         x = int(round(point_ground_truth['x']))
                         y = int(round(point_ground_truth['y']))
-                        utilities.drawSquare2D(image, x, y, int(8E-3 * diagonal) , color=(0, 0, 255), thickness=2)
+                        utilities.drawSquare2D(image, x, y, int(8E-3 * diagonal), color=(0, 0, 255), thickness=2)
 
                     window_name = sensor_key + '-' + collection_key
                     cv2.imshow(window_name, image)
@@ -557,6 +576,7 @@ if __name__ == "__main__":
         wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
+
 
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1)
 
