@@ -8,6 +8,8 @@ A set of utilities to be used in the optimization algorithms
 # -------------------------------------------------------------------------------
 from copy import deepcopy
 
+from tf import transformations
+
 import KeyPressManager
 import numpy as np
 import cv2
@@ -143,16 +145,58 @@ def traslationRodriguesToTransform(translation, rodrigues):
     R = rodriguesToMatrix(rodrigues)
     T = np.zeros((4, 4), dtype=np.float)
     T[0:3, 0:3] = R
-    T[0:3, 3] = translation
+    T[0, 3] = translation[0]
+    T[1, 3] = translation[1]
+    T[2, 3] = translation[2]
     T[3, 3] = 1
     return T
+
+
+def translationQuaternionToTransform(trans, quat):
+    matrix = transformations.quaternion_matrix(quat)
+    matrix[0, 3] = trans[0]
+    matrix[1, 3] = trans[1]
+    matrix[2, 3] = trans[2]
+    matrix[3, 3] = 1
+    return matrix
+
+
+def getAggregateTransform(chain, transforms, mode=0):
+
+    AT = np.eye(4, dtype=np.float)
+
+    if mode == 0:
+        for link in chain:
+            parent = link['parent']
+            child = link['child']
+            trans = transforms[link['key']]['trans']
+            quat = transforms[link['key']]['quat']
+            parent_T_child = translationQuaternionToTransform(trans, quat)
+
+            # print(parent + '_T_' + child + ' =\n' + str(parent_T_child))
+            # AT = np.dot(AT, parent_T_child)
+            # AT = np.dot(parent_T_child, AT)
+            AT = np.dot(AT, parent_T_child)
+    else:
+        for link in chain[::-1]:
+            parent = link['parent']
+            child = link['child']
+            trans = transforms[link['key']]['trans']
+            quat = transforms[link['key']]['quat']
+            parent_T_child = translationQuaternionToTransform(trans, quat)
+
+            # print(parent + '_T_' + child + ' =\n' + str(parent_T_child))
+            # AT = np.dot(AT, parent_T_child)
+            AT = np.dot(parent_T_child, AT)
+            # AT = np.dot(AT, parent_T_child)
+
+    return AT
 
 
 # ---------------------------------------
 # --- Computer Vision functions
 # ---------------------------------------
 def projectToCameraPair(cam_a, cam_b, pts3D_in_map, z_inconsistency_threshold=0.1, visualize=False):
-
     # project 3D points to cam_a image (first the transformation from map to camera is done)
     pts3D_in_cam_a = cam_a.rgb.transformToCamera(pts3D_in_map)
     pts2D_a, pts_valid_a, pts_range_a = cam_a.rgb.projectToCamera(pts3D_in_cam_a)
@@ -281,6 +325,7 @@ def addSafe(image_in, val):
     image_out = np.minimum(image_out, 255)  # overflow
     return image_out.astype(np.uint8)  # Convert back to uint8 and return
 
+
 def deVignetting(image, parameters):
     """ Devignettes and image using a devignetting function defined by a nth order polynomial.
 
@@ -288,8 +333,7 @@ def deVignetting(image, parameters):
     :param parameters: a list of n parameters to build the polynomial from
     """
 
-    #f(x) = p1*x^5 + p2*x^4 + p3*x^3 + p4*x^2 + p5*x + p6
-
+    # f(x) = p1*x^5 + p2*x^4 + p3*x^3 + p4*x^2 + p5*x + p6
 
 
 def adjustGamma(image, gamma=1.0):
@@ -316,15 +360,15 @@ def adjustLAB(image_in, l_bias=0.0, a_bias=0.0, b_bias=0.0, l_scale=1.0, a_scale
 
     image_lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float)
 
-    image_lab[:, :, 0] += l_bias*255
-    image_lab[:, :, 0] = image_lab [:, :, 0] * l_scale
+    image_lab[:, :, 0] += l_bias * 255
+    image_lab[:, :, 0] = image_lab[:, :, 0] * l_scale
     image_lab
 
-    image_lab[:, :, 1] += a_bias*255
-    image_lab[:, :, 1] = image_lab [:, :, 1] * a_scale
+    image_lab[:, :, 1] += a_bias * 255
+    image_lab[:, :, 1] = image_lab[:, :, 1] * a_scale
 
-    image_lab[:, :, 2] += b_bias*255
-    image_lab[:, :, 2] = image_lab [:, :, 1] * b_scale
+    image_lab[:, :, 2] += b_bias * 255
+    image_lab[:, :, 2] = image_lab[:, :, 1] * b_scale
 
     image_lab = np.maximum(image_lab, 0)  # underflow
     image_lab = np.minimum(image_lab, 255)  # overflow
@@ -340,6 +384,7 @@ def printNumPyArray(arrays):
     for name in arrays:
         array = arrays[name]
         print(name + ': shape ' + str(array.shape) + ' type ' + str(array.dtype) + ':\n' + str(array))
+
 
 def drawProjectionErrors(img1, points1, img2, points2, errors, fig_name, skip=1):
     """ Draws an image pair reprojections similar to the opencv draw matches
@@ -370,7 +415,8 @@ def drawProjectionErrors(img1, points1, img2, points2, errors, fig_name, skip=1)
     r = 15
     thickness = 2
 
-    for i, (x1, y1, x2, y2) in enumerate(zip(points1[0, ::skip], points1[1, ::skip], points2[0, ::skip], points2[1, ::skip])):
+    for i, (x1, y1, x2, y2) in enumerate(
+            zip(points1[0, ::skip], points1[1, ::skip], points2[0, ::skip], points2[1, ::skip])):
         x2 = x2 + img1.shape[1]
         idx = 255 - int(min(errors[i], 255))
         color = cm.RdYlGn(idx)
