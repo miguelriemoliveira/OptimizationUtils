@@ -56,6 +56,10 @@ if __name__ == "__main__":
     f = open(args['json_file'], 'r')
     dataset_sensors = json.load(f)
 
+    del dataset_sensors['sensors']['frontal_laser']
+    del dataset_sensors['sensors']['left_laser']
+    del dataset_sensors['sensors']['right_laser']
+
     print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
         len(dataset_sensors['collections'].keys())) + ' collections.')
 
@@ -137,7 +141,7 @@ if __name__ == "__main__":
 
                     # cv2.waitKey(10)
 
-    print(dataset_chessboard)
+    # print(dataset_chessboard)
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -147,6 +151,7 @@ if __name__ == "__main__":
 
     opt.addModelData('dataset_sensors', dataset_sensors)
     opt.addModelData('dataset_chessboard', dataset_chessboard)
+
 
     # ------------  Sensors -----------------
     # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
@@ -201,9 +206,6 @@ if __name__ == "__main__":
 
     # Add parameters related to the sensors
     for sensor_key, sensor in dataset_sensors['sensors'].items():
-        if sensor_key == 'frontal_laser':
-            continue
-
         opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
                         getter=partial(getterSensorTranslation, sensor_name=sensor_key),
                         setter=partial(setterSensorTranslation, sensor_name=sensor_key),
@@ -215,11 +217,13 @@ if __name__ == "__main__":
                         setter=partial(setterSensorRotation, sensor_name=sensor_key),
                         sufix=['1', '2', '3'])
 
+
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
 
     def getterChessBoardTranslation(data, collection):
         return data[collection]['trans']
+
 
     def setterChessBoardTranslation(data, value, collection):
         assert len(value) == 3, "value must be a list with length 3."
@@ -242,6 +246,7 @@ if __name__ == "__main__":
         hmatrix[0:3, 0:3] = matrix
         quat = transformations.quaternion_from_matrix(hmatrix)
         data[collection]['quat'] = quat
+
 
     # Add translation and rotation parameters related to the Chessboards
     for collection_key in dataset_chessboard:
@@ -274,6 +279,7 @@ if __name__ == "__main__":
         """
 
         # Get the data from the model
+        print('\n\nObjective function call:')
         dataset_sensors = data['dataset_sensors']
         dataset_chessboard = data['dataset_chessboard']
 
@@ -282,12 +288,9 @@ if __name__ == "__main__":
         for collection_key, collection in dataset_sensors['collections'].items():
             # print('for collection_key ' + str(collection_key))
             for sensor_key, sensor in dataset_sensors['sensors'].items():
-                if sensor_key == 'frontal_laser':
-                    continue
 
                 # print('for sensor_key ' + str(sensor_key))
-                if not collection['labels'][sensor_key][
-                    'detected']:  # if chessboard not detected by this sensor in collection
+                if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
                     continue
 
                 if sensor['msg_type'] == 'Image':
@@ -300,8 +303,7 @@ if __name__ == "__main__":
                     # print('car_center_T_chessboard=\n' + str(car_center_T_chessboard))
 
                     sensor_T_car_center = np.linalg.inv(utilities.getAggregateTransform(
-                        dataset_sensors['sensors'][sensor_key]['chain'],
-                        dataset_sensors['collections'][collection_key]['transforms']))
+                        sensor['chain'], collection['transforms']))
                     # print('sensor_T_car_center=\n' + str(sensor_T_car_center))
 
                     # pts_car_center = np.dot(chessboard_T_car_center, chessboard_points)
@@ -313,54 +315,54 @@ if __name__ == "__main__":
                     # print('pts_sensor')
                     # print(pts_sensor)
 
-                    K = dataset_sensors['sensors'][sensor_key]['camera_info']['K']
-                    K = np.ndarray((3, 3), buffer=np.array(mtx), dtype=np.float)
+                    K = np.ndarray((3, 3), buffer=np.array(sensor['camera_info']['K']), dtype=np.float)
+                    D = np.ndarray((5, 1), buffer=np.array(sensor['camera_info']['D']), dtype=np.float)
+                    width = collection['data'][sensor_key]['width']
+                    height = collection['data'][sensor_key]['height']
 
-                    D = dataset_sensors['sensors'][sensor_key]['camera_info']['D']
-                    D = np.ndarray((5, 1), buffer=np.array(dist), dtype=np.float)
-
-                    width = dataset_sensors['collections'][collection_key]['data'][sensor_key]['width']
-                    height = dataset_sensors['collections'][collection_key]['data'][sensor_key]['height']
-
-                    pixs, valid_pixs, dists = utilities.projectToCamera(K,
-                                                                        D,
-                                                                        width,
-                                                                        height,
-                                                                        pts_sensor[0:3, :])
-
+                    pixs, valid_pixs, dists = utilities.projectToCamera(K, D, width, height, pts_sensor[0:3, :])
                     # print('pixs')
                     # print(pixs)
+                    # print(pixs[:,0])
                     # print(pixs.shape)
 
-                    pixs_ground_truth = dataset_sensors['collections'][collection_key]['labels'][sensor_key]['idxs']
-                    print('pixs_ground_truth')
-                    print(pixs_ground_truth)
+                    pixs_ground_truth = collection['labels'][sensor_key]['idxs']
+                    # print('pixs_ground_truth')
+                    # print(pixs_ground_truth)
 
                     array_gt = np.zeros(pixs.shape, dtype=np.float)
                     for idx, pix_ground_truth in enumerate(pixs_ground_truth):
                         array_gt[0][idx] = pix_ground_truth['x']
                         array_gt[1][idx] = pix_ground_truth['y']
 
-                    print('array_gt')
-                    print(array_gt)
-                    print(array_gt.shape)
+                    # print('array_gt')
+                    # print(array_gt)
+                    # print(array_gt[:,0])
+                    # print(array_gt.shape)
 
                     # TODO revise the computation of matrix norms
-                    # error = np.linalg.norm(pixs[:, 0:3] - array_gt[:, 0:3])
 
-                    error = math.sqrt( (pixs[0,0] - array_gt[0,0])**2 + (pixs[0,1] - array_gt[0,1])**2 )
+                    # error = np.linalg.norm(pixs[:, 0:2] - array_gt[:, 0:2])
+                    # error = np.linalg.norm(pixs[0:1, :] - array_gt[0:1, :])
 
-                    # print('error for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(error))
+                    # error = math.sqrt( (pixs[0,0] - array_gt[0,0])**2 + (pixs[0,1] - array_gt[0,1])**2 ) # this was wrong!
+                    # error = math.sqrt( (pixs[0,0] - array_gt[0,0])**2 + (pixs[1,0] - array_gt[1,0])**2 )
 
+                    error_sum = 0
+                    for idx in range(0, 8 * 6):
+                        error_sum += math.sqrt(
+                            (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+
+                    error = error_sum / 48
+                    print('error for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(error))
                     errors.append(error)
 
-                    # store projected pixels into dataset_sensors dict
+                    # store projected pixels into dataset_sensors dict for drawing in visualization function
                     idxs_projected = []
                     for idx, pix_ground_truth in enumerate(pixs_ground_truth):
                         idxs_projected.append({'x': pixs[0][idx], 'y': pixs[1][idx]})
 
-                    dataset_sensors['collections'][collection_key]['labels'][sensor_key][
-                        'idxs_projected'] = idxs_projected
+                    collection['labels'][sensor_key]['idxs_projected'] = idxs_projected
 
                 elif sensor['msg_type'] == 'LaserScan':
                     # TODO compute the error for lasers
@@ -385,12 +387,9 @@ if __name__ == "__main__":
     for collection_key, collection in dataset_sensors['collections'].items():
         # print('for collection_key ' + str(collection_key))
         for sensor_key, sensor in dataset_sensors['sensors'].items():
-            if sensor_key == 'frontal_laser':
-                continue
 
             # print('for sensor_key ' + str(sensor_key))
-            if not collection['labels'][sensor_key]['detected']:  # if chessboard not detected by this sensor in
-                # collection
+            if not collection['labels'][sensor_key]['detected']:  # if chessboard not detected by sensor in collection
                 continue
 
             # compute cost function
@@ -417,20 +416,15 @@ if __name__ == "__main__":
         for collection_key, collection in dataset_sensors['collections'].items():
             # print('for collection_key ' + str(collection_key))
             for sensor_key, sensor in dataset_sensors['sensors'].items():
-                if sensor_key == 'frontal_laser':
-                    continue
 
                 # print('for sensor_key ' + str(sensor_key))
-                if not collection['labels'][sensor_key][
-                    'detected']:  # if chessboard not detected by this sensor in collection
+                if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
                     continue
 
                 if sensor['msg_type'] == 'Image':
-                    filename = os.path.dirname(args['json_file']) + \
-                               '/' + dataset_sensors['collections'][collection_key]['data'][sensor_key]['data_file']
+                    filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
 
                     image = cv2.imread(filename)
-
                     window_name = sensor_key + '-' + collection_key
                     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
                     cv2.moveWindow(window_name, 300 * counter, 50)
@@ -472,9 +466,9 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    def visualizationFunction(data):
-        font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
+    font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
 
+    def visualizationFunction(data):
         # Get the data from the model
         dataset_sensors = data['dataset_sensors']
         dataset_chessboard = data['dataset_chessboard']
@@ -482,36 +476,34 @@ if __name__ == "__main__":
         for collection_key, collection in dataset_sensors['collections'].items():
             # print('for collection_key ' + str(collection_key))
             for sensor_key, sensor in dataset_sensors['sensors'].items():
-                if sensor_key == 'frontal_laser':
-                    continue
 
                 # print('for sensor_key ' + str(sensor_key))
-                if not collection['labels'][sensor_key][
-                    'detected']:  # if chessboard not detected by this sensor in collection
+                if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
                     continue
 
                 if sensor['msg_type'] == 'Image':
-                    filename = os.path.dirname(args['json_file']) + \
-                               '/' + dataset_sensors['collections'][collection_key]['data'][sensor_key]['data_file']
+                    filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
 
+                    # TODO should not read image again from disk
                     image = cv2.imread(filename)
-
-
-                    points_ground_truth = collection['labels'][sensor_key]['idxs']
-                    for point_ground_truth in points_ground_truth:
-                        x = int(round(point_ground_truth['x']))
-                        y = int(round(point_ground_truth['y']))
-                        utilities.drawSquare2D(image, x, y, 10, color=(0, 0, 255), thickness=2)
+                    width = collection['data'][sensor_key]['width']
+                    height = collection['data'][sensor_key]['height']
+                    diagonal = math.sqrt(width**2 + height**2)
 
                     points_projected = collection['labels'][sensor_key]['idxs_projected']
                     for point_projected in points_projected:
                         x = int(round(point_projected['x']))
                         y = int(round(point_projected['y']))
-                        cv2.line(image, (x, y), (x, y), (255, 0, 0), 10)
+                        cv2.line(image, (x, y), (x, y), (255, 0, 0), int(1E-2 * diagonal))
+
+                    points_ground_truth = collection['labels'][sensor_key]['idxs']
+                    for point_ground_truth in points_ground_truth:
+                        x = int(round(point_ground_truth['x']))
+                        y = int(round(point_ground_truth['y']))
+                        utilities.drawSquare2D(image, x, y, int(8E-3 * diagonal) , color=(0, 0, 255), thickness=2)
 
                     window_name = sensor_key + '-' + collection_key
                     cv2.imshow(window_name, image)
-
 
                 elif sensor['msg_type'] == 'LaserScan':
                     pass
@@ -566,7 +558,6 @@ if __name__ == "__main__":
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
 
-
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1)
 
     # ---------------------------------------
@@ -576,8 +567,6 @@ if __name__ == "__main__":
 
     # opt.x = opt.addNoiseToX(noise=0.1)
     # opt.fromXToData()
-    # opt.callObjectiveFunction()
-
     # opt.callObjectiveFunction()
     # exit(0)
 
