@@ -88,7 +88,8 @@ if __name__ == "__main__":
     objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
     objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1, 2)
     chessboard_points = np.transpose(objp)
-    chessboard_points = np.vstack((chessboard_points, np.ones((1, args['chess_num_x'] * args['chess_num_y']), dtype=np.float)))
+    chessboard_points = np.vstack(
+        (chessboard_points, np.ones((1, args['chess_num_x'] * args['chess_num_y']), dtype=np.float)))
 
     for sensor_key, sensor in dataset_sensors['sensors'].items():
         # if sensor['msg_type'] == 'Image' and sensor_key == 'top_right_camera':
@@ -116,7 +117,8 @@ if __name__ == "__main__":
 
                 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
                 objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
-                objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1, 2)
+                objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1,
+                                                                                                                    2)
 
                 axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, 3]]).reshape(-1, 3)
 
@@ -274,11 +276,10 @@ if __name__ == "__main__":
 
     opt.printParameters()
 
+
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
     # ---------------------------------------
-    first_time = True
-
     def objectiveFunction(data):
         """
         Computes the vector of errors. There should be an error for each stamp, sensor and chessboard tuple.
@@ -375,18 +376,14 @@ if __name__ == "__main__":
 
                     collection['labels'][sensor_key]['idxs_projected'] = idxs_projected
 
-                    global first_time
-                    if first_time:
+                    if not 'idxs_initial' in collection['labels'][sensor_key]:  # store the first projections
                         collection['labels'][sensor_key]['idxs_initial'] = deepcopy(idxs_projected)
-                        first_time = False
 
                 elif sensor['msg_type'] == 'LaserScan':
                     # TODO compute the error for lasers
                     errors.append(0)
                 else:
                     raise ValueError("Unknown sensor msg_type")
-
-
 
         # Return the errors
         return errors
@@ -451,22 +448,30 @@ if __name__ == "__main__":
         # Create a 3D plot in which the sensor poses and chessboards are drawn
         fig = plt.figure()
         ax = fig.gca(projection='3d')
-        #
-        #     ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
-        #     ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
-        #     limit = 1.5
-        #     ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
-        #     ax.view_init(elev=122, azim=-87)
-        #
-        #     # Draw world axis
-        #     world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
-        #     utilities.drawAxis3D(ax, world_T_world, "world", axis_scale=0.7, line_width=3)
-        #
-        #     # Draw cameras
-        #     for camera in dataset_cameras.cameras:
-        #         camera.handle_frame = utilities.drawAxis3D(ax, camera.rgb.matrix, "C" + camera.name, axis_scale=0.3,
-        #                                                    line_width=2)
-        #         # print("camera " + camera.name + " " + str(camera.handle_frame))
+        ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
+        ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
+        limit = 1.5
+        ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
+        ax.view_init(elev=-130, azim=43)
+
+        # Draw world axis
+        world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
+        utilities.drawAxis3D(ax, world_T_world, "root", axis_scale=0.7, line_width=3)
+
+        # Draw sensor poses
+        for collection_key, collection in dataset_sensors['collections'].items():
+            for sensor_key, sensor in dataset_sensors['sensors'].items():
+                root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                sensor['handle'] = utilities.drawAxis3D(ax, root_T_sensor, sensor['_name'], axis_scale=0.3, line_width=2)
+
+        # Draw chessboard poses
+        for collection_key, collection in dataset_chessboard.items():
+            root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
+
+            # drawChessBoard(ax, transform, pts, text, axis_scale=0.1, line_width=1.0, handles=None):
+            collection['handle'] = utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + collection_key, axis_scale=0.3, line_width=2)
+
+
         #
         #     # Draw Arucos
         #     dataset_arucos.handles = {}
@@ -478,14 +483,15 @@ if __name__ == "__main__":
         #         # print("aruco " + str(aruco_id) + "= " + str(dataset_arucos.handles[aruco_id]))
         #
         wm = KeyPressManager.WindowManager(fig)
-        if wm.waitForKey(time_to_wait=0.01, verbose=True):
+        if wm.waitForKey(time_to_wait=None, verbose=True):
             exit(0)
 
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
     font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
-
+    # color_map = cm.Pastel2(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
+    color_map = cm.plasma(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
 
     def visualizationFunction(data):
         # Get the data from the model
@@ -509,58 +515,48 @@ if __name__ == "__main__":
                     height = collection['data'][sensor_key]['height']
                     diagonal = math.sqrt(width ** 2 + height ** 2)
 
-                    points_projected = collection['labels'][sensor_key]['idxs_projected']
-                    for point_projected in points_projected:
-                        x = int(round(point_projected['x']))
-                        y = int(round(point_projected['y']))
-                        cv2.line(image, (x, y), (x, y), (255, 0, 0), int(1E-2 * diagonal))
+                    # Draw projected points (as dots)
+                    for idx, point in enumerate(collection['labels'][sensor_key]['idxs_projected']):
+                        x = int(round(point['x']))
+                        y = int(round(point['y']))
+                        color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
+                        cv2.line(image, (x, y), (x, y), color, int(6E-3 * diagonal))
 
-                    points_ground_truth = collection['labels'][sensor_key]['idxs']
-                    for point_ground_truth in points_ground_truth:
-                        x = int(round(point_ground_truth['x']))
-                        y = int(round(point_ground_truth['y']))
-                        utilities.drawSquare2D(image, x, y, int(8E-3 * diagonal), color=(0, 0, 255), thickness=2)
+                    # Draw ground truth points (as squares)
+                    for idx, point in enumerate(collection['labels'][sensor_key]['idxs']):
+                        x = int(round(point['x']))
+                        y = int(round(point['y']))
+                        color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
+                        utilities.drawSquare2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=2)
+
+                    # Draw initial projected points (as crosses)
+                    for idx, point in enumerate(collection['labels'][sensor_key]['idxs_initial']):
+                        x = int(round(point['x']))
+                        y = int(round(point['y']))
+                        color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
+                        utilities.drawCross2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=1)
 
                     window_name = sensor_key + '-' + collection_key
                     cv2.imshow(window_name, image)
+
 
                 elif sensor['msg_type'] == 'LaserScan':
                     pass
                 else:
                     raise ValueError("Unknown sensor msg_type")
 
-        # for i, _camera in enumerate(data_cameras.cameras):
-        #     image = deepcopy(_camera.rgb.image)
-        #     # print("Cam " + str(camera.name))
-        #     for _aruco_id, _aruco_detection in _camera.rgb.aruco_detections.items():
-        #         # print("Aruco " + str(aruco_id))
-        #         # print("Pixel center coords (ground truth) = " + str(aruco_detection.center))  # ground truth
-        #
-        #         utilities.drawSquare2D(image, _aruco_detection.center[0], _aruco_detection.center[1], 10,
-        #                                color=(0, 0, 255), thickness=2)
-        #
-        #         cv2.putText(image, "Id:" + str(_aruco_id), _aruco_detection.center, font, 1, (0, 255, 0), 2,
-        #                     cv2.LINE_AA)
-        #
-        #         # cv2.line(image, aruco_detection.center, aruco_detection.center, (0, 0, 255), 10)
-        #         # print("Pixel center projected = " + str(aruco_detection.projected))  # ground truth
-        #
-        #         if 0 < _aruco_detection.projected[0] < _camera.rgb.camera_info.width \
-        #                 and 0 < _aruco_detection.projected[1] < _camera.rgb.camera_info.height:
-        #             x = int(_aruco_detection.projected[0])
-        #             y = int(_aruco_detection.projected[1])
-        #             # cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
-        #             cv2.line(image, (x, y), (x, y), (255, 0, 0), 10)
-        #
-        #         # TODO: debug drawing first detection code
-        #         if 0 < _aruco_detection.first_projection[0] < _camera.rgb.camera_info.width \
-        #                 and 0 < _aruco_detection.first_projection[1] < _camera.rgb.camera_info.height:
-        #             x = int(_aruco_detection.first_projection[0])
-        #             y = int(_aruco_detection.first_projection[1])
-        #             # cv2.line(image, aruco_detection.first_projection, aruco_detection.first_projection, (0, 255, 0), 10)
-        #             cv2.line(image, (x, y), (x, y), (0, 255, 0), 10)
-        #
-        #     cv2.imshow('Cam ' + _camera.name, image)
+        # Draw sensor poses
+        for collection_key, collection in dataset_sensors['collections'].items():
+            # print('for collection_key ' + str(collection_key))
+            for sensor_key, sensor in dataset_sensors['sensors'].items():
+                root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                utilities.drawAxis3D(ax, root_T_sensor, sensor['_name'], axis_scale=0.3, line_width=2, handles=sensor['handle'])
+
+        # Draw chessboard poses
+        for collection_key, collection in dataset_chessboard.items():
+            root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
+            utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + collection_key, axis_scale=0.3, line_width=2, handles=collection['handle'])
+
         #
         # # Draw camera's axes
         # for _camera in data_cameras.cameras:

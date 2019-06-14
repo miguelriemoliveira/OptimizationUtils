@@ -345,7 +345,6 @@ if __name__ == "__main__":
                     # cv2.line(image, aruco_detection.projected, aruco_detection.projected, (255, 0, 0), 10)
                     cv2.line(image, (x, y), (x, y), (255, 0, 0), 10)
 
-                # TODO: debug drawing first detection code
                 if 0 < _aruco_detection.first_projection[0] < _camera.rgb.camera_info.width \
                         and 0 < _aruco_detection.first_projection[1] < _camera.rgb.camera_info.height:
                     x = int(_aruco_detection.first_projection[0])

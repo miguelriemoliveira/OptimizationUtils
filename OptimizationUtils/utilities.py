@@ -25,6 +25,31 @@ from matplotlib import cm
 from numpy.linalg import norm
 
 
+def drawCross2D(image, x, y, size, color=(0, 0, 255), thickness=1):
+    """
+    Draws a square on the image
+    :param image:
+    :param x:
+    :param y:
+    :param color:
+    :param thickness:
+    """
+
+    h, w, _ = image.shape
+    if x - size < 0 or x + size > w or y - size < 0 or y + size > h:
+        # print("Cannot draw square")
+        return None
+
+    # tl, tr, bl, br -> top left, top right, bottom left, bottom right
+    left = (int(x - size), int(y))
+    right = (int(x + size), int(y))
+    top = (int(x), int(y - size))
+    bottom = (int(x), int(y + size))
+
+    cv2.line(image, left, right, color, thickness)
+    cv2.line(image, top, bottom, color, thickness)
+
+
 def drawSquare2D(image, x, y, size, color=(0, 0, 255), thickness=1):
     """
     Draws a square on the image
@@ -50,6 +75,61 @@ def drawSquare2D(image, x, y, size, color=(0, 0, 255), thickness=1):
     cv2.line(image, tr, br, color, thickness)
     cv2.line(image, br, bl, color, thickness)
     cv2.line(image, bl, tl, color, thickness)
+
+def drawChessBoard(ax, transform, pts, text, axis_scale=0.1, line_width=1.0, handles=None):
+    """
+    Draws (or replots) a 3D reference system
+    :param ax:
+    :param transform:
+    :param line_width:
+    :param hin: handles in
+    """
+
+    pt_origin = np.array([[0, 0, 0, 1]], dtype=np.float).transpose()
+    x_axis = np.array([[0, 0, 0, 1], [axis_scale, 0, 0, 1]], dtype=np.float).transpose()
+    y_axis = np.array([[0, 0, 0, 1], [0, axis_scale, 0, 1]], dtype=np.float).transpose()
+    z_axis = np.array([[0, 0, 0, 1], [0, 0, axis_scale, 1]], dtype=np.float).transpose()
+
+    pt_origin = np.dot(transform, pt_origin)
+    x_axis = np.dot(transform, x_axis)
+    y_axis = np.dot(transform, y_axis)
+    z_axis = np.dot(transform, z_axis)
+
+    pts = np.dot(transform, pts)
+
+    if handles is None:
+        handles_out = {}
+        handles_out['x'] = ax.plot(x_axis[0, :], x_axis[1, :], x_axis[2, :], 'r-', linewidth=line_width)[0]
+        handles_out['y'] = ax.plot(y_axis[0, :], y_axis[1, :], y_axis[2, :], 'g-', linewidth=line_width)[0]
+        handles_out['z'] = ax.plot(z_axis[0, :], z_axis[1, :], z_axis[2, :], 'b-', linewidth=line_width)[0]
+        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black')
+
+        handles_out['pts'] = ax.plot(pts[0,:], pts[1, :], pts[2, :], 'r-', linewidth=line_width)[0]
+
+        # color_map = cm.Pastel2(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
+        # color_map = cm.plasma(np.linspace(0, 1, 48))
+        # ax.scatter3d
+
+        return handles_out
+    else:
+        handles['x'].set_xdata(x_axis[0, :])
+        handles['x'].set_ydata(x_axis[1, :])
+        handles['x'].set_3d_properties(zs=x_axis[2, :])
+
+        handles['y'].set_xdata(y_axis[0, :])
+        handles['y'].set_ydata(y_axis[1, :])
+        handles['y'].set_3d_properties(zs=y_axis[2, :])
+
+        handles['z'].set_xdata(z_axis[0, :])
+        handles['z'].set_ydata(z_axis[1, :])
+        handles['z'].set_3d_properties(zs=z_axis[2, :])
+
+        handles['text'].set_position((pt_origin[0, 0], pt_origin[1, 0]))
+        handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
+
+        handles['pts'].set_xdata(pts[0, :])
+        handles['pts'].set_ydata(pts[1, :])
+        handles['pts'].set_3d_properties(zs=pts[2, :])
 
 
 def drawAxis3D(ax, transform, text, axis_scale=0.1, line_width=1.0, handles=None):
@@ -134,12 +214,10 @@ def matrixToRodrigues(T):
     rods = rods.transpose()
     return rods[0]
 
-
 def rodriguesToMatrix(r):
     rod = np.array(r, dtype=np.float)
     matrix = cv2.Rodrigues(rod)
     return matrix[0]
-
 
 def traslationRodriguesToTransform(translation, rodrigues):
     R = rodriguesToMatrix(rodrigues)
@@ -151,7 +229,6 @@ def traslationRodriguesToTransform(translation, rodrigues):
     T[3, 3] = 1
     return T
 
-
 def translationQuaternionToTransform(trans, quat):
     matrix = transformations.quaternion_matrix(quat)
     matrix[0, 3] = trans[0]
@@ -162,7 +239,6 @@ def translationQuaternionToTransform(trans, quat):
 
 
 def getAggregateTransform(chain, transforms, mode=0):
-
     AT = np.eye(4, dtype=np.float)
 
     if mode == 0:
