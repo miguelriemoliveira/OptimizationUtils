@@ -110,10 +110,11 @@ class Optimizer:
         # print('Pushed scalar param ' + group_name + ' to group ' + group_name)
 
     def pushParamV3(self, group_name, data_key, getter, setter, bound_max=(+inf, +inf, +inf),
-                    bound_min=(-inf, -inf, -inf), sufix=['x', 'y', 'z']):
+                    bound_min=(-inf, -inf, -inf), suffix=['x', 'y', 'z']):
         """
         Pushes a new parameter group of type translation to the parameter vector.
         There will be 3 parameters, *_tx, *_ty, *_tz per translation group
+        :param suffix:
         :param group_name: the name of the group of parameters, which will have their name derived from the group name.
         :param data_key: the key of the model into which the parameters map
         :param getter: a function to retrieve the parameter value from the model
@@ -133,12 +134,12 @@ class Optimizer:
         if not len(bound_min) == 3:  # check size of bound_min
             raise ValueError('bound_min ' + str(bound_min) + ' must be a tuple of size 3, e.g. (min_x, min_y, min_z).')
 
-        if not len(sufix) == 3:
-            raise ValueError('sufix ' + str(sufix) + ' must be a list of size 3, e.g. ["x", "y", "z"].')
+        if not len(suffix) == 3:
+            raise ValueError('sufix ' + str(suffix) + ' must be a list of size 3, e.g. ["x", "y", "z"].')
 
         idxs = range(len(self.x), len(self.x) + 3)  # Compute value of indices
 
-        param_names = [group_name + sufix[0], group_name + sufix[1], group_name + sufix[2]]
+        param_names = [group_name + suffix[0], group_name + suffix[1], group_name + suffix[2]]
 
         self.groups[group_name] = ParamT(param_names, idxs, data_key, getter, setter, bound_max,
                                          bound_min)  # add to params dict
@@ -185,7 +186,7 @@ class Optimizer:
         if suffix is None:
             suffix = map(str, range(number_of_params))
         elif not len(suffix) == number_of_params:
-            raise ValueError('sufix ' + str(suffix) + ' must be a list, e.g. ["x", "y", "z"].')
+            raise ValueError('suffix ' + str(suffix) + ' must be a list, e.g. ["x", "y", "z"].')
 
         idxs = range(len(self.x), len(self.x) + number_of_params)  # Compute value of indices
 

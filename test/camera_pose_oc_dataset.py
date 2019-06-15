@@ -155,13 +155,13 @@ if __name__ == "__main__":
         opt.pushParamV3(group_name='C' + camera.name + '_t', data_key='data_cameras',
                         getter=partial(getterCameraTranslation, cam_idx=cam_idx),
                         setter=partial(setterCameraTranslation, cam_idx=cam_idx),
-                        sufix=['x', 'y', 'z'])
+                        suffix=['x', 'y', 'z'])
 
         # Add the rotation
         opt.pushParamV3(group_name='C' + camera.name + '_r', data_key='data_cameras',
                         getter=partial(getterCameraRotation, cam_idx=cam_idx),
                         setter=partial(setterCameraRotation, cam_idx=cam_idx),
-                        sufix=['1', '2', '3'])
+                        suffix=['1', '2', '3'])
 
 
     # ------------  ArUcos -----------------
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         opt.pushParamV3(group_name='A' + str(aruco_id), data_key='data_arucos',
                         getter=partial(getterArucoTranslation, aruco_id=aruco_id),
                         setter=partial(setterArucoTranslation, aruco_id=aruco_id),
-                        sufix=['_tx', '_ty', '_tz'])
+                        suffix=['_tx', '_ty', '_tz'])
 
     opt.printParameters()
 

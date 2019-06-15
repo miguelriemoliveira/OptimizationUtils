@@ -217,19 +217,45 @@ if __name__ == "__main__":
         for collection_key in data['collections']:
             data['collections'][collection_key]['transforms'][transform_key]['quat'] = quat
 
-    # def getterCameraIntrinsics()
+
+    def getterCameraIntrinsics(data, sensor_name):
+        fx = data['sensors'][sensor_name]['camera_info']['K'][0]
+        fy = data['sensors'][sensor_name]['camera_info']['K'][4]
+        cx = data['sensors'][sensor_name]['camera_info']['K'][2]
+        cy = data['sensors'][sensor_name]['camera_info']['K'][5]
+        D =  data['sensors'][sensor_name]['camera_info']['D']
+        intrinsics = [fx, fy, cx, cy]
+        intrinsics.extend(D)
+        return intrinsics
+
+
+    def setterCameraIntrinsics(data, value, sensor_name):
+        assert len(value) == 9, "value must be a list with length 9."
+        data['sensors'][sensor_name]['camera_info']['K'][0] = value[0]
+        data['sensors'][sensor_name]['camera_info']['K'][4] = value[1]
+        data['sensors'][sensor_name]['camera_info']['K'][2] = value[2]
+        data['sensors'][sensor_name]['camera_info']['K'][5] = value[3]
+        data['sensors'][sensor_name]['camera_info']['D'] = value[4:]
+
 
     # Add parameters related to the sensors
     for sensor_key, sensor in dataset_sensors['sensors'].items():
         opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
                         getter=partial(getterSensorTranslation, sensor_name=sensor_key),
                         setter=partial(setterSensorTranslation, sensor_name=sensor_key),
-                        sufix=['x', 'y', 'z'])
+                        suffix=['x', 'y', 'z'])
 
         opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
                             getter=partial(getterSensorRotation, sensor_name=sensor_key),
                             setter=partial(setterSensorRotation, sensor_name=sensor_key),
                             suffix=['1', '2', '3'])
+
+        if sensor['msg_type'] == 'Image':  # if sensor is a camera add extrinsics
+            opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
+                                getter=partial(getterCameraIntrinsics, sensor_name=sensor_key),
+                                setter=partial(setterCameraIntrinsics, sensor_name=sensor_key),
+                                suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
+
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
@@ -266,12 +292,12 @@ if __name__ == "__main__":
         opt.pushParamV3(group_name='C_' + collection_key + '_t', data_key='dataset_chessboard',
                         getter=partial(getterChessBoardTranslation, collection=collection_key),
                         setter=partial(setterChessBoardTranslation, collection=collection_key),
-                        sufix=['x', 'y', 'z'])
+                        suffix=['x', 'y', 'z'])
 
         opt.pushParamV3(group_name='C_' + collection_key + '_r', data_key='dataset_chessboard',
                         getter=partial(getterChessBoardRotation, collection=collection_key),
                         setter=partial(setterChessBoardRotation, collection=collection_key),
-                        sufix=['1', '2', '3'])
+                        suffix=['1', '2', '3'])
 
     opt.printParameters()
 
@@ -460,15 +486,16 @@ if __name__ == "__main__":
         for collection_key, collection in dataset_sensors['collections'].items():
             for sensor_key, sensor in dataset_sensors['sensors'].items():
                 root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
-                sensor['handle'] = utilities.drawAxis3D(ax, root_T_sensor, sensor['_name'], axis_scale=0.3, line_width=2)
+                sensor['handle'] = utilities.drawAxis3D(ax, root_T_sensor, sensor['_name'], axis_scale=0.3,
+                                                        line_width=2)
 
         # Draw chessboard poses
         for collection_key, collection in dataset_chessboard.items():
             root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
 
             # drawChessBoard(ax, transform, pts, text, axis_scale=0.1, line_width=1.0, handles=None):
-            collection['handle'] = utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + collection_key, axis_scale=0.3, line_width=2)
-
+            collection['handle'] = utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points,
+                                                            'C' + collection_key, axis_scale=0.3, line_width=2)
 
         #
         #     # Draw Arucos
@@ -490,6 +517,7 @@ if __name__ == "__main__":
     font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
     # color_map = cm.Pastel2(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
     color_map = cm.plasma(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
+
 
     def visualizationFunction(data):
         # Get the data from the model
@@ -548,12 +576,14 @@ if __name__ == "__main__":
             # print('for collection_key ' + str(collection_key))
             for sensor_key, sensor in dataset_sensors['sensors'].items():
                 root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
-                utilities.drawAxis3D(ax, root_T_sensor, sensor['_name'], axis_scale=0.3, line_width=2, handles=sensor['handle'])
+                utilities.drawAxis3D(ax, root_T_sensor, sensor['_name'], axis_scale=0.3, line_width=2,
+                                     handles=sensor['handle'])
 
         # Draw chessboard poses
         for collection_key, collection in dataset_chessboard.items():
             root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
-            utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + collection_key, axis_scale=0.3, line_width=2, handles=collection['handle'])
+            utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + collection_key, axis_scale=0.3,
+                                     line_width=2, handles=collection['handle'])
 
         #
         # # Draw camera's axes

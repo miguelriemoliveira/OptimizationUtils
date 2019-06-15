@@ -68,14 +68,14 @@ if __name__ == "__main__":
                         getter=partial(lambda data, cam_idx: data.cameras[cam_idx].rgb.getTranslation(), cam_idx=camera_idx),
                         setter=partial(
                             lambda data, value, cam_idx: data.cameras[cam_idx].rgb.setTranslation(value), cam_idx=camera_idx),
-                        sufix=['x', 'y', 'z'])
+                        suffix=['x', 'y', 'z'])
 
         # Add the rotation
         opt.pushParamV3(group_name='C' + camera.name + '_r', data_key='data_cameras',
                         getter=partial(lambda data, cam_idx: data.cameras[cam_idx].rgb.getRodrigues(), cam_idx=camera_idx),
                         setter=partial(
                             lambda data, value, cam_idx: data.cameras[cam_idx].rgb.setRodrigues(value), cam_idx=camera_idx),
-                        sufix=['1', '2', '3'])
+                        suffix=['1', '2', '3'])
 
 
     # ------------  Arucos -----------------
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         opt.pushParamV3(group_name='A' + str(aruco_id), data_key='data_arucos',
                         getter=partial(getterArucoTranslation, aruco_id=aruco_id),
                         setter=partial(setterArucoTranslation, aruco_id=aruco_id),
-                        sufix=['_tx', '_ty', '_tz'])
+                        suffix=['_tx', '_ty', '_tz'])
 
     opt.printParameters()
 
