@@ -147,6 +147,56 @@ class Optimizer:
             self.x.append(value)  # set initial value in x
         # print('Pushed translation group ' + group_name + ' with params ' + str(param_names))
 
+    def pushParamVector(self, group_name, data_key, getter, setter, bound_max=None,
+                        bound_min=None, suffix=None, number_of_params=None):
+        """
+        Pushes a new parameter group of type translation to the parameter vector.
+        There will be 3 parameters, *_tx, *_ty, *_tz per translation group
+        :param group_name: the name of the group of parameters, which will have their name derived from the group name.
+        :param data_key: the key of the model into which the parameters map
+        :param getter: a function to retrieve the parameter value from the model
+        :param setter: a function to set the parameter value from the model
+        :param bound_max: a tuple (max_x, max_y, max_z)
+        :param bound_min: a tuple (min_x, min_y, min_z)
+        :param suffix:
+        :param number_of_params:
+        """
+        if group_name in self.groups:  # Cannot add a parameter that already exists
+            raise ValueError('Group ' + group_name + ' already exists. Cannot add it.')
+
+        if not data_key in self.data_models:  # Check if we have the data_key in the data dictionary
+            raise ValueError('Dataset ' + data_key + ' does not exist. Cannot add group ' + group_name + '.')
+
+        if number_of_params is None:  # infer the number of params in this group from the size ofthe return vector
+            number_of_params = len(getter(self.data_models[data_key]))
+            print('Param vector ' + group_name + ': estimated number of params ' + str(
+                number_of_params) + ' from getter.')
+
+        if bound_max is None:
+            bound_max = number_of_params * [+inf]
+        elif not len(bound_max) == number_of_params:  # check size of bound_max
+            raise ValueError('bound_max ' + str(bound_max) + ' must be a tuple, e.g. (max_x, max_y, max_z).')
+
+        if bound_min is None:
+            bound_min = number_of_params * [-inf]
+        elif not len(bound_min) == number_of_params:  # check size of bound_min
+            raise ValueError('bound_min ' + str(bound_min) + ' must be a tuple, e.g. (min_x, min_y, min_z).')
+
+        if suffix is None:
+            suffix = map(str, range(number_of_params))
+        elif not len(suffix) == number_of_params:
+            raise ValueError('sufix ' + str(suffix) + ' must be a list, e.g. ["x", "y", "z"].')
+
+        idxs = range(len(self.x), len(self.x) + number_of_params)  # Compute value of indices
+
+        param_names = [group_name + s for s in suffix]
+
+        self.groups[group_name] = ParamT(param_names, idxs, data_key, getter, setter, bound_max,
+                                         bound_min)  # add to params dict
+        values = getter(self.data_models[data_key])
+        for value in values:
+            self.x.append(value)  # set initial value in x
+
     def pushResidual(self, name, params=None):
         """Adds a new residual to the existing list of residuals
 
@@ -402,7 +452,6 @@ class Optimizer:
             print('\nParameters:')
         else:
             print(text)
-
 
         df = pandas.DataFrame(table, rows, ['Group', 'x', 'data'])
         if flg_simple:

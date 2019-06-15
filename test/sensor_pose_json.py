@@ -217,6 +217,7 @@ if __name__ == "__main__":
         for collection_key in data['collections']:
             data['collections'][collection_key]['transforms'][transform_key]['quat'] = quat
 
+    # def getterCameraIntrinsics()
 
     # Add parameters related to the sensors
     for sensor_key, sensor in dataset_sensors['sensors'].items():
@@ -225,12 +226,10 @@ if __name__ == "__main__":
                         setter=partial(setterSensorTranslation, sensor_name=sensor_key),
                         sufix=['x', 'y', 'z'])
 
-        # Add the rotation
-        opt.pushParamV3(group_name='S' + sensor_key + '_r', data_key='dataset_sensors',
-                        getter=partial(getterSensorRotation, sensor_name=sensor_key),
-                        setter=partial(setterSensorRotation, sensor_name=sensor_key),
-                        sufix=['1', '2', '3'])
-
+        opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
+                            getter=partial(getterSensorRotation, sensor_name=sensor_key),
+                            setter=partial(setterSensorRotation, sensor_name=sensor_key),
+                            suffix=['1', '2', '3'])
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
@@ -306,7 +305,6 @@ if __name__ == "__main__":
                     continue
 
                 if sensor['msg_type'] == 'Image':
-                    # print('Computing error ... ')
 
                     # Compute chessboard points in local sensor reference frame
                     trans = dataset_chessboard[collection_key]['trans']
