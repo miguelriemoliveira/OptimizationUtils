@@ -76,6 +76,31 @@ def drawSquare2D(image, x, y, size, color=(0, 0, 255), thickness=1):
     cv2.line(image, br, bl, color, thickness)
     cv2.line(image, bl, tl, color, thickness)
 
+def drawPoints3D(ax, transform, pts, line_width=1.0, handles=None):
+    """
+    Draws (or replots) a 3D reference system
+    :param ax:
+    :param transform:
+    :param line_width:
+    :param hin: handles in
+    """
+
+    if not transform is None:
+        pts = np.dot(transform, pts)
+
+    if handles is None:
+        handles_out = {}
+        handles_out['pts'] = ax.plot(pts[0,:], pts[1, :], pts[2, :], 'y-', linewidth=line_width)[0]
+        # color_map = cm.Pastel2(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
+        # color_map = cm.plasma(np.linspace(0, 1, 48))
+        # ax.scatter3d
+        return handles_out
+    else:
+        handles['pts'].set_xdata(pts[0, :])
+        handles['pts'].set_ydata(pts[1, :])
+        handles['pts'].set_3d_properties(zs=pts[2, :])
+
+
 def drawChessBoard(ax, transform, pts, text, axis_scale=0.1, line_width=1.0, handles=None):
     """
     Draws (or replots) a 3D reference system
