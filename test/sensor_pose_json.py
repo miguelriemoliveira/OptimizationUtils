@@ -66,6 +66,11 @@ if __name__ == "__main__":
     del dataset_sensors['sensors']['frontal_laser']
     # del dataset_sensors['sensors']['left_laser']
     # del dataset_sensors['sensors']['right_laser']
+    # del dataset_sensors['collections']['1']
+    # del dataset_sensors['collections']['2']
+    # del dataset_sensors['collections']['3']
+    # del dataset_sensors['collections']['4']
+    # del dataset_sensors['collections']['5']
 
     print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
         len(dataset_sensors['collections'].keys())) + ' collections.')
@@ -332,20 +337,12 @@ if __name__ == "__main__":
                     trans = dataset_chessboard[collection_key]['trans']
                     quat = dataset_chessboard[collection_key]['quat']
                     root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
-                    # print('root_T_chessboard=\n' + str(root_T_chessboard))
 
                     sensor_T_root = np.linalg.inv(utilities.getAggregateTransform(sensor['chain'],
                                                                                   collection['transforms']))
-                    # print('sensor_T_root=\n' + str(sensor_T_root))
 
-                    # pts_root = np.dot(chessboard_T_root, chessboard_points)
                     pts_root = np.dot(root_T_chessboard, chessboard_points)
-                    # print('pts_root')
-                    # print(pts_root)
-
                     pts_sensor = np.dot(sensor_T_root, pts_root)
-                    # print('pts_sensor')
-                    # print(pts_sensor)
 
                     K = np.ndarray((3, 3), buffer=np.array(sensor['camera_info']['K']), dtype=np.float)
                     D = np.ndarray((5, 1), buffer=np.array(sensor['camera_info']['D']), dtype=np.float)
@@ -353,32 +350,12 @@ if __name__ == "__main__":
                     height = collection['data'][sensor_key]['height']
 
                     pixs, valid_pixs, dists = utilities.projectToCamera(K, D, width, height, pts_sensor[0:3, :])
-                    # print('pixs')
-                    # print(pixs)
-                    # print(pixs[:,0])
-                    # print(pixs.shape)
-
                     pixs_ground_truth = collection['labels'][sensor_key]['idxs']
-                    # print('pixs_ground_truth')
-                    # print(pixs_ground_truth)
 
                     array_gt = np.zeros(pixs.shape, dtype=np.float)
                     for idx, pix_ground_truth in enumerate(pixs_ground_truth):
                         array_gt[0][idx] = pix_ground_truth['x']
                         array_gt[1][idx] = pix_ground_truth['y']
-
-                    # print('array_gt')
-                    # print(array_gt)
-                    # print(array_gt[:,0])
-                    # print(array_gt.shape)
-
-                    # TODO revise the computation of matrix norms
-
-                    # error = np.linalg.norm(pixs[:, 0:2] - array_gt[:, 0:2])
-                    # error = np.linalg.norm(pixs[0:1, :] - array_gt[0:1, :])
-
-                    # error = math.sqrt( (pixs[0,0] - array_gt[0,0])**2 + (pixs[0,1] - array_gt[0,1])**2 ) # this was wrong!
-                    # error = math.sqrt( (pixs[0,0] - array_gt[0,0])**2 + (pixs[1,0] - array_gt[1,0])**2 )
 
                     error_sum = 0
                     for idx in range(0, args['chess_num_x'] * args['chess_num_y']):
@@ -401,14 +378,9 @@ if __name__ == "__main__":
                 elif sensor['msg_type'] == 'LaserScan':
                     # Get laser points that belong to the chessboard
                     idxs = collection['labels'][sensor_key]['idxs']
-                    # print('idxs = \n' + str(idxs))
-
                     rhos = [collection['data'][sensor_key]['ranges'][idx] for idx in idxs]
-                    # print('rhos = \n' + str(rhos))
-
                     thetas = [collection['data'][sensor_key]['angle_min'] +
                               collection['data'][sensor_key]['angle_increment'] * idx for idx in idxs]
-                    # print('thetas = \n' + str(thetas))
 
                     # Convert from polar to cartesian coordinates and create np array with xyz coords
                     pts_laser = np.zeros((3, len(rhos)), np.float32)
@@ -417,25 +389,19 @@ if __name__ == "__main__":
                         pts_laser[1, idx] = rho * math.sin(theta)
 
                     pts_laser = np.vstack((pts_laser, np.ones((1, pts_laser.shape[1]), dtype=np.float)))
-                    # print('pts_laser=\n' + str(pts_laser))
 
                     # Get transforms
                     root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
-                    # print('sensor_T_root=\n' + str(sensor_T_root))
-
                     pts_root = np.dot(root_T_sensor, pts_laser)
-                    # print('pts_root=\n' + str(pts_root))
 
                     trans = dataset_chessboard[collection_key]['trans']
                     quat = dataset_chessboard[collection_key]['quat']
                     chessboard_T_root = np.linalg.inv(utilities.translationQuaternionToTransform(trans, quat))
-                    # print('root_T_chessboard=\n' + str(root_T_chessboard))
 
                     pts_chessboard = np.dot(chessboard_T_root, pts_root)
-                    # print('pts_chessboard=\n' + str(pts_chessboard))
 
-                    # TODO error in meters? Sound too small when compared with pixels ...
-                    error = np.average(np.absolute(pts_chessboard[2,:])) * 100
+                    # TODO error in meters? Seems small when compared with pixels ...
+                    error = np.average(np.absolute(pts_chessboard[2, :])) * 100
 
                     errors.append(error)
 
@@ -480,6 +446,9 @@ if __name__ == "__main__":
     # --- SETUP THE VISUALIZATION FUNCTION
     # ---------------------------------------
     if args['view_optimization']:
+        font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
+        color_map_collections = cm.Pastel2(np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
+        color_map = cm.plasma(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
 
         # Create opencv windows. One per sensor image and collection
         counter = 0
@@ -521,15 +490,17 @@ if __name__ == "__main__":
                                                         line_width=2)
 
         # Draw chessboard poses
-        for collection_key, collection in dataset_chessboard.items():
+        for idx, (collection_key, collection) in enumerate(dataset_chessboard.items()):
             root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
 
-            # drawChessBoard(ax, transform, pts, text, axis_scale=0.1, line_width=1.0, handles=None):
+            color_collection = color_map_collections[idx, :]
             collection['handle'] = utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points,
-                                                            'C' + collection_key, axis_scale=0.3, line_width=2)
+                                                            'C' + collection_key, chess_num_x=args['chess_num_x'],
+                                                            chess_num_y=args['chess_num_y'], color=color_collection,
+                                                            axis_scale=0.5, line_width=2)
 
         # Draw laser data
-        for collection_key, collection in dataset_sensors['collections'].items():
+        for idx_collection, (collection_key, collection) in enumerate(dataset_sensors['collections'].items()):
             for sensor_key, sensor in dataset_sensors['sensors'].items():
                 if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
                     continue
@@ -556,19 +527,18 @@ if __name__ == "__main__":
                 pts_root = np.dot(root_T_sensor, pts_laser)
 
                 # draw points
-                sensor['pts_handle'] = utilities.drawPoints3D(ax, None, pts_root, line_width=3.0, handles=None)
+                color_collection = color_map_collections[idx_collection, :]
+                sensor['pts_handle'] = utilities.drawPoints3D(ax, None, pts_root, color=color_collection,
+                                                              line_width=2.0, handles=None)
 
         wm = KeyPressManager.WindowManager(fig)
-        if wm.waitForKey(time_to_wait=0.1, verbose=True):
+        if wm.waitForKey(time_to_wait=None, verbose=True):
             exit(0)
+
 
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
-    # color_map = cm.Pastel2(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
-    color_map = cm.plasma(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
-
 
     def visualizationFunction(data):
         # Get the data from the model
@@ -628,10 +598,13 @@ if __name__ == "__main__":
                                      handles=sensor['handle'])
 
         # Draw chessboard poses
-        for collection_key, collection in dataset_chessboard.items():
+        for idx, (collection_key, collection) in enumerate(dataset_chessboard.items()):
             root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
-            utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + collection_key, axis_scale=0.3,
-                                     line_width=2, handles=collection['handle'])
+            color_collection = color_map_collections[idx, :]
+            utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + collection_key,
+                                     chess_num_x=args['chess_num_x'], chess_num_y=args['chess_num_y'],
+                                     color=color_collection, axis_scale=0.3, line_width=2,
+                                     handles=collection['handle'])
 
         wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
