@@ -66,11 +66,12 @@ if __name__ == "__main__":
     del dataset_sensors['sensors']['frontal_laser']
     # del dataset_sensors['sensors']['left_laser']
     # del dataset_sensors['sensors']['right_laser']
+    # del dataset_sensors['collections']['0']
     # del dataset_sensors['collections']['1']
-    # del dataset_sensors['collections']['2']
-    # del dataset_sensors['collections']['3']
-    # del dataset_sensors['collections']['4']
-    # del dataset_sensors['collections']['5']
+    del dataset_sensors['collections']['2']
+    del dataset_sensors['collections']['3']
+    del dataset_sensors['collections']['4']
+    del dataset_sensors['collections']['5']
 
     print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
         len(dataset_sensors['collections'].keys())) + ' collections.')
@@ -163,14 +164,13 @@ if __name__ == "__main__":
     # print(dataset_chessboard)
 
     # ---------------------------------------
-    # --- Setup Optimizer
+    # --- SETUP OPTIMIZER
     # ---------------------------------------
     print('\nInitializing optimizer...')
     opt = OptimizationUtils.Optimizer()
 
     opt.addModelData('dataset_sensors', dataset_sensors)
     opt.addModelData('dataset_chessboard', dataset_chessboard)
-
 
     # ------------  Sensors -----------------
     # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
@@ -376,6 +376,7 @@ if __name__ == "__main__":
                         collection['labels'][sensor_key]['idxs_initial'] = deepcopy(idxs_projected)
 
                 elif sensor['msg_type'] == 'LaserScan':
+
                     # Get laser points that belong to the chessboard
                     idxs = collection['labels'][sensor_key]['idxs']
                     rhos = [collection['data'][sensor_key]['ranges'][idx] for idx in idxs]
@@ -447,8 +448,18 @@ if __name__ == "__main__":
     # ---------------------------------------
     if args['view_optimization']:
         font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
-        color_map_collections = cm.Pastel2(np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
+
+        # Create colormaps to be used. Sort the keys to have the same color distribution over the collections
         color_map = cm.plasma(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
+
+        color_map_collections = cm.Set3(np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
+        for idx, collection_key in enumerate(sorted(dataset_sensors['collections'].keys())):
+            dataset_sensors['collections'][collection_key]['color'] = color_map_collections[idx, :]
+            dataset_chessboard[collection_key]['color'] = color_map_collections[idx, :]
+
+        color_map_sensors = cm.gist_rainbow(np.linspace(0, 1, len(dataset_sensors['sensors'].keys())))
+        for idx, sensor_key in enumerate(sorted(dataset_sensors['sensors'].keys())):
+            dataset_sensors['sensors'][sensor_key]['color'] = color_map_sensors[idx, :]
 
         # Create opencv windows. One per sensor image and collection
         counter = 0
@@ -474,33 +485,32 @@ if __name__ == "__main__":
         ax = fig.gca(projection='3d')
         ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
         ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
-        limit = 3.5
-        ax.set_xlim3d(-limit, limit), ax.set_ylim3d(-limit, limit), ax.set_zlim3d(-limit, limit)
-        ax.view_init(elev=-130, azim=43)
+        # limit = 1.5
+        ax.set_xlim3d(-1.5, 1.5), ax.set_ylim3d(-4, 1.5), ax.set_zlim3d(-.5, 1.5)
+        ax.view_init(elev=27, azim=46)
 
         # Draw world axis
         world_T_world = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float)
-        utilities.drawAxis3D(ax, world_T_world, "root", axis_scale=0.7, line_width=3)
+        utilities.drawAxis3D(ax, world_T_world, "root", axis_scale=0.5, line_width=1.5)
 
-        # Draw sensor poses
-        for collection_key, collection in dataset_sensors['collections'].items():
-            for sensor_key, sensor in dataset_sensors['sensors'].items():
-                root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
-                sensor['handle'] = utilities.drawAxis3D(ax, root_T_sensor, sensor['_name'], axis_scale=0.3,
-                                                        line_width=2)
+        # Draw sensor poses (use sensor pose from collection '0' since they are all the same)
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            root_T_sensor = utilities.getAggregateTransform(sensor['chain'],
+                                                            dataset_sensors['collections']['0']['transforms'])
+            sensor['handle'] = utilities.drawAxis3D(ax, root_T_sensor, sensor_key, text_color=sensor['color'],
+                                                    axis_scale=0.3, line_width=1.5)
 
         # Draw chessboard poses
-        for idx, (collection_key, collection) in enumerate(dataset_chessboard.items()):
+        for collection_key, collection in dataset_chessboard.items():
             root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
 
-            color_collection = color_map_collections[idx, :]
             collection['handle'] = utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points,
                                                             'C' + collection_key, chess_num_x=args['chess_num_x'],
-                                                            chess_num_y=args['chess_num_y'], color=color_collection,
+                                                            chess_num_y=args['chess_num_y'], color=collection['color'],
                                                             axis_scale=0.5, line_width=2)
 
         # Draw laser data
-        for idx_collection, (collection_key, collection) in enumerate(dataset_sensors['collections'].items()):
+        for collection_key, collection in dataset_sensors['collections'].items():
             for sensor_key, sensor in dataset_sensors['sensors'].items():
                 if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
                     continue
@@ -527,19 +537,19 @@ if __name__ == "__main__":
                 pts_root = np.dot(root_T_sensor, pts_laser)
 
                 # draw points
-                color_collection = color_map_collections[idx_collection, :]
-                sensor['pts_handle'] = utilities.drawPoints3D(ax, None, pts_root, color=color_collection,
-                                                              line_width=2.0, handles=None)
+                sensor['pts_handle'] = utilities.drawPoints3D(ax, None, pts_root, color=collection['color'],
+                                                              marker_size=1.5, line_width=2.2, marker='-',
+                                                              mfc=collection['color'], text=None,
+                                                              text_color=sensor['color'], sensor_color=sensor['color'],
+                                                              handles=None)
 
         wm = KeyPressManager.WindowManager(fig)
-        if wm.waitForKey(time_to_wait=None, verbose=True):
+        if wm.waitForKey(time_to_wait=0.01, verbose=True):
             exit(0)
-
 
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
-
     def visualizationFunction(data):
         # Get the data from the model
         dataset_sensors = data['dataset_sensors']
@@ -590,12 +600,13 @@ if __name__ == "__main__":
                 else:
                     raise ValueError("Unknown sensor msg_type")
 
-        # Draw sensor poses
-        for collection_key, collection in dataset_sensors['collections'].items():
-            for sensor_key, sensor in dataset_sensors['sensors'].items():
-                root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
-                utilities.drawAxis3D(ax, root_T_sensor, sensor['_name'], axis_scale=0.3, line_width=2,
-                                     handles=sensor['handle'])
+
+        # Draw sensor poses (use sensor pose from collection '0' since they are all the same)
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            root_T_sensor = utilities.getAggregateTransform(sensor['chain'],
+                                                            dataset_sensors['collections']['0']['transforms'])
+            utilities.drawAxis3D(ax, root_T_sensor, sensor_key, axis_scale=0.3, line_width=2,
+                                 handles=sensor['handle'])
 
         # Draw chessboard poses
         for idx, (collection_key, collection) in enumerate(dataset_chessboard.items()):

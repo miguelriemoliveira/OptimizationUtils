@@ -7,6 +7,7 @@ A set of utilities to be used in the optimization algorithms
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 from copy import deepcopy
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from tf import transformations
 
@@ -77,28 +78,52 @@ def drawSquare2D(image, x, y, size, color=(0, 0, 255), thickness=1):
     cv2.line(image, bl, tl, color, thickness)
 
 
-def drawPoints3D(ax, transform, pts, color='black', line_width=1.0, handles=None):
+def drawPoints3D(ax, transform, pts, color=[0, 0, 0], marker_size=1.0, line_width=1.0, marker='.', mfc=None,
+                 text=None, text_color=[0, 0, 0], sensor_color = [0,0,0], handles=None):
     """
     Draws (or replots) a 3D reference system
+    :param handles:
+    :param mfc:
+    :param marker:
     :param ax:
     :param transform:
     :param pts:
     :param color:
     :param line_width:
-    :param hin: handles in
     """
+    if mfc is None:
+        mfc = color
+
+    mfc = list(mfc[0:3])  # remove alpha channel and convert to list
 
     if not transform is None:
         pts = np.dot(transform, pts)
 
+    center_pt = np.average(pts, axis=1)
+    limit_pts = pts[:, [0, pts.shape[1]-1]]
+
     if handles is None:
         handles_out = {}
-        handles_out['pts'] = ax.plot(pts[0, :], pts[1, :], pts[2, :], '.', color=color, linewidth=line_width)[0]
+        handles_out['pts'] = ax.plot(pts[0, :], pts[1, :], pts[2, :], marker, color=color, markersize=marker_size,
+                                     linewidth=line_width)[0]
+
+        handles_out['pts_limits'] = ax.plot(limit_pts[0, :], limit_pts[1, :], limit_pts[2, :], 'o', color=sensor_color, markersize=marker_size*4,
+                                     linewidth=line_width*2, mfc='none')[0]
+        if not text is None:
+            handles_out['text'] = ax.text(center_pt[0], center_pt[1], center_pt[2], text, color=text_color)
         return handles_out
     else:
         handles['pts'].set_xdata(pts[0, :])
         handles['pts'].set_ydata(pts[1, :])
         handles['pts'].set_3d_properties(zs=pts[2, :])
+
+        handles['pts_limits'].set_xdata(limit_pts[0, :])
+        handles['pts_limits'].set_ydata(limit_pts[1, :])
+        handles['pts_limits'].set_3d_properties(limit_pts[2, :])
+
+        if not text is None:
+            handles['text'].set_position((center_pt[0], center_pt[1]))
+            handles['text'].set_3d_properties(z=center_pt[2], zdir='y')
 
 
 def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='black', axis_scale=0.1, line_width=1.0,
@@ -108,7 +133,7 @@ def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='bl
     :param ax:
     :param transform:
     :param line_width:
-    :param hin: handles in
+    :param handles:
     """
 
     pt_origin = np.array([[0, 0, 0, 1]], dtype=np.float).transpose()
@@ -122,6 +147,8 @@ def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='bl
     z_axis = np.dot(transform, z_axis)
 
     pts = np.dot(transform, pts)
+    # idxs = [0, chess_num_x - 1, chess_num_x * chess_num_y - 1, chess_num_x * (chess_num_y - 1), 0]
+    # corners = pts[:, idxs]
 
     if handles is None:
         handles_out = {}
@@ -129,18 +156,28 @@ def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='bl
         counter = 0
         for idx_y in range(0, chess_num_y):
             idxs_x = [idx_y * chess_num_x, idx_y * chess_num_x + chess_num_x - 1]
-            handles_out['chessboard_pts_' + str(counter)] = ax.plot(pts[0, idxs_x], pts[1, idxs_x], pts[2, idxs_x], '-', linewidth=1.0, color=color)[0]
+            handles_out['chessboard_pts_' + str(counter)] = \
+            ax.plot(pts[0, idxs_x], pts[1, idxs_x], pts[2, idxs_x], '-', linewidth=1.0, color=color)[0]
             counter += 1
 
         for idx_x in range(0, chess_num_x):
-            idxs_y = [idx_x, chess_num_x*chess_num_y- chess_num_x + idx_x]
-            handles_out['chessboard_pts_' + str(counter)] = ax.plot(pts[0, idxs_y], pts[1, idxs_y], pts[2, idxs_y], '-', linewidth=1.0, color=color)[0]
+            idxs_y = [idx_x, chess_num_x * chess_num_y - chess_num_x + idx_x]
+            handles_out['chessboard_pts_' + str(counter)] = \
+            ax.plot(pts[0, idxs_y], pts[1, idxs_y], pts[2, idxs_y], '-', linewidth=1.0, color=color)[0]
             counter += 1
 
         handles_out['x'] = ax.plot(x_axis[0, :], x_axis[1, :], x_axis[2, :], 'r-', linewidth=line_width)[0]
         handles_out['y'] = ax.plot(y_axis[0, :], y_axis[1, :], y_axis[2, :], 'g-', linewidth=line_width)[0]
         handles_out['z'] = ax.plot(z_axis[0, :], z_axis[1, :], z_axis[2, :], 'b-', linewidth=line_width)[0]
         handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black')
+
+        # x = list(corners[0,:])
+        # y = list(corners[1,:])
+        # z = list(corners[2,:])
+        # verts = [zip(x, y, z)]
+        # handles_out['fill'] = ax.add_collection3d(Poly3DCollection(verts,facecolors=[.5, .5, .5], linewidths=1, alpha=0.1 ))
+        # # handles_out['fill'] =
+
         return handles_out
     else:
 
@@ -153,7 +190,7 @@ def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='bl
             counter += 1
 
         for idx_x in range(0, chess_num_x):
-            idxs_y = [idx_x, chess_num_x*chess_num_y- chess_num_x + idx_x]
+            idxs_y = [idx_x, chess_num_x * chess_num_y - chess_num_x + idx_x]
             handles['chessboard_pts_' + str(counter)].set_xdata(pts[0, idxs_y])
             handles['chessboard_pts_' + str(counter)].set_ydata(pts[1, idxs_y])
             handles['chessboard_pts_' + str(counter)].set_3d_properties(zs=pts[2, idxs_y])
@@ -175,9 +212,10 @@ def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='bl
         handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
 
 
-def drawAxis3D(ax, transform, text, axis_scale=0.1, line_width=1.0, handles=None):
+def drawAxis3D(ax, transform, text, text_color = [0,0,0], axis_scale=0.1, line_width=1.0, handles=None):
     """
     Draws (or replots) a 3D reference system
+    :param text_color:
     :param ax:
     :param transform:
     :param text:
@@ -200,7 +238,7 @@ def drawAxis3D(ax, transform, text, axis_scale=0.1, line_width=1.0, handles=None
         handles_out['x'] = ax.plot(x_axis[0, :], x_axis[1, :], x_axis[2, :], 'r-', linewidth=line_width)[0]
         handles_out['y'] = ax.plot(y_axis[0, :], y_axis[1, :], y_axis[2, :], 'g-', linewidth=line_width)[0]
         handles_out['z'] = ax.plot(z_axis[0, :], z_axis[1, :], z_axis[2, :], 'b-', linewidth=line_width)[0]
-        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color='black')
+        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color=text_color, fontsize=10)
         return handles_out
     else:
         handles['x'].set_xdata(x_axis[0, :])
