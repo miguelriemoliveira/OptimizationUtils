@@ -78,6 +78,7 @@ def drawSquare2D(image, x, y, size, color=(0, 0, 255), thickness=1):
     cv2.line(image, bl, tl, color, thickness)
 
 
+
 def drawPoints3D(ax, transform, pts, color=[0, 0, 0], marker_size=1.0, line_width=1.0, marker='.', mfc=None,
                  text=None, text_color=[0, 0, 0], sensor_color = [0,0,0], handles=None):
     """
@@ -101,13 +102,14 @@ def drawPoints3D(ax, transform, pts, color=[0, 0, 0], marker_size=1.0, line_widt
 
     center_pt = np.average(pts, axis=1)
     limit_pts = pts[:, [0, pts.shape[1]-1]]
+    # limit_pts = pts[:, [-1]]
 
     if handles is None:
         handles_out = {}
         handles_out['pts'] = ax.plot(pts[0, :], pts[1, :], pts[2, :], marker, color=color, markersize=marker_size,
                                      linewidth=line_width)[0]
 
-        handles_out['pts_limits'] = ax.plot(limit_pts[0, :], limit_pts[1, :], limit_pts[2, :], 'o', color=sensor_color, markersize=marker_size*4,
+        handles_out['pts_limits'] = ax.plot(limit_pts[0, :], limit_pts[1, :], limit_pts[2, :], 'o', color=sensor_color, markersize=5,
                                      linewidth=line_width*2, mfc='none')[0]
         if not text is None:
             handles_out['text'] = ax.text(center_pt[0], center_pt[1], center_pt[2], text, color=text_color)
