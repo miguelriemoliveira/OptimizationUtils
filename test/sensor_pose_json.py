@@ -11,7 +11,6 @@ import math
 import sys
 
 from tf import transformations
-
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 import KeyPressManager.KeyPressManager as KeyPressManager
 import OptimizationUtils.utilities as utilities
@@ -74,9 +73,9 @@ if __name__ == "__main__":
     # del dataset_sensors['collections']['0']
     # del dataset_sensors['collections']['1']
 
-    # for key in dataset_sensors['collections'].keys():
-    #     if not key in ['2','5','8']:
-    #         del dataset_sensors['collections'][key]
+    for key in dataset_sensors['collections'].keys():
+        if not key in ['2','5','8']:
+            del dataset_sensors['collections'][key]
 
     # del dataset_sensors['collections']['3']
     # del dataset_sensors['collections']['4']
@@ -621,9 +620,6 @@ if __name__ == "__main__":
 
         color_map_collections = cm.Set3(np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
         for idx, collection_key in enumerate(sorted(dataset_sensors['collections'].keys())):
-            print(collection_key)
-            print(idx)
-            print(dataset_chessboard.keys())
             dataset_sensors['collections'][collection_key]['color'] = color_map_collections[idx, :]
             dataset_chessboard[collection_key]['color'] = color_map_collections[idx, :]
 
@@ -733,8 +729,6 @@ if __name__ == "__main__":
                                                                                         sensor_color=sensor['color'],
                                                                                         handles=None)
 
-
-
         wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(time_to_wait=0.01, verbose=True):
             exit(0)
@@ -811,12 +805,8 @@ if __name__ == "__main__":
                                      color=color_collection, axis_scale=0.3, line_width=2,
                                      handles=collection['handle'])
 
-        wm = KeyPressManager.WindowManager(fig)
-        if wm.waitForKey(0.01, verbose=False):
-            exit(0)
 
-
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=10)
+    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=10, figures=[fig])
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
@@ -838,7 +828,7 @@ if __name__ == "__main__":
     #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-3})
 
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-3})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     # opt.startOptimization(
     #    optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,

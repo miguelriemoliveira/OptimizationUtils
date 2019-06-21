@@ -217,9 +217,10 @@ class Optimizer:
         """
         self.objective_function = handle
 
-    def setVisualizationFunction(self, handle, always_visualize, niterations=0):
+    def setVisualizationFunction(self, handle, always_visualize, niterations=0, figures=None):
         """ Sets up the visualization function to be called to plot the data during the optimization procedure.
 
+        :param figures:
         :param handle: handle to the function
         :param always_visualize: call visualization function during optimization or just at the end
         :param niterations: number of iterations at which the visualization function is called.
@@ -228,6 +229,12 @@ class Optimizer:
         self.vis_function_handle = handle
         self.vis_niterations = niterations
         self.always_visualize = always_visualize
+        if figures is None:
+            self.figures = []
+        elif type(figures) is list:
+            self.figures = figures
+        else:
+            self.figures = [figures]
 
     # ---------------------------
     # Optimization methods
@@ -496,7 +503,8 @@ class Optimizer:
 
         # Prepare residuals figure
         self.figure_residuals = matplotlib.pyplot.figure()
-        self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figure_residuals)
+        self.figures.append(self.figure_residuals)
+        self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figures)
         self.ax = self.figure_residuals.add_subplot(1, 1, 1)
         x = range(0, len(self.errors0))
         self.initial_residuals_handle, = self.ax.plot(x, self.errors0, color='green', marker='o',
