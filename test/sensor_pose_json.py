@@ -48,6 +48,9 @@ if __name__ == "__main__":
     ap.add_argument("-json", "--json_file", help="Json file containing input dataset.", type=str, required=True)
     ap.add_argument("-csize", "--chess_size", help="Size in meters of the side of the chessboard's squares.",
                     type=float, required=True)
+    ap.add_argument("-cradius", "--chess_radius",
+                    help="Radius in meters of the maximum side of the chessboard calibration pattern.",
+                    type=float, required=True)
     ap.add_argument("-cnumx", "--chess_num_x", help="Chessboard's number of squares in horizontal dimension.",
                     type=int, required=True)
     ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of squares in vertical dimension.",
@@ -64,26 +67,6 @@ if __name__ == "__main__":
     f = open(args['json_file'], 'r')
     dataset_sensors = json.load(f)
 
-    # Remove some sensors if desired. Should be done here according to the examples bellow.
-    del dataset_sensors['sensors']['frontal_laser']
-    # del dataset_sensors['sensors']['top_right_camera']
-    # del dataset_sensors['sensors']['frontal_camera']
-    # del dataset_sensors['sensors']['left_laser']
-    # del dataset_sensors['sensors']['right_laser']
-    # del dataset_sensors['collections']['0']
-    # del dataset_sensors['collections']['1']
-
-    for key in dataset_sensors['collections'].keys():
-        if not key in ['2','5','8']:
-            del dataset_sensors['collections'][key]
-
-    # del dataset_sensors['collections']['3']
-    # del dataset_sensors['collections']['4']
-    # del dataset_sensors['collections']['5']
-
-    print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
-        len(dataset_sensors['collections'].keys())) + ' collections.')
-
     # Load images from files into memory. Images in the json file are stored in separate png files and in their place
     # a field "data_file" is saved with the path to the file. We must load the images from the disk.
     for collection_key, collection in dataset_sensors['collections'].items():
@@ -93,6 +76,26 @@ if __name__ == "__main__":
 
             filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
             collection['data'][sensor_key]['data'] = cv2.imread(filename)
+
+    # Remove some sensors if desired. Should be done here according to the examples bellow.
+    # del dataset_sensors['sensors']['frontal_laser']
+    # del dataset_sensors['sensors']['top_right_camera']
+    del dataset_sensors['sensors']['frontal_camera']
+    # del dataset_sensors['sensors']['left_laser']
+    # del dataset_sensors['sensors']['right_laser']
+    # del dataset_sensors['collections']['0']
+    # del dataset_sensors['collections']['1']
+
+    for key in dataset_sensors['collections'].keys():
+        if key in ['10','13']:
+            del dataset_sensors['collections'][key]
+
+    # del dataset_sensors['collections']['3']
+    # del dataset_sensors['collections']['4']
+    # del dataset_sensors['collections']['5']
+
+    print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
+        len(dataset_sensors['collections'].keys())) + ' collections.')
 
     # ---------------------------------------
     # --- CREATE CHESSBOARD DATASET
@@ -107,15 +110,15 @@ if __name__ == "__main__":
     # print(chessboard_evaluation_points.shape)
 
     factor = round(1.)
-    num_pts = int((args['chess_num_x']*factor) * (args['chess_num_y']*factor))
+    num_pts = int((args['chess_num_x'] * factor) * (args['chess_num_y'] * factor))
     chessboard_evaluation_points = np.zeros((4, num_pts), np.float32)
-    step_x = (args['chess_num_x'])*args['chess_size'] / (args['chess_num_x']*factor)
-    step_y = (args['chess_num_y'])*args['chess_size'] / (args['chess_num_y']*factor)
+    step_x = (args['chess_num_x']) * args['chess_size'] / (args['chess_num_x'] * factor)
+    step_y = (args['chess_num_y']) * args['chess_size'] / (args['chess_num_y'] * factor)
 
     counter = 0
-    for idx_y in range(0, int(args['chess_num_y']*factor)):
+    for idx_y in range(0, int(args['chess_num_y'] * factor)):
         y = idx_y * step_y
-        for idx_x in range(0, int(args['chess_num_x']*factor)):
+        for idx_x in range(0, int(args['chess_num_x'] * factor)):
             x = idx_x * step_x
             chessboard_evaluation_points[0, counter] = x
             chessboard_evaluation_points[1, counter] = y
@@ -124,9 +127,7 @@ if __name__ == "__main__":
             counter += 1
 
     # print(chessboard_evaluation_points)
-    #
     # exit(0)
-
 
     dataset_chessboard = {}
     objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
@@ -134,7 +135,6 @@ if __name__ == "__main__":
     chessboard_points = np.transpose(objp)
     chessboard_points = np.vstack(
         (chessboard_points, np.ones((1, args['chess_num_x'] * args['chess_num_y']), dtype=np.float)))
-
 
     for collection_key, collection in dataset_sensors['collections'].items():
         flg_detected_chessboard = False
@@ -211,6 +211,7 @@ if __name__ == "__main__":
         if not flg_detected_chessboard:
             raise ValueError('Collection ' + collection_key + ' could not find chessboard.')
 
+    del dataset_sensors['sensors']['top_right_camera']
     # print(dataset_chessboard)
     # exit(0)
 
@@ -300,11 +301,16 @@ if __name__ == "__main__":
 
 
     # Add parameters related to the sensors
+    translation_delta = 0.3
     for sensor_key, sensor in dataset_sensors['sensors'].items():
+        initial_values = getterSensorTranslation(dataset_sensors, sensor_name=sensor_key)
+        bound_max = [x + translation_delta for x in initial_values]
+        bound_min = [x - translation_delta for x in initial_values]
         opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
                         getter=partial(getterSensorTranslation, sensor_name=sensor_key),
                         setter=partial(setterSensorTranslation, sensor_name=sensor_key),
-                        suffix=['x', 'y', 'z'])
+                        suffix=['x', 'y', 'z'],
+                        bound_max=bound_max, bound_min=bound_min)
 
         opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
                             getter=partial(getterSensorRotation, sensor_name=sensor_key),
@@ -350,10 +356,14 @@ if __name__ == "__main__":
 
     # Add translation and rotation parameters related to the Chessboards
     for collection_key in dataset_chessboard:
+        initial_values = getterChessBoardTranslation(dataset_chessboard, collection_key)
+        bound_max = [x + translation_delta for x in initial_values]
+        bound_min = [x - translation_delta for x in initial_values]
         opt.pushParamV3(group_name='C_' + collection_key + '_t', data_key='dataset_chessboard',
                         getter=partial(getterChessBoardTranslation, collection=collection_key),
                         setter=partial(setterChessBoardTranslation, collection=collection_key),
-                        suffix=['x', 'y', 'z'])
+                        suffix=['x', 'y', 'z'],
+                        bound_max=bound_max, bound_min=bound_min)
 
         opt.pushParamV3(group_name='C_' + collection_key + '_r', data_key='dataset_chessboard',
                         getter=partial(getterChessBoardRotation, collection=collection_key),
@@ -361,8 +371,6 @@ if __name__ == "__main__":
                         suffix=['1', '2', '3'])
 
     opt.printParameters()
-
-
 
     # Create a 3D plot in which the sensor poses and chessboards are drawn
     fig = plt.figure()
@@ -372,6 +380,8 @@ if __name__ == "__main__":
     # limit = 1.5
     ax.set_xlim3d(-1.5, 1.5), ax.set_ylim3d(-4, 1.5), ax.set_zlim3d(-.5, 1.5)
     ax.view_init(elev=27, azim=46)
+
+
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
     # ---------------------------------------
@@ -500,8 +510,8 @@ if __name__ == "__main__":
 
                         # dists[0,counter] = np.power(vals.min(axis=1), 7)/10
                         # dists[0,counter] = np.exp(vals.min(axis=1))/100
-                        dists[0,counter] = vals.min(axis=1)
-                        idxs_min[0,counter] = vals.argmin(axis=1)
+                        dists[0, counter] = vals.min(axis=1)
+                        idxs_min[0, counter] = vals.argmin(axis=1)
                         # dists[0, counter] = np.average(vals)
                         # print(dists[0,counter])
 
@@ -519,51 +529,57 @@ if __name__ == "__main__":
                         counter += 1
 
                     dists = dists[0]
-                    # Compute orthogonal error
                     # print('dists = ' + str(dists))
                     # print('idxs_min = ' + str(idxs_min))
                     # error_longitudinal = np.average(dists)
-                    error_longitudinal = np.max(dists) * 100
                     # error_longitudinal = np.average(dists) * 100
                     # error_longitudinal = np.sum(dists) * 100
-                    error_orthogonal = np.average(np.absolute(pts_chessboard[2, :])) * 100
+                    error_longitudinal = np.max(dists)
+
+
+                    # Compute the longitudinal radius error
+
+                    # dists = np.zeros((1, 2), np.float)
+                    distances = []
+
+                    # pts_extrema = pts_chessboard[0:2, [0,-1]]
+                    # print(pts_extrema)
+
+                    # Compute orthogonal error
+                    error_orthogonal = np.average(np.absolute(pts_chessboard[2, :]))
 
                     # TODO error in meters? Seems small when compared with pixels ...
-                    error = error_longitudinal + error_orthogonal
+                    # error = error_longitudinal + error_orthogonal
                     # error = error_longitudinal
-                    # error = error_orthogonal
+                    error = error_orthogonal
                     errors.append(error)
 
                     # Store for visualization
                     collection['labels'][sensor_key]['pts_root'] = pts_root
 
-
-
-                    root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
-                    minimum_associations = chessboard_evaluation_points[:,idxs_min[0]]
-                    # print('chessboard_evaluation_points_in_root = ' + str(minimum_associations))
-                    minimum_associations_in_root = np.dot(root_T_chessboard, minimum_associations)
-
-                    if 'minimum_associations' in collection['labels'][sensor_key]:
-                        utilities.drawPoints3D(ax, None, minimum_associations_in_root, color=[.8, .7, 0],
-                                           marker_size=3.5, line_width=2.2,
-                                           marker='^',
-                                           mfc=[.8,.7,0],
-                                           text=None,
-                                           text_color=sensor['color'],
-                                           sensor_color=sensor['color'],
-                                           handles=collection['labels'][sensor_key]['minimum_associations'])
-                    else:
-                        collection['labels'][sensor_key]['minimum_associations'] = utilities.drawPoints3D(ax, None, minimum_associations_in_root, color=[.8, .7, 0],
-                                           marker_size=3.5, line_width=2.2,
-                                           marker='*',
-                                           mfc=[.8,.7,0],
-                                           text=None,
-                                           text_color=sensor['color'],
-                                           sensor_color=sensor['color'],
-                                           handles=None)
-
-
+                    # root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
+                    # minimum_associations = chessboard_evaluation_points[:,idxs_min[0]]
+                    # # print('chessboard_evaluation_points_in_root = ' + str(minimum_associations))
+                    # minimum_associations_in_root = np.dot(root_T_chessboard, minimum_associations)
+                    #
+                    # if 'minimum_associations' in collection['labels'][sensor_key]:
+                    #     utilities.drawPoints3D(ax, None, minimum_associations_in_root, color=[.8, .7, 0],
+                    #                        marker_size=3.5, line_width=2.2,
+                    #                        marker='^',
+                    #                        mfc=[.8,.7,0],
+                    #                        text=None,
+                    #                        text_color=sensor['color'],
+                    #                        sensor_color=sensor['color'],
+                    #                        handles=collection['labels'][sensor_key]['minimum_associations'])
+                    # else:
+                    #     collection['labels'][sensor_key]['minimum_associations'] = utilities.drawPoints3D(ax, None, minimum_associations_in_root, color=[.8, .7, 0],
+                    #                        marker_size=3.5, line_width=2.2,
+                    #                        marker='*',
+                    #                        mfc=[.8,.7,0],
+                    #                        text=None,
+                    #                        text_color=sensor['color'],
+                    #                        sensor_color=sensor['color'],
+                    #                        handles=None)
 
                     # if sensor_key == 'left_laser':
                     #     print('Collection ' + collection_key + ', sensor ' + sensor_key + ' tranforms=' + str(
@@ -806,7 +822,7 @@ if __name__ == "__main__":
                                      handles=collection['handle'])
 
 
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=10, figures=[fig])
+    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[fig])
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
@@ -828,7 +844,7 @@ if __name__ == "__main__":
     #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-3})
 
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-2})
 
     # opt.startOptimization(
     #    optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
