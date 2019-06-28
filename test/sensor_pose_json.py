@@ -77,6 +77,9 @@ if __name__ == "__main__":
             filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
             collection['data'][sensor_key]['data'] = cv2.imread(filename)
 
+    # ---------------------------------------
+    # --- FILTER SENSORS TO BE USED IN CALIBRATION
+    # ---------------------------------------
     # Remove some sensors if desired. Should be done here according to the examples bellow.
     # del dataset_sensors['sensors']['frontal_laser']
     # del dataset_sensors['sensors']['top_right_camera']
@@ -211,6 +214,9 @@ if __name__ == "__main__":
         if not flg_detected_chessboard:
             raise ValueError('Collection ' + collection_key + ' could not find chessboard.')
 
+    # ---------------------------------------
+    # --- DELETE SENSORS OR COLLECTIONS AFTER THE CHESSBOARD CALIBRATION
+    # ---------------------------------------
     del dataset_sensors['sensors']['top_right_camera']
     # print(dataset_chessboard)
     # exit(0)
