@@ -35,6 +35,38 @@ from scipy.spatial.distance import directed_hausdorff
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
 
+def is_jsonable(x):
+    try:
+        json.dumps(x)
+        return True
+    except (TypeError, OverflowError):
+        return False
+
+def walk(node):
+
+    for key, item in node.items():
+        if isinstance(item, dict):
+            walk(item)
+        else:
+            if not is_jsonable(item):
+                print ('Deleting ' + key)
+                del node[key]
+
+
+# Save to json file
+def createJSONFile(output_file, input):
+
+    D = deepcopy(input)
+
+    walk(D)
+
+    print("Saving the json output file to " + str(output_file) + ", please wait, it could take a while ...")
+    f = open(output_file, 'w')
+    json.encoder.FLOAT_REPR = lambda f: ("%.4f" % f)  # to get only four decimal places on the json file
+    print >> f, json.dumps(D, indent=2, sort_keys=True)
+    f.close()
+    print("Completed.")
+
 # -------------------------------------------------------------------------------
 # --- MAIN
 # -------------------------------------------------------------------------------
@@ -442,15 +474,24 @@ if __name__ == "__main__":
                         array_gt[1][idx] = pix_ground_truth['y']
 
                     error_sum = 0
+                    error_x = []
+                    error_y = []
                     for idx in range(0, args['chess_num_x'] * args['chess_num_y']):
                         error_sum += math.sqrt(
                             (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                        error_x.append(pixs[0, idx] - array_gt[0, idx])
+                        error_y.append(pixs[1, idx] - array_gt[1, idx])
 
                     error = error_sum / (args['chess_num_x'] * args['chess_num_y'])
                     errors.append(error)
 
                     sum_error += error
                     num_detections += 1
+                    collection['labels'][sensor_key]['errors'] = {'x':error_x, 'y': error_y}
+
+
+
+
 
                     # store projected pixels into dataset_sensors dict for drawing in visualization function
                     idxs_projected = []
@@ -558,6 +599,9 @@ if __name__ == "__main__":
                     # print(pts_extrema)
 
                     # Compute orthogonal error
+
+                    collection['labels'][sensor_key]['errors'] = pts_chessboard[2, :].tolist()
+
                     error_orthogonal = np.average(np.absolute(pts_chessboard[2, :]))
 
                     sum_error += error_orthogonal
@@ -615,6 +659,7 @@ if __name__ == "__main__":
             print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error/num_detections))
 
         # Return the errors
+        createJSONFile('/tmp/data_collected_results.json', dataset_sensors)
         return errors
 
 
