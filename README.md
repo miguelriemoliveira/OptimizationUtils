@@ -59,3 +59,28 @@ clear && test/projection_based_color_balancing_oc_dataset.py -p ~/datasets/red_b
 ```
   test/sensor_pose_json.py -json <json_:path_to_your_json>
 ```
+
+### Calibration of sensors in the atlascar
+
+To generate a dataset
+
+```bash
+roslaunch interactive_calibration atlascar2_calibration.launch
+```
+
+and then:
+
+```bash
+clear && rosrun interactive_calibration collect_and_label_data.py -w car_center -o /home/mike/datasets/calibration_test2 -s .5
+```
+
+You can visualize the json file by copying to 
+
+https://jsoneditoronline.org/#/
+
+and copy the contents of the /home/mike/datasets/calibration_test2/data_collected.json to the left window.
+
+
+```bash
+test/sensor_pose_json.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.1054 -cnumx 8 -cnumy 6 -vo
+```
