@@ -83,7 +83,7 @@ if __name__ == "__main__":
     # Remove some sensors if desired. Should be done here according to the examples bellow.
     # del dataset_sensors['sensors']['frontal_laser']
     # del dataset_sensors['sensors']['top_right_camera']
-    del dataset_sensors['sensors']['frontal_camera']
+    # del dataset_sensors['sensors']['frontal_camera']
     # del dataset_sensors['sensors']['left_laser']
     # del dataset_sensors['sensors']['right_laser']
     # del dataset_sensors['collections']['0']
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- DELETE SENSORS OR COLLECTIONS AFTER THE CHESSBOARD CALIBRATION
     # ---------------------------------------
-    del dataset_sensors['sensors']['top_right_camera']
+    # del dataset_sensors['sensors']['top_right_camera']
     # print(dataset_chessboard)
     # exit(0)
 
@@ -400,6 +400,7 @@ if __name__ == "__main__":
             - (...)
             :return: a vector of residuals
         """
+        print('New obj function')
 
         # Get the data from the model
         dataset_sensors = data['dataset_sensors']
@@ -407,8 +408,10 @@ if __name__ == "__main__":
 
         errors = []
 
-        for collection_key, collection in dataset_sensors['collections'].items():
-            for sensor_key, sensor in dataset_sensors['sensors'].items():
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            sum_error = 0
+            num_detections = 0
+            for collection_key, collection in dataset_sensors['collections'].items():
                 if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
                     continue
 
@@ -445,6 +448,9 @@ if __name__ == "__main__":
 
                     error = error_sum / (args['chess_num_x'] * args['chess_num_y'])
                     errors.append(error)
+
+                    sum_error += error
+                    num_detections += 1
 
                     # store projected pixels into dataset_sensors dict for drawing in visualization function
                     idxs_projected = []
@@ -554,6 +560,9 @@ if __name__ == "__main__":
                     # Compute orthogonal error
                     error_orthogonal = np.average(np.absolute(pts_chessboard[2, :]))
 
+                    sum_error += error_orthogonal
+                    num_detections += 1
+
                     # TODO error in meters? Seems small when compared with pixels ...
                     # error = error_longitudinal + error_orthogonal
                     # error = error_longitudinal
@@ -598,10 +607,13 @@ if __name__ == "__main__":
                     if not 'pts_root_initial' in collection['labels'][sensor_key]:  # store the first projections
                         collection['labels'][sensor_key]['pts_root_initial'] = deepcopy(pts_root)
 
+
                 else:
                     raise ValueError("Unknown sensor msg_type")
 
                 # print('error for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(error))
+            print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error/num_detections))
+
         # Return the errors
         return errors
 
@@ -614,8 +626,8 @@ if __name__ == "__main__":
     # Each error is computed after the sensor and the chessboard of a collection. Thus, each error will be affected
     # by the parameters tx,ty,tz,r1,r2,r3 of the sensor and the chessboard
 
-    for collection_key, collection in dataset_sensors['collections'].items():
-        for sensor_key, sensor in dataset_sensors['sensors'].items():
+    for sensor_key, sensor in dataset_sensors['sensors'].items():
+        for collection_key, collection in dataset_sensors['collections'].items():
             if not collection['labels'][sensor_key]['detected']:  # if chessboard not detected by sensor in collection
                 continue
 
@@ -850,7 +862,7 @@ if __name__ == "__main__":
     #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-3})
 
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-2})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-6, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     # opt.startOptimization(
     #    optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
