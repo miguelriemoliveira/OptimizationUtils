@@ -651,12 +651,14 @@ if __name__ == "__main__":
                     if not 'pts_root_initial' in collection['labels'][sensor_key]:  # store the first projections
                         collection['labels'][sensor_key]['pts_root_initial'] = deepcopy(pts_root)
 
-
                 else:
                     raise ValueError("Unknown sensor msg_type")
 
                 # print('error for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(error))
-            print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error/num_detections))
+            if num_detections == 0:
+                continue
+            else:
+                print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error/num_detections))
 
         # Return the errors
         createJSONFile('/tmp/data_collected_results.json', dataset_sensors)
