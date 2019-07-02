@@ -121,9 +121,9 @@ if __name__ == "__main__":
     # del dataset_sensors['collections']['0']
     # del dataset_sensors['collections']['1']
 
-    # for key in dataset_sensors['collections'].keys():
-    #     if key in ['10','13']:
-    #         del dataset_sensors['collections'][key]
+    for key in dataset_sensors['collections'].keys():
+        if key in ['1','2']:
+            del dataset_sensors['collections'][key]
 
     # del dataset_sensors['collections']['3']
     # del dataset_sensors['collections']['4']
@@ -249,7 +249,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- DELETE SENSORS OR COLLECTIONS AFTER THE CHESSBOARD CALIBRATION
     # ---------------------------------------
-    # del dataset_sensors['sensors']['top_right_camera']
+    del dataset_sensors['sensors']['top_right_camera']
     # print(dataset_chessboard)
     # exit(0)
 
@@ -346,22 +346,22 @@ if __name__ == "__main__":
         initial_values = getterSensorTranslation(dataset_sensors, sensor_name=sensor_key)
         bound_max = [x + translation_delta for x in initial_values]
         bound_min = [x - translation_delta for x in initial_values]
-        opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
-                        getter=partial(getterSensorTranslation, sensor_name=sensor_key),
-                        setter=partial(setterSensorTranslation, sensor_name=sensor_key),
-                        suffix=['x', 'y', 'z'],
-                        bound_max=bound_max, bound_min=bound_min)
+        # opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
+        #                 getter=partial(getterSensorTranslation, sensor_name=sensor_key),
+        #                 setter=partial(setterSensorTranslation, sensor_name=sensor_key),
+        #                 suffix=['x', 'y', 'z'])
+        # # bound_max=bound_max, bound_min=bound_min)
 
-        opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
-                            getter=partial(getterSensorRotation, sensor_name=sensor_key),
-                            setter=partial(setterSensorRotation, sensor_name=sensor_key),
-                            suffix=['1', '2', '3'])
+        # opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
+        #                     getter=partial(getterSensorRotation, sensor_name=sensor_key),
+        #                     setter=partial(setterSensorRotation, sensor_name=sensor_key),
+        #                     suffix=['1', '2', '3'])
 
-        if sensor['msg_type'] == 'Image':  # if sensor is a camera add extrinsics
-            opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
-                                getter=partial(getterCameraIntrinsics, sensor_name=sensor_key),
-                                setter=partial(setterCameraIntrinsics, sensor_name=sensor_key),
-                                suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
+        # if sensor['msg_type'] == 'Image':  # if sensor is a camera add extrinsics
+        #     opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
+        #                         getter=partial(getterCameraIntrinsics, sensor_name=sensor_key),
+        #                         setter=partial(setterCameraIntrinsics, sensor_name=sensor_key),
+        #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
 
 
     # ------------  Chessboard -----------------
@@ -489,9 +489,6 @@ if __name__ == "__main__":
                     sum_error += error
                     num_detections += 1
                     collection['labels'][sensor_key]['errors'] = {'x':error_x, 'y': error_y}
-
-
-
 
 
                     # store projected pixels into dataset_sensors dict for drawing in visualization function

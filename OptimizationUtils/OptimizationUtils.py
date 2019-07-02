@@ -264,8 +264,8 @@ class Optimizer:
             self.wm.waitForKey(time_to_wait=0.01, verbose=True)  # wait a bit
 
             # Printing information
-            # self.printParameters(flg_simple=True)
-            # self.printResiduals(errors)
+            self.printParameters(flg_simple=True)
+            self.printResiduals(errors)
             print('\nAverage error = ' + str(np.average(errors)) + '\n')
 
         else:
