@@ -116,14 +116,14 @@ if __name__ == "__main__":
     # del dataset_sensors['sensors']['frontal_laser']
     # del dataset_sensors['sensors']['top_right_camera']
     # del dataset_sensors['sensors']['frontal_camera']
-    del dataset_sensors['sensors']['left_laser']
-    del dataset_sensors['sensors']['right_laser']
+    # del dataset_sensors['sensors']['left_laser']
+    # del dataset_sensors['sensors']['right_laser']
     # del dataset_sensors['collections']['0']
     # del dataset_sensors['collections']['1']
-
-    for key in dataset_sensors['collections'].keys():
-        if key in ['1','2']:
-            del dataset_sensors['collections'][key]
+    #
+    # for key in dataset_sensors['collections'].keys():
+    #     if key in ['10','13']:
+    #         del dataset_sensors['collections'][key]
 
     # del dataset_sensors['collections']['3']
     # del dataset_sensors['collections']['4']
@@ -249,7 +249,8 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- DELETE SENSORS OR COLLECTIONS AFTER THE CHESSBOARD CALIBRATION
     # ---------------------------------------
-    del dataset_sensors['sensors']['top_right_camera']
+    del dataset_sensors['sensors']['frontal_camera']
+    del dataset_sensors['sensors']['right_laser']
     # print(dataset_chessboard)
     # exit(0)
 
@@ -259,10 +260,8 @@ if __name__ == "__main__":
     print('\nInitializing optimizer...')
     opt = OptimizationUtils.Optimizer()
 
-
     opt.addModelData('dataset_sensors', dataset_sensors)
     opt.addModelData('dataset_chessboard', dataset_chessboard)
-
 
     # ------------  Sensors -----------------
     # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
@@ -346,22 +345,22 @@ if __name__ == "__main__":
         initial_values = getterSensorTranslation(dataset_sensors, sensor_name=sensor_key)
         bound_max = [x + translation_delta for x in initial_values]
         bound_min = [x - translation_delta for x in initial_values]
-        # opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
-        #                 getter=partial(getterSensorTranslation, sensor_name=sensor_key),
-        #                 setter=partial(setterSensorTranslation, sensor_name=sensor_key),
-        #                 suffix=['x', 'y', 'z'])
-        # # bound_max=bound_max, bound_min=bound_min)
+        opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
+                        getter=partial(getterSensorTranslation, sensor_name=sensor_key),
+                        setter=partial(setterSensorTranslation, sensor_name=sensor_key),
+                        suffix=['x', 'y', 'z'],
+                        bound_max=bound_max, bound_min=bound_min)
 
-        # opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
-        #                     getter=partial(getterSensorRotation, sensor_name=sensor_key),
-        #                     setter=partial(setterSensorRotation, sensor_name=sensor_key),
-        #                     suffix=['1', '2', '3'])
+        opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
+                            getter=partial(getterSensorRotation, sensor_name=sensor_key),
+                            setter=partial(setterSensorRotation, sensor_name=sensor_key),
+                            suffix=['1', '2', '3'])
 
-        # if sensor['msg_type'] == 'Image':  # if sensor is a camera add extrinsics
-        #     opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
-        #                         getter=partial(getterCameraIntrinsics, sensor_name=sensor_key),
-        #                         setter=partial(setterCameraIntrinsics, sensor_name=sensor_key),
-        #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
+        if sensor['msg_type'] == 'Image':  # if sensor is a camera add extrinsics
+            opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
+                                getter=partial(getterCameraIntrinsics, sensor_name=sensor_key),
+                                setter=partial(setterCameraIntrinsics, sensor_name=sensor_key),
+                                suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
 
 
     # ------------  Chessboard -----------------
@@ -439,6 +438,7 @@ if __name__ == "__main__":
         # Get the data from the model
         dataset_sensors = data['dataset_sensors']
         dataset_chessboard = data['dataset_chessboard']
+
         errors = []
 
         for sensor_key, sensor in dataset_sensors['sensors'].items():
@@ -489,6 +489,9 @@ if __name__ == "__main__":
                     sum_error += error
                     num_detections += 1
                     collection['labels'][sensor_key]['errors'] = {'x':error_x, 'y': error_y}
+
+
+
 
 
                     # store projected pixels into dataset_sensors dict for drawing in visualization function
@@ -659,7 +662,7 @@ if __name__ == "__main__":
                 print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error/num_detections))
 
         # Return the errors
-        createJSONFile('/tmp/data_collected_results.json', dataset_sensors)
+        # createJSONFile('/tmp/data_collected_results.json', dataset_sensors)
         return errors
 
 
@@ -691,7 +694,6 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- SETUP THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    dataset_graphics = deepcopy(dataset_sensors)
     if args['view_optimization']:
         font = cv2.FONT_HERSHEY_SIMPLEX  # font for displaying text
 
@@ -700,12 +702,12 @@ if __name__ == "__main__":
 
         color_map_collections = cm.Set3(np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
         for idx, collection_key in enumerate(sorted(dataset_sensors['collections'].keys())):
-            dataset_graphics['collections'][collection_key]['color'] = color_map_collections[idx, :]
-            # dataset_graphics[collection_key]['color'] = color_map_collections[idx, :]
+            dataset_sensors['collections'][collection_key]['color'] = color_map_collections[idx, :]
+            dataset_chessboard[collection_key]['color'] = color_map_collections[idx, :]
 
         color_map_sensors = cm.gist_rainbow(np.linspace(0, 1, len(dataset_sensors['sensors'].keys())))
         for idx, sensor_key in enumerate(sorted(dataset_sensors['sensors'].keys())):
-            dataset_graphics['sensors'][sensor_key]['color'] = color_map_sensors[idx, :]
+            dataset_sensors['sensors'][sensor_key]['color'] = color_map_sensors[idx, :]
 
         # Create opencv windows. One per sensor image and collection
         counter = 0
@@ -744,17 +746,16 @@ if __name__ == "__main__":
             root_T_sensor = utilities.getAggregateTransform(sensor['chain'],
                                                             dataset_sensors['collections'][selected_collection_key][
                                                                 'transforms'])
-
-            dataset_graphics['sensors'][sensor_key]['handle'] = utilities.drawAxis3D(ax, root_T_sensor, sensor_key, text_color=dataset_graphics['sensors'][sensor_key]['color'],
+            sensor['handle'] = utilities.drawAxis3D(ax, root_T_sensor, sensor_key, text_color=sensor['color'],
                                                     axis_scale=0.3, line_width=1.5)
 
         # Draw chessboard poses
         for collection_key, collection in dataset_chessboard.items():
             root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
 
-            dataset_graphics['collections'][collection_key]['handle'] = utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points,
+            collection['handle'] = utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points,
                                                             'C' + collection_key, chess_num_x=args['chess_num_x'],
-                                                            chess_num_y=args['chess_num_y'], color=dataset_graphics['collections'][collection_key]['color'],
+                                                            chess_num_y=args['chess_num_y'], color=collection['color'],
                                                             axis_scale=0.5, line_width=2)
 
             trans = collection['trans']
@@ -800,7 +801,7 @@ if __name__ == "__main__":
                 pts_root = np.dot(root_T_sensor, pts_laser)
 
                 # draw points
-                dataset_graphics['collections'][collection_key]['labels'][sensor_key]['pts_handle'] = utilities.drawPoints3D(ax, None, pts_root,
+                collection['labels'][sensor_key]['pts_handle'] = utilities.drawPoints3D(ax, None, pts_root,
                                                                                         color=collection['color'],
                                                                                         marker_size=2.5, line_width=2.2,
                                                                                         marker='-o',
@@ -814,7 +815,6 @@ if __name__ == "__main__":
         if wm.waitForKey(time_to_wait=0.01, verbose=True):
             exit(0)
 
-    opt.addModelData('dataset_graphics', dataset_graphics)
 
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
@@ -876,7 +876,7 @@ if __name__ == "__main__":
                                                             dataset_sensors['collections'][selected_collection_key][
                                                                 'transforms'])
             utilities.drawAxis3D(ax, root_T_sensor, sensor_key, axis_scale=0.3, line_width=2,
-                                 handles=dataset_graphics['sensors'][sensor_key]['handle'])
+                                 handles=sensor['handle'])
 
         # Draw chessboard poses
         for idx, (collection_key, collection) in enumerate(dataset_chessboard.items()):
@@ -885,7 +885,7 @@ if __name__ == "__main__":
             utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + collection_key,
                                      chess_num_x=args['chess_num_x'], chess_num_y=args['chess_num_y'],
                                      color=color_collection, axis_scale=0.3, line_width=2,
-                                     handles=dataset_graphics['collections'][collection_key]['handle'])
+                                     handles=collection['handle'])
 
 
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[fig])
