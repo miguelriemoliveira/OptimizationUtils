@@ -9,27 +9,20 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 import json
 import math
 import sys
-
 from tf import transformations
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 import KeyPressManager.KeyPressManager as KeyPressManager
-import OptimizationUtils.utilities as utilities
-import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
-import plyfile as plyfile
 import cv2
 import argparse
-import subprocess
 import os
-import shutil
-from copy import deepcopy
 from functools import partial
 from matplotlib import cm
-from scipy.spatial.distance import euclidean
-from scipy.spatial import distance
 from open3d import *
-from scipy.spatial.distance import directed_hausdorff
+
+from getter_and_setters import *
+from objective_function import *
 
 
 # -------------------------------------------------------------------------------
@@ -71,8 +64,7 @@ def createJSONFile(output_file, input):
 # -------------------------------------------------------------------------------
 # --- MAIN
 # -------------------------------------------------------------------------------
-if __name__ == "__main__":
-
+def main():
     # ---------------------------------------
     # --- Parse command line argument
     # ---------------------------------------
@@ -117,14 +109,14 @@ if __name__ == "__main__":
     # del dataset_sensors['sensors']['frontal_laser']
     # del dataset_sensors['sensors']['top_right_camera']
     # del dataset_sensors['sensors']['frontal_camera']
-    del dataset_sensors['sensors']['left_laser']
+    # del dataset_sensors['sensors']['left_laser']
     del dataset_sensors['sensors']['right_laser']
-    # del dataset_sensors['collections']['0']
+    # del dataset_sensors['collections']['15']
     # del dataset_sensors['collections']['1']
 
-    for key in dataset_sensors['collections'].keys():
-        if key in ['1', '2']:
-            del dataset_sensors['collections'][key]
+    # for key in dataset_sensors['collections'].keys():
+    #     if int(key) > 0:
+    #         del dataset_sensors['collections'][key]
 
     # del dataset_sensors['collections']['3']
     # del dataset_sensors['collections']['4']
@@ -145,6 +137,10 @@ if __name__ == "__main__":
     #
     # print(chessboard_evaluation_points.shape)
 
+    dataset_chessboards = {'chess_num_x': args['chess_num_x'], 'chess_num_y': args['chess_num_y'],
+                           'number_corners': int(args['chess_num_x'] * args['chess_num_y']),
+                           'collections': {}}
+
     factor = round(1.)
     num_pts = int((args['chess_num_x'] * factor) * (args['chess_num_y'] * factor))
     chessboard_evaluation_points = np.zeros((4, num_pts), np.float32)
@@ -162,15 +158,15 @@ if __name__ == "__main__":
             chessboard_evaluation_points[3, counter] = 1
             counter += 1
 
-    # print(chessboard_evaluation_points)
-    # exit(0)
+    dataset_chessboards['evaluation_points'] = chessboard_evaluation_points
 
-    dataset_chessboard = {}
     objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
     objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1, 2)
     chessboard_points = np.transpose(objp)
     chessboard_points = np.vstack(
         (chessboard_points, np.ones((1, args['chess_num_x'] * args['chess_num_y']), dtype=np.float)))
+
+    dataset_chessboard_points = {'points': chessboard_points}
 
     for collection_key, collection in dataset_sensors['collections'].items():
         flg_detected_chessboard = False
@@ -189,14 +185,12 @@ if __name__ == "__main__":
                 dist = np.ndarray((5, 1), dtype=np.float,
                                   buffer=np.array(sensor['camera_info']['D']))
 
-
-                def draw(img, corners, imgpts):
-                    corner = tuple(corners[0].ravel())
+                def draw(img, _corners, imgpts):
+                    corner = tuple(_corners[0].ravel())
                     img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (0, 0, 255), 5)
                     img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0, 255, 0), 5)
                     img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (255, 0, 0), 5)
                     return img
-
 
                 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
                 objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
@@ -206,6 +200,7 @@ if __name__ == "__main__":
                 axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, 3]]).reshape(-1, 3)
 
                 gray = cv2.cvtColor(image_rgb, cv2.COLOR_BGR2GRAY)
+                # corners = np.zeros((2,48), dtype = np.int)
                 ret, corners = cv2.findChessboardCorners(gray, (args['chess_num_x'], args['chess_num_y']))
                 # TODO use the corners already in the json
                 if ret == True:
@@ -236,22 +231,21 @@ if __name__ == "__main__":
                     d['quat'] = list(transformations.quaternion_from_matrix(T))
 
                     print('Creating first guess for collection ' + collection_key + ' using sensor ' + sensor_key)
-                    dataset_chessboard[collection_key] = d
+                    dataset_chessboards['collections'][collection_key] = d
 
                     flg_detected_chessboard = True
                     break  # don't search for this collection's chessboard on anymore sensors
-                    # TODO what to do when the chessboard is not detected by any camera on this collection
 
                     # cv2.waitKey(10)
 
-        if not flg_detected_chessboard:
+        if not flg_detected_chessboard:  # Abort when the chessboard is not detected by any camera on this collection
             raise ValueError('Collection ' + collection_key + ' could not find chessboard.')
 
     # ---------------------------------------
     # --- DELETE SENSORS OR COLLECTIONS AFTER THE CHESSBOARD CALIBRATION
     # ---------------------------------------
-    del dataset_sensors['sensors']['top_right_camera']
-    # print(dataset_chessboard)
+    # del dataset_sensors['sensors']['top_right_camera']
+    # print(dataset_chessboards)
     # exit(0)
 
     # ---------------------------------------
@@ -261,157 +255,64 @@ if __name__ == "__main__":
     opt = OptimizationUtils.Optimizer()
 
     opt.addModelData('dataset_sensors', dataset_sensors)
-    opt.addModelData('dataset_chessboard', dataset_chessboard)
-
-    # ------------  Sensors -----------------
-    # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
+    opt.addModelData('dataset_chessboards', dataset_chessboards)
+    opt.addModelData('dataset_chessboard_points', dataset_chessboard_points)
 
     # For the getters we only need to get one collection. Lets take the first key on the dictionary and alwasy get that
     # transformation.
     selected_collection_key = dataset_sensors['collections'].keys()[0]
 
-
-    def getterSensorTranslation(data, sensor_name):
-        calibration_parent = data['sensors'][sensor_name]['calibration_parent']
-        calibration_child = data['sensors'][sensor_name]['calibration_child']
-        transform_key = calibration_parent + '-' + calibration_child
-        # We use collection selected_collection and assume they are all the same
-        return data['collections'][selected_collection_key]['transforms'][transform_key]['trans']
-
-
-    def setterSensorTranslation(data, value, sensor_name):
-        assert len(value) == 3, "value must be a list with length 3."
-
-        calibration_parent = data['sensors'][sensor_name]['calibration_parent']
-        calibration_child = data['sensors'][sensor_name]['calibration_child']
-        transform_key = calibration_parent + '-' + calibration_child
-
-        for _collection_key in data['collections']:
-            data['collections'][_collection_key]['transforms'][transform_key]['trans'] = value
-
-
-    def getterSensorRotation(data, sensor_name):
-        calibration_parent = data['sensors'][sensor_name]['calibration_parent']
-        calibration_child = data['sensors'][sensor_name]['calibration_child']
-        transform_key = calibration_parent + '-' + calibration_child
-
-        # We use collection selected_collection and assume they are all the same
-        quat = data['collections'][selected_collection_key]['transforms'][transform_key]['quat']
-        hmatrix = transformations.quaternion_matrix(quat)
-        matrix = hmatrix[0:3, 0:3]
-
-        return utilities.matrixToRodrigues(matrix)
-
-
-    def setterSensorRotation(data, value, sensor_name):
-        assert len(value) == 3, "value must be a list with length 3."
-
-        matrix = utilities.rodriguesToMatrix(value)
-        hmatrix = np.identity(4)
-        hmatrix[0:3, 0:3] = matrix
-        quat = transformations.quaternion_from_matrix(hmatrix)
-
-        calibration_parent = data['sensors'][sensor_name]['calibration_parent']
-        calibration_child = data['sensors'][sensor_name]['calibration_child']
-        transform_key = calibration_parent + '-' + calibration_child
-
-        for collection_key in data['collections']:
-            data['collections'][collection_key]['transforms'][transform_key]['quat'] = quat
-
-
-    def getterCameraIntrinsics(data, sensor_name):
-        fx = data['sensors'][sensor_name]['camera_info']['K'][0]
-        fy = data['sensors'][sensor_name]['camera_info']['K'][4]
-        cx = data['sensors'][sensor_name]['camera_info']['K'][2]
-        cy = data['sensors'][sensor_name]['camera_info']['K'][5]
-        D = data['sensors'][sensor_name]['camera_info']['D']
-        intrinsics = [fx, fy, cx, cy]
-        intrinsics.extend(D)
-        return intrinsics
-
-
-    def setterCameraIntrinsics(data, value, sensor_name):
-        assert len(value) == 9, "value must be a list with length 9."
-        data['sensors'][sensor_name]['camera_info']['K'][0] = value[0]
-        data['sensors'][sensor_name]['camera_info']['K'][4] = value[1]
-        data['sensors'][sensor_name]['camera_info']['K'][2] = value[2]
-        data['sensors'][sensor_name]['camera_info']['K'][5] = value[3]
-        data['sensors'][sensor_name]['camera_info']['D'] = value[4:]
-
+    # ------------  Sensors -----------------
+    # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
 
     # Add parameters related to the sensors
     translation_delta = 0.3
     for sensor_key, sensor in dataset_sensors['sensors'].items():
-        initial_values = getterSensorTranslation(dataset_sensors, sensor_name=sensor_key)
+        initial_values = getterSensorTranslation(dataset_sensors, sensor_key=sensor_key,
+                                                 collection_key=selected_collection_key)
         bound_max = [x + translation_delta for x in initial_values]
         bound_min = [x - translation_delta for x in initial_values]
-        # opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
-        #                 getter=partial(getterSensorTranslation, sensor_name=sensor_key),
-        #                 setter=partial(setterSensorTranslation, sensor_name=sensor_key),
-        #                 suffix=['x', 'y', 'z'])
-        # # bound_max=bound_max, bound_min=bound_min)
+        opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
+                        getter=partial(getterSensorTranslation, sensor_key=sensor_key,
+                                       collection_key=selected_collection_key),
+                        setter=partial(setterSensorTranslation, sensor_key=sensor_key),
+                        suffix=['x', 'y', 'z'])
+        # bound_max=bound_max, bound_min=bound_min)
 
-        # opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
-        #                     getter=partial(getterSensorRotation, sensor_name=sensor_key),
-        #                     setter=partial(setterSensorRotation, sensor_name=sensor_key),
-        #                     suffix=['1', '2', '3'])
-
-        # if sensor['msg_type'] == 'Image':  # if sensor is a camera add extrinsics
+        opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
+                            getter=partial(getterSensorRotation, sensor_key=sensor_key,
+                                           collection_key=selected_collection_key),
+                            setter=partial(setterSensorRotation, sensor_key=sensor_key),
+                            suffix=['1', '2', '3'])
+        #
+        # if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
         #     opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
-        #                         getter=partial(getterCameraIntrinsics, sensor_name=sensor_key),
-        #                         setter=partial(setterCameraIntrinsics, sensor_name=sensor_key),
+        #                         getter=partial(getterCameraIntrinsics, sensor_key=sensor_key),
+        #                         setter=partial(setterCameraIntrinsics, sensor_key=sensor_key),
         #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
-
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
 
-    def getterChessBoardTranslation(data, collection_key):
-        return data[collection_key]['trans']
-
-
-    def setterChessBoardTranslation(data, value, collection_key):
-        assert len(value) == 3, "value must be a list with length 3."
-
-        data[collection_key]['trans'] = value
-
-
-    def getterChessBoardRotation(data, collection_key):
-        quat = data[collection_key]['quat']
-        hmatrix = transformations.quaternion_matrix(quat)
-        matrix = hmatrix[0:3, 0:3]
-        return utilities.matrixToRodrigues(matrix)
-
-
-    def setterChessBoardRotation(data, value, collection_key):
-        assert len(value) == 3, "value must be a list with length 3."
-
-        matrix = utilities.rodriguesToMatrix(value)
-        hmatrix = np.identity(4).astype(np.float)
-        hmatrix[0:3, 0:3] = matrix
-        quat = transformations.quaternion_from_matrix(hmatrix)
-        data[collection_key]['quat'] = quat
-
-
-    # print('quat = ' + str(dataset_chessboard['0']['quat']))
-    # rod = getterChessBoardRotation(dataset_chessboard, '0')
+    # print('quat = ' + str(dataset_chessboards['0']['quat']))
+    # rod = getterChessBoardRotation(dataset_chessboards, '0')
     # print('rod = ' + str(rod))
-    # setterChessBoardRotation(dataset_chessboard, rod, '0')
-    # print('quat2 = ' + str(dataset_chessboard['0']['quat']))
+    # setterChessBoardRotation(dataset_chessboards, rod, '0')
+    # print('quat2 = ' + str(dataset_chessboards['0']['quat']))
     # exit(0)
 
     # Add translation and rotation parameters related to the Chessboards
-    for collection_key in dataset_chessboard:
-        # initial_values = getterChessBoardTranslation(dataset_chessboard, collection_key)
+    for collection_key in dataset_chessboards['collections']:
+        # initial_values = getterChessBoardTranslation(dataset_chessboards, collection_key)
         # bound_max = [x + translation_delta for x in initial_values]
         # bound_min = [x - translation_delta for x in initial_values]
-        opt.pushParamV3(group_name='C_' + collection_key + '_t', data_key='dataset_chessboard',
+        opt.pushParamV3(group_name='C_' + collection_key + '_t', data_key='dataset_chessboards',
                         getter=partial(getterChessBoardTranslation, collection_key=collection_key),
                         setter=partial(setterChessBoardTranslation, collection_key=collection_key),
                         suffix=['x', 'y', 'z'])
         # ,bound_max=bound_max, bound_min=bound_min)
 
-        opt.pushParamV3(group_name='C_' + collection_key + '_r', data_key='dataset_chessboard',
+        opt.pushParamV3(group_name='C_' + collection_key + '_r', data_key='dataset_chessboards',
                         getter=partial(getterChessBoardRotation, collection_key=collection_key),
                         setter=partial(setterChessBoardRotation, collection_key=collection_key),
                         suffix=['1', '2', '3'])
@@ -427,265 +328,9 @@ if __name__ == "__main__":
     ax.set_xlim3d(-1.5, 1.5), ax.set_ylim3d(-4, 1.5), ax.set_zlim3d(-.5, 1.5)
     ax.view_init(elev=27, azim=46)
 
-
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
     # ---------------------------------------
-    def objectiveFunction(data):
-        """
-        Computes the vector of errors. There should be an error for each stamp, sensor and chessboard tuple.
-        The computation of the error varies according with the modality of the sensor:
-            - Reprojection error for camera to chessboard
-            - Point to plane distance for 2D laser scanners
-            - (...)
-            :return: a vector of residuals
-        """
-        print('New obj function')
-
-        # Get the data from the model
-        dataset_sensors = data['dataset_sensors']
-        dataset_chessboard = data['dataset_chessboard']
-        errors = []
-
-        for sensor_key, sensor in dataset_sensors['sensors'].items():
-            sum_error = 0
-            num_detections = 0
-            for collection_key, collection in dataset_sensors['collections'].items():
-                if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
-                    continue
-
-                if sensor['msg_type'] == 'Image':
-
-                    # Compute chessboard points in local sensor reference frame
-                    trans = dataset_chessboard[collection_key]['trans']
-                    quat = dataset_chessboard[collection_key]['quat']
-                    root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
-                    pts_root = np.dot(root_T_chessboard, chessboard_points)
-
-                    sensor_T_root = np.linalg.inv(
-                        utilities.getAggregateTransform(sensor['chain'], collection['transforms']))
-                    pts_sensor = np.dot(sensor_T_root, pts_root)
-
-                    K = np.ndarray((3, 3), buffer=np.array(sensor['camera_info']['K']), dtype=np.float)
-                    D = np.ndarray((5, 1), buffer=np.array(sensor['camera_info']['D']), dtype=np.float)
-                    width = collection['data'][sensor_key]['width']
-                    height = collection['data'][sensor_key]['height']
-
-                    pixs, valid_pixs, dists = utilities.projectToCamera(K, D, width, height, pts_sensor[0:3, :])
-                    print('pixs ' + str(pixs.shape) + ' =' + str(pixs))
-
-                    pixs_ground_truth = collection['labels'][sensor_key]['idxs']
-                    array_gt = np.zeros(pixs.shape, dtype=np.float) # transform to np array
-                    for idx, pix_ground_truth in enumerate(pixs_ground_truth):
-                        array_gt[0][idx] = pix_ground_truth['x']
-                        array_gt[1][idx] = pix_ground_truth['y']
-                    print('pixs ground truth ' + str(array_gt.shape) + ' =' + str(array_gt))
-
-                    # Compute the error as the average of the Euclidean distances between detected and projected
-                    error_sum = 0
-                    # for idx in range(0, args['chess_num_x'] * args['chess_num_y']):
-                    for idx in range(0, 1):
-                        e1 = math.sqrt(
-                            (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                        error_sum += e1
-
-                    for idx in range(args['chess_num_x'], args['chess_num_x'] + 1):
-                        e2 = math.sqrt(
-                            (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                        error_sum += e2
-
-                    # error = error_sum / (args['chess_num_x'] * args['chess_num_y'])
-                    error = error_sum
-                    print('e1 = ' + str(e1))
-                    print('e2 = ' + str(e2))
-                    print('error_sum = ' + str(error_sum))
-                    print('error = ' + str(error))
-                    errors.append(error)
-
-
-                    # For collecting individual distances and to store projected pixels into dataset_sensors dict for
-                    # drawing in visualization function
-
-                    # error_x = []
-                    # error_y = []
-                    # for idx in range(0, args['chess_num_x'] * args['chess_num_y']):
-                    #     error_x.append(pixs[0, idx] - array_gt[0, idx])
-                    #     error_y.append(pixs[1, idx] - array_gt[1, idx])
-                    #
-                    # sum_error += error
-                    # num_detections += 1
-                    # collection['labels'][sensor_key]['errors'] = {'x': error_x, 'y': error_y}
-
-                    idxs_projected = []
-                    for idx, pix_ground_truth in enumerate(pixs_ground_truth):
-                        idxs_projected.append({'x': pixs[0][idx], 'y': pixs[1][idx]})
-
-                    collection['labels'][sensor_key]['idxs_projected'] = idxs_projected
-
-                    if not 'idxs_initial' in collection['labels'][sensor_key]:  # store the first projections
-                        collection['labels'][sensor_key]['idxs_initial'] = deepcopy(idxs_projected)
-
-                elif sensor['msg_type'] == 'LaserScan':
-
-                    # Get laser points that belong to the chessboard
-                    idxs = collection['labels'][sensor_key]['idxs']
-                    rhos = [collection['data'][sensor_key]['ranges'][idx] for idx in idxs]
-                    thetas = [collection['data'][sensor_key]['angle_min'] +
-                              collection['data'][sensor_key]['angle_increment'] * idx for idx in idxs]
-
-                    # Convert from polar to cartesian coordinates and create np array with xyz coords
-                    pts_laser = np.zeros((3, len(rhos)), np.float32)
-                    for idx, (rho, theta) in enumerate(zip(rhos, thetas)):
-                        pts_laser[0, idx] = rho * math.cos(theta)
-                        pts_laser[1, idx] = rho * math.sin(theta)
-
-                    # homogenize
-                    pts_laser = np.vstack((pts_laser, np.ones((1, pts_laser.shape[1]), dtype=np.float)))
-
-                    # Get transforms
-                    root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
-                    pts_root = np.dot(root_T_sensor, pts_laser)
-
-                    trans = dataset_chessboard[collection_key]['trans']
-                    quat = dataset_chessboard[collection_key]['quat']
-                    chessboard_T_root = np.linalg.inv(utilities.translationQuaternionToTransform(trans, quat))
-
-                    pts_chessboard = np.dot(chessboard_T_root, pts_root)
-                    # print('pts_chessboard =\n' + str(pts_chessboard))
-
-                    # Compute longitudinal error
-
-                    # dists = np.zeros((1, pts_chessboard.shape[1]), np.float)
-                    dists = np.zeros((1, 2), np.float)
-                    idxs_min = np.zeros((1, 2), np.int)
-                    # for idx in range(pts_chessboard.shape[1]):
-                    counter = 0
-                    # print('chessboard_evaluation_points = \n' + str(chessboard_evaluation_points))
-                    for idx in [0, -1]:
-                        # for idx in [0]:
-                        pt_chessboard = pts_chessboard[0:2, idx]
-                        # if idx == 0:
-                        #     print('extrema_right = ' + str(pt_chessboard))
-                        # else:
-                        #     print('extrema_left = ' + str(pt_chessboard))
-
-                        pt = np.zeros((2, 1), dtype=np.float)
-                        pt[0, 0] = pt_chessboard[0]
-                        pt[1, 0] = pt_chessboard[1]
-                        # pt[2, 0] = pt_chessboard[2]
-                        # # dists[0, idx] = directed_hausdorff(pt_chessboard, chessboard_evaluation_points[0:3, :])[0]
-                        # # dists[0, idx] = directed_hausdorff(pt, chessboard_evaluation_points[0:3, :])[0]
-                        # dists[0, idx] = directed_hausdorff(chessboard_evaluation_points[0:3, :], pt)[0]
-                        # print('using hausdorf got ' + str(dists[0,idx]))
-
-                        vals = distance.cdist(pt.transpose(), chessboard_evaluation_points[0:2, :].transpose())
-                        # print(vals)
-                        # print(idxs1)
-                        # print(idxs2)
-
-                        # dists[0,counter] = np.power(vals.min(axis=1), 7)/10
-                        # dists[0,counter] = np.exp(vals.min(axis=1))/100
-                        dists[0, counter] = vals.min(axis=1)
-                        idxs_min[0, counter] = vals.argmin(axis=1)
-                        # dists[0, counter] = np.average(vals)
-                        # print(dists[0,counter])
-
-                        # print('using cdist got ' + str(dists[0,idx]))
-                        # distances = np.linalg.norm(pt_chessboard - chessboard_evaluation_points[0:3, idx_eval])
-
-                        # dists[0, idx] = sys.maxsize
-                        # for idx_eval in range(chessboard_evaluation_points.shape[1]):
-                        #     dist = np.linalg.norm(pt_chessboard - chessboard_evaluation_points[0:3, idx_eval])
-                        #     if dist < dists[0, idx]:
-                        #         dists[0, idx] = dist
-                        #
-                        #
-                        # print('using for got ' + str(dists[0,idx]))
-                        counter += 1
-
-                    dists = dists[0]
-                    # print('dists = ' + str(dists))
-                    # print('idxs_min = ' + str(idxs_min))
-                    # error_longitudinal = np.average(dists)
-                    # error_longitudinal = np.average(dists) * 100
-                    # error_longitudinal = np.sum(dists) * 100
-                    error_longitudinal = np.max(dists)
-
-                    # Compute the longitudinal radius error
-
-                    # dists = np.zeros((1, 2), np.float)
-                    distances = []
-
-                    # pts_extrema = pts_chessboard[0:2, [0,-1]]
-                    # print(pts_extrema)
-
-                    # Compute orthogonal error
-
-                    collection['labels'][sensor_key]['errors'] = pts_chessboard[2, :].tolist()
-
-                    error_orthogonal = np.average(np.absolute(pts_chessboard[2, :]))
-
-                    sum_error += error_orthogonal
-                    num_detections += 1
-
-                    # TODO error in meters? Seems small when compared with pixels ...
-                    # error = error_longitudinal + error_orthogonal
-                    # error = error_longitudinal
-                    error = error_orthogonal
-                    errors.append(error)
-
-                    # Store for visualization
-                    collection['labels'][sensor_key]['pts_root'] = pts_root
-
-                    # root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
-                    # minimum_associations = chessboard_evaluation_points[:,idxs_min[0]]
-                    # # print('chessboard_evaluation_points_in_root = ' + str(minimum_associations))
-                    # minimum_associations_in_root = np.dot(root_T_chessboard, minimum_associations)
-                    #
-                    # if 'minimum_associations' in collection['labels'][sensor_key]:
-                    #     utilities.drawPoints3D(ax, None, minimum_associations_in_root, color=[.8, .7, 0],
-                    #                        marker_size=3.5, line_width=2.2,
-                    #                        marker='^',
-                    #                        mfc=[.8,.7,0],
-                    #                        text=None,
-                    #                        text_color=sensor['color'],
-                    #                        sensor_color=sensor['color'],
-                    #                        handles=collection['labels'][sensor_key]['minimum_associations'])
-                    # else:
-                    #     collection['labels'][sensor_key]['minimum_associations'] = utilities.drawPoints3D(ax, None, minimum_associations_in_root, color=[.8, .7, 0],
-                    #                        marker_size=3.5, line_width=2.2,
-                    #                        marker='*',
-                    #                        mfc=[.8,.7,0],
-                    #                        text=None,
-                    #                        text_color=sensor['color'],
-                    #                        sensor_color=sensor['color'],
-                    #                        handles=None)
-
-                    # if sensor_key == 'left_laser':
-                    #     print('Collection ' + collection_key + ', sensor ' + sensor_key + ' tranforms=' + str(
-                    #         collection['transforms']['car_center-left_laser']))
-
-                    # if sensor_key == 'left_laser':
-                    #     print('Collection ' + collection_key + ', sensor ' + sensor_key + ' pts_root=\n' + str(
-                    #         collection['labels'][sensor_key]['pts_root'][:,0::15]))
-
-                    if not 'pts_root_initial' in collection['labels'][sensor_key]:  # store the first projections
-                        collection['labels'][sensor_key]['pts_root_initial'] = deepcopy(pts_root)
-
-                else:
-                    raise ValueError("Unknown sensor msg_type")
-
-                # print('error for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(error))
-            if num_detections == 0:
-                continue
-            else:
-                print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error / num_detections))
-
-        # Return the errors
-        # createJSONFile('/tmp/data_collected_results.json', dataset_sensors)
-        return errors
-
-
     opt.setObjectiveFunction(objectiveFunction)
 
     # ---------------------------------------
@@ -701,7 +346,17 @@ if __name__ == "__main__":
 
             params = opt.getParamsContainingPattern('S_' + sensor_key)  # sensor related params
             params.extend(opt.getParamsContainingPattern('C_' + collection_key + '_'))  # chessboard related params
-            opt.pushResidual(name=collection_key + '_' + sensor_key, params=params)
+
+
+            if sensor['msg_type'] == 'Image':  # if sensor is a camera use four residuals
+                # for idx in range(0, dataset_chessboards['number_corners']):
+                for idx in range(0, 4):
+                    opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
+
+            elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
+                for idx in range(0, 2):
+                    opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
+
 
     print('residuals = ' + str(opt.residuals))
     opt.printResiduals()
@@ -775,7 +430,7 @@ if __name__ == "__main__":
                                                                                      axis_scale=0.3, line_width=1.5)
 
         # Draw chessboard poses
-        for collection_key, collection in dataset_chessboard.items():
+        for collection_key, collection in dataset_chessboards['collections'].items():
             root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
 
             dataset_graphics['collections'][collection_key]['handle'] = utilities.drawChessBoard(ax, root_T_chessboard,
@@ -835,15 +490,18 @@ if __name__ == "__main__":
                 pts_root = np.dot(root_T_sensor, pts_laser)
 
                 # draw points
+
                 dataset_graphics['collections'][collection_key]['labels'][sensor_key][
                     'pts_handle'] = utilities.drawPoints3D(ax, None, pts_root,
-                                                           color=collection['color'],
+                                                           color=dataset_graphics['collections'][collection_key][
+                                                               'color'],
                                                            marker_size=2.5, line_width=2.2,
                                                            marker='-o',
-                                                           mfc=collection['color'],
+                                                           mfc=dataset_graphics['collections'][collection_key]['color'],
                                                            text=None,
-                                                           text_color=sensor['color'],
-                                                           sensor_color=sensor['color'],
+                                                           text_color=dataset_graphics['sensors'][sensor_key]['color'],
+                                                           sensor_color=dataset_graphics['sensors'][sensor_key][
+                                                               'color'],
                                                            handles=None)
 
         wm = KeyPressManager.WindowManager(fig)
@@ -852,78 +510,79 @@ if __name__ == "__main__":
 
     opt.addModelData('dataset_graphics', dataset_graphics)
 
-
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
     def visualizationFunction(data):
         # Get the data from the model
-        dataset_sensors = data['dataset_sensors']
-        dataset_chessboard = data['dataset_chessboard']
+        _dataset_sensors = data['dataset_sensors']
+        _dataset_chessboard = data['dataset_chessboards']
 
-        for collection_key, collection in dataset_sensors['collections'].items():
-            for sensor_key, sensor in dataset_sensors['sensors'].items():
+        for _collection_key, _collection in _dataset_sensors['collections'].items():
+            for _sensor_key, _sensor in _dataset_sensors['sensors'].items():
 
-                if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
+                if not _collection['labels'][_sensor_key]['detected']:  # not detected by sensor in collection
                     continue
 
-                if sensor['msg_type'] == 'Image':
-                    filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
+                if _sensor['msg_type'] == 'Image':
+                    filename = os.path.dirname(args['json_file']) + '/' + _collection['data'][_sensor_key]['data_file']
 
                     # TODO should not read image again from disk
                     image = cv2.imread(filename)
-                    width = collection['data'][sensor_key]['width']
-                    height = collection['data'][sensor_key]['height']
+                    width = _collection['data'][_sensor_key]['width']
+                    height = _collection['data'][_sensor_key]['height']
                     diagonal = math.sqrt(width ** 2 + height ** 2)
 
                     # Draw projected points (as dots)
-                    for idx, point in enumerate(collection['labels'][sensor_key]['idxs_projected']):
+                    for idx, point in enumerate(_collection['labels'][_sensor_key]['idxs_projected']):
                         x = int(round(point['x']))
                         y = int(round(point['y']))
                         color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
                         cv2.line(image, (x, y), (x, y), color, int(6E-3 * diagonal))
 
                     # Draw ground truth points (as squares)
-                    for idx, point in enumerate(collection['labels'][sensor_key]['idxs']):
+                    for idx, point in enumerate(_collection['labels'][_sensor_key]['idxs']):
                         x = int(round(point['x']))
                         y = int(round(point['y']))
                         color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
                         utilities.drawSquare2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=2)
 
                     # Draw initial projected points (as crosses)
-                    for idx, point in enumerate(collection['labels'][sensor_key]['idxs_initial']):
+                    for idx, point in enumerate(_collection['labels'][_sensor_key]['idxs_initial']):
                         x = int(round(point['x']))
                         y = int(round(point['y']))
                         color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
                         utilities.drawCross2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=1)
 
-                    window_name = sensor_key + '-' + collection_key
+                    window_name = _sensor_key + '-' + _collection_key
                     cv2.imshow(window_name, image)
 
-                elif sensor['msg_type'] == 'LaserScan':
-                    pts_root = collection['labels'][sensor_key]['pts_root']
+                elif _sensor['msg_type'] == 'LaserScan':
+                    pts_root = _collection['labels'][_sensor_key]['pts_root']
                     utilities.drawPoints3D(ax, None, pts_root, line_width=1.0,
-                                           handles=collection['labels'][sensor_key]['pts_handle'])
+                                           handles=
+                                           dataset_graphics['collections'][_collection_key]['labels'][_sensor_key][
+                                               'pts_handle'])
+
                 else:
                     raise ValueError("Unknown sensor msg_type")
 
         # Draw sensor poses (use sensor pose from collection '0' since they are all the same)
-        for sensor_key, sensor in dataset_sensors['sensors'].items():
-            root_T_sensor = utilities.getAggregateTransform(sensor['chain'],
-                                                            dataset_sensors['collections'][selected_collection_key][
+        for _sensor_key, _sensor in _dataset_sensors['sensors'].items():
+            root_T_sensor = utilities.getAggregateTransform(_sensor['chain'],
+                                                            _dataset_sensors['collections'][selected_collection_key][
                                                                 'transforms'])
-            utilities.drawAxis3D(ax, root_T_sensor, sensor_key, axis_scale=0.3, line_width=2,
-                                 handles=dataset_graphics['sensors'][sensor_key]['handle'])
+            utilities.drawAxis3D(ax, root_T_sensor, _sensor_key, axis_scale=0.3, line_width=2,
+                                 handles=dataset_graphics['sensors'][_sensor_key]['handle'])
 
         # Draw chessboard poses
-        for idx, (collection_key, collection) in enumerate(dataset_chessboard.items()):
-            root_T_chessboard = utilities.translationQuaternionToTransform(collection['trans'], collection['quat'])
+        for idx, (_collection_key, _collection) in enumerate(_dataset_chessboard['collections'].items()):
+            root_T_chessboard = utilities.translationQuaternionToTransform(_collection['trans'], _collection['quat'])
             color_collection = color_map_collections[idx, :]
-            utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + collection_key,
+            utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + _collection_key,
                                      chess_num_x=args['chess_num_x'], chess_num_y=args['chess_num_y'],
                                      color=color_collection, axis_scale=0.3, line_width=2,
-                                     handles=dataset_graphics['collections'][collection_key]['handle'])
-
+                                     handles=dataset_graphics['collections'][_collection_key]['handle'])
 
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[fig])
 
@@ -947,7 +606,7 @@ if __name__ == "__main__":
     #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-3})
 
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-6, 'gtol': 1e-5, 'diff_step': 1e-5})
+        optimization_options={'ftol': 1e-5, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     # opt.startOptimization(
     #    optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
@@ -965,3 +624,7 @@ if __name__ == "__main__":
     # --- Save Results
     # ---------------------------------------
     # Todo should be saved back to a json or directly to xacro?
+
+
+if __name__ == "__main__":
+    main()
