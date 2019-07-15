@@ -167,6 +167,7 @@ def objectiveFunction(data):
                 idxs_min = np.zeros((1, 2), np.int)
                 # for idx in range(pts_chessboard.shape[1]):
                 counter = 0
+
                 # print('chessboard_evaluation_points = \n' + str(chessboard_evaluation_points))
 
                 for idx in [0, -1]:
