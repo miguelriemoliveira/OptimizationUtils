@@ -82,5 +82,11 @@ and copy the contents of the /home/mike/datasets/calibration_test2/data_collecte
 
 
 ```bash
-test/sensor_pose_json.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.1054 -cnumx 8 -cnumy 6 -vo
+test/sensor_pose_json_v2/main.py -json ~/datasets/calib_without_fg/calibration_complete_nofg/data_collected.json -cradius .5 -csize 0.1054 -cnumx 8 -cnumy 6 -vo
+```
+
+If you want to filter out some sensors or collections you may use the sensor selection function (ssf) or collection selection function (csf) as follows:
+
+```bash
+test/sensor_pose_json_v2/main.py -json ~/datasets/calib_without_fg/calibration_complete_nofg/data_collected.json -cradius .5 -csize 0.1054 -cnumx 8 -cnumy 6 -vo -ssf "lambda name: name in ['left_laser', 'right_laser']" -csf "lambda name: int(name) < 1"
 ```

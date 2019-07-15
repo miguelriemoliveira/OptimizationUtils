@@ -80,13 +80,28 @@ def main():
                     type=int, required=True)
     ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of squares in vertical dimension.",
                     type=int, required=True)
+
+    # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
+    def create_lambda_with_globals(s):
+        return eval(s, globals())
+
+    ap.add_argument("-ssf", "--sensor_selection_function", default=None, type=create_lambda_with_globals,
+                    help='A string to be evaluated into a lambda function that receives a sensor name as input and '
+                         'returns True or False to indicate if the sensor should be loaded (and used in the '
+                         'optimization). The Syntax is lambda name: f(x), where f(x) is the function in python '
+                         'language. Example: lambda name: name in ["left_laser", "frontal_camera"] , to load only '
+                         'sensors left_laser and frontal_camera')
+    ap.add_argument("-csf", "--collection_selection_function", default=None, type=create_lambda_with_globals,
+                    help='A string to be evaluated into a lambda function that receives a collection name as input and '
+                         'returns True or False to indicate if the collection should be loaded (and used in the '
+                         'optimization). The Syntax is lambda name: f(x), where f(x) is the function in python '
+                         'language. Example: lambda name: int(name) > 5 , to load only collections 6, 7, and onward.')
+
     args = vars(ap.parse_args())
-    print("\nArgument list=")
-    print(args)
-    print('\n')
+    print("\nArgument list=" + str(args) + '\n')
 
     # ---------------------------------------
-    # --- INITIALIZATION
+    # --- INITIALIZATION Read data from file
     # ---------------------------------------
     """ Loads a json file containing the detections"""
     f = open(args['json_file'], 'r')
@@ -102,28 +117,13 @@ def main():
             filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
             collection['data'][sensor_key]['data'] = cv2.imread(filename)
 
-    # ---------------------------------------
-    # --- FILTER SENSORS TO BE USED IN CALIBRATION
-    # ---------------------------------------
-    # Remove some sensors if desired. Should be done here according to the examples bellow.
-    # del dataset_sensors['sensors']['frontal_laser']
-    # del dataset_sensors['sensors']['top_right_camera']
-    # del dataset_sensors['sensors']['frontal_camera']
-    # del dataset_sensors['sensors']['left_laser']
-    del dataset_sensors['sensors']['right_laser']
-    # del dataset_sensors['collections']['15']
-    # del dataset_sensors['collections']['1']
-
-    # for key in dataset_sensors['collections'].keys():
-    #     if int(key) > 0:
-    #         del dataset_sensors['collections'][key]
-
-    # del dataset_sensors['collections']['3']
-    # del dataset_sensors['collections']['4']
-    # del dataset_sensors['collections']['5']
-
-    print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
-        len(dataset_sensors['collections'].keys())) + ' collections.')
+    if not args['collection_selection_function'] is None:
+        deleted = []
+        for collection_key in dataset_sensors['collections'].keys():
+            if not args['collection_selection_function'](collection_key):  # use the lambda expression csf
+                deleted.append(collection_key)
+                del dataset_sensors['collections'][collection_key]
+        print("Deleted collections: " + str(deleted))
 
     # ---------------------------------------
     # --- CREATE CHESSBOARD DATASET
@@ -242,23 +242,31 @@ def main():
             raise ValueError('Collection ' + collection_key + ' could not find chessboard.')
 
     # ---------------------------------------
-    # --- DELETE SENSORS OR COLLECTIONS AFTER THE CHESSBOARD CALIBRATION
+    # --- FILTER SOME OF THE ELEMENTS LOADED, TO USE ONLY A SUBSET IN THE CALIBRATION
     # ---------------------------------------
-    # del dataset_sensors['sensors']['top_right_camera']
-    # print(dataset_chessboards)
-    # exit(0)
+    if not args['sensor_selection_function'] is None:
+        deleted = []
+        for sensor_key in dataset_sensors['sensors'].keys():
+            if not args['sensor_selection_function'](sensor_key):  # use the lambda expression ssf
+                deleted.append(sensor_key)
+                del dataset_sensors['sensors'][sensor_key]
+        print("Deleted sensors: " + str(deleted))
+
+
+
+    print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
+        len(dataset_sensors['collections'].keys())) + ' collections.')
 
     # ---------------------------------------
     # --- SETUP OPTIMIZER
     # ---------------------------------------
-    print('\nInitializing optimizer...')
-    opt = OptimizationUtils.Optimizer()
 
+    opt = OptimizationUtils.Optimizer()
     opt.addModelData('dataset_sensors', dataset_sensors)
     opt.addModelData('dataset_chessboards', dataset_chessboards)
     opt.addModelData('dataset_chessboard_points', dataset_chessboard_points)
 
-    # For the getters we only need to get one collection. Lets take the first key on the dictionary and alwasy get that
+    # For the getters we only need to get one collection. Lets take the first key on the dictionary and always get that
     # transformation.
     selected_collection_key = dataset_sensors['collections'].keys()[0]
 
@@ -272,7 +280,7 @@ def main():
                                                  collection_key=selected_collection_key)
         bound_max = [x + translation_delta for x in initial_values]
         bound_min = [x - translation_delta for x in initial_values]
-        opt.pushParamV3(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
+        opt.pushParamVector(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
                         getter=partial(getterSensorTranslation, sensor_key=sensor_key,
                                        collection_key=selected_collection_key),
                         setter=partial(setterSensorTranslation, sensor_key=sensor_key),
@@ -284,35 +292,28 @@ def main():
                                            collection_key=selected_collection_key),
                             setter=partial(setterSensorRotation, sensor_key=sensor_key),
                             suffix=['1', '2', '3'])
-        #
-        # if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
-        #     opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
-        #                         getter=partial(getterCameraIntrinsics, sensor_key=sensor_key),
-        #                         setter=partial(setterCameraIntrinsics, sensor_key=sensor_key),
-        #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
+
+        if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
+            opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
+                                getter=partial(getterCameraIntrinsics, sensor_key=sensor_key),
+                                setter=partial(setterCameraIntrinsics, sensor_key=sensor_key),
+                                suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
-
-    # print('quat = ' + str(dataset_chessboards['0']['quat']))
-    # rod = getterChessBoardRotation(dataset_chessboards, '0')
-    # print('rod = ' + str(rod))
-    # setterChessBoardRotation(dataset_chessboards, rod, '0')
-    # print('quat2 = ' + str(dataset_chessboards['0']['quat']))
-    # exit(0)
 
     # Add translation and rotation parameters related to the Chessboards
     for collection_key in dataset_chessboards['collections']:
         # initial_values = getterChessBoardTranslation(dataset_chessboards, collection_key)
         # bound_max = [x + translation_delta for x in initial_values]
         # bound_min = [x - translation_delta for x in initial_values]
-        opt.pushParamV3(group_name='C_' + collection_key + '_t', data_key='dataset_chessboards',
+        opt.pushParamVector(group_name='C_' + collection_key + '_t', data_key='dataset_chessboards',
                         getter=partial(getterChessBoardTranslation, collection_key=collection_key),
                         setter=partial(setterChessBoardTranslation, collection_key=collection_key),
                         suffix=['x', 'y', 'z'])
         # ,bound_max=bound_max, bound_min=bound_min)
 
-        opt.pushParamV3(group_name='C_' + collection_key + '_r', data_key='dataset_chessboards',
+        opt.pushParamVector(group_name='C_' + collection_key + '_r', data_key='dataset_chessboards',
                         getter=partial(getterChessBoardRotation, collection_key=collection_key),
                         setter=partial(setterChessBoardRotation, collection_key=collection_key),
                         suffix=['1', '2', '3'])
@@ -347,7 +348,6 @@ def main():
             params = opt.getParamsContainingPattern('S_' + sensor_key)  # sensor related params
             params.extend(opt.getParamsContainingPattern('C_' + collection_key + '_'))  # chessboard related params
 
-
             if sensor['msg_type'] == 'Image':  # if sensor is a camera use four residuals
                 # for idx in range(0, dataset_chessboards['number_corners']):
                 for idx in range(0, 4):
@@ -356,7 +356,6 @@ def main():
             elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
                 for idx in range(0, 2):
                     opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
-
 
     print('residuals = ' + str(opt.residuals))
     opt.printResiduals()

@@ -66,6 +66,8 @@ class Optimizer:
         self.vis_niterations = 0
         self.vis_counter = 0
 
+        print('\nInitializing optimizer...')
+
     # ---------------------------
     # Optimizer configuration
     # ---------------------------
