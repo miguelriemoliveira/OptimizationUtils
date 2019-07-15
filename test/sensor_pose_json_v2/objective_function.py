@@ -168,6 +168,7 @@ def objectiveFunction(data):
                 # for idx in range(pts_chessboard.shape[1]):
                 counter = 0
                 # print('chessboard_evaluation_points = \n' + str(chessboard_evaluation_points))
+
                 for idx in [0, -1]:
                     # for idx in [0]:
                     pt_chessboard = pts_chessboard[0:2, idx]
