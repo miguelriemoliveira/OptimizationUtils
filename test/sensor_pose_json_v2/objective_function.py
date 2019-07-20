@@ -158,95 +158,41 @@ def objectiveFunction(data):
                 chessboard_T_root = np.linalg.inv(utilities.translationQuaternionToTransform(trans, quat))
 
                 pts_chessboard = np.dot(chessboard_T_root, pts_root)
-                # print('pts_chessboard =\n' + str(pts_chessboard))
 
-                # Compute longitudinal error
+                # Compute longitudinal and orthogonal error
 
-                # dists = np.zeros((1, pts_chessboard.shape[1]), np.float)
                 dists = np.zeros((1, 2), np.float)
                 idxs_min = np.zeros((1, 2), np.int)
-                # for idx in range(pts_chessboard.shape[1]):
+                oe = np.zeros((1, 2), np.float)
                 counter = 0
 
-                # print('chessboard_evaluation_points = \n' + str(chessboard_evaluation_points))
-
                 for idx in [0, -1]:
-                    # for idx in [0]:
-                    pt_chessboard = pts_chessboard[0:2, idx]
-                    # if idx == 0:
-                    #     print('extrema_right = ' + str(pt_chessboard))
-                    # else:
-                    #     print('extrema_left = ' + str(pt_chessboard))
-
+                    pt_chessboard = pts_chessboard[:, idx]
+                    planar_pt_chessboard = pt_chessboard[0:2]
                     pt = np.zeros((2, 1), dtype=np.float)
-                    pt[0, 0] = pt_chessboard[0]
-                    pt[1, 0] = pt_chessboard[1]
-                    # pt[2, 0] = pt_chessboard[2]
-                    # # dists[0, idx] = directed_hausdorff(pt_chessboard, chessboard_evaluation_points[0:3, :])[0]
-                    # # dists[0, idx] = directed_hausdorff(pt, chessboard_evaluation_points[0:3, :])[0]
-                    # dists[0, idx] = directed_hausdorff(chessboard_evaluation_points[0:3, :], pt)[0]
-                    # print('using hausdorf got ' + str(dists[0,idx]))
+                    pt[0, 0] = planar_pt_chessboard[0]
+                    pt[1, 0] = planar_pt_chessboard[1]
+                    planar_l_chess_pts = dataset_chessboards['limit_points'][0:2, :]
+                    vals = distance.cdist(pt.transpose(), planar_l_chess_pts.transpose(), 'euclidean')
+                    minimum = np.amin(vals)
+                    dists[0, counter] = minimum   #longitudinal distance to the chessboard limits
+                    for i in range(0, len(planar_l_chess_pts[0])):
+                        if vals[0,i] == minimum:
+                            idxs_min[0, counter] = i
 
-                    vals = distance.cdist(pt.transpose(), dataset_chessboards['evaluation_points'][0:2, :].transpose())
-                    # print(vals)
-                    # print(idxs1)
-                    # print(idxs2)
+                    oe[0, counter] = np.absolute(pt_chessboard[2])  #orthogonal distance to the chessboard limit points in z coordinate
 
-                    # dists[0,counter] = np.power(vals.min(axis=1), 7)/10
-                    # dists[0,counter] = np.exp(vals.min(axis=1))/100
-                    dists[0, counter] = vals.min(axis=1)
-                    idxs_min[0, counter] = vals.argmin(axis=1)
-
-                    # dists[0, counter] = np.average(vals)
-                    # print(dists[0,counter])
-
-                    # print('using cdist got ' + str(dists[0,idx]))
-                    # distances = np.linalg.norm(pt_chessboard - chessboard_evaluation_points[0:3, idx_eval])
-
-                    # dists[0, idx] = sys.maxsize
-                    # for idx_eval in range(chessboard_evaluation_points.shape[1]):
-                    #     dist = np.linalg.norm(pt_chessboard - chessboard_evaluation_points[0:3, idx_eval])
-                    #     if dist < dists[0, idx]:
-                    #         dists[0, idx] = dist
-                    #
-                    #
-                    # print('using for got ' + str(dists[0,idx]))
                     counter += 1
+                    ero = np.zeros((1, 2), np.float)
+                    ero[0, 0] = dists[0, 0] + oe[0, 0]
+                    ero[0, 1] = dists[0, 1] + oe[0, 1]
 
-                dists = dists[0]
-                # print('dists = ' + str(dists))
-                # print('idxs_min = ' + str(idxs_min))
-                # error_longitudinal = np.average(dists)
-                # error_longitudinal = np.average(dists) * 100
-                # error_longitudinal = np.sum(dists) * 100
-                error_longitudinal = np.max(dists)
-
-                # Compute the longitudinal radius error
-
-                # dists = np.zeros((1, 2), np.float)
-                distances = []
-
-                # pts_extrema = pts_chessboard[0:2, [0,-1]]
-                # print(pts_extrema)
-
-                # Compute orthogonal error
-
-                collection['labels'][sensor_key]['errors'] = pts_chessboard[2, :].tolist()
-
-                # error_orthogonal = np.average(np.absolute(pts_chessboard[2, :]))
-                error_orthogonal = np.absolute(pts_chessboard[2, :])
-
-                # sum_error += error_orthogonal
                 num_detections += 1
 
                 # TODO error in meters? Seems small when compared with pixels ...
-                # error = error_longitudinal + error_orthogonal
-                # error = error_longitudinal
-                error = error_orthogonal
-                # errors.append(error)
 
-                errors.append(error_orthogonal[0])
-                errors.append(error_orthogonal[-1])
+                errors.append(ero[0, 0])
+                errors.append(ero[0, 1])
 
                 # Store for visualization
                 collection['labels'][sensor_key]['pts_root'] = pts_root

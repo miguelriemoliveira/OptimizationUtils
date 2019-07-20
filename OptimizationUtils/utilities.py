@@ -125,7 +125,7 @@ def drawPoints3D(ax, transform, pts, color=[0, 0, 0], marker_size=1.0, line_widt
 
         if not text is None:
             handles['text'].set_position((center_pt[0], center_pt[1]))
-            handles['text'].set_3d_properties(z=center_pt[2], zdir='y')
+            handles['text'].set_3d_properchessboard_pointsties(z=center_pt[2], zdir='y')
 
 
 def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='black', axis_scale=0.1, line_width=1.0,

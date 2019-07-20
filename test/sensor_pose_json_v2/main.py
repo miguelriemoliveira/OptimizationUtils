@@ -76,9 +76,9 @@ def main():
     ap.add_argument("-cradius", "--chess_radius",
                     help="Radius in meters of the maximum side of the chessboard calibration pattern.",
                     type=float, required=True)
-    ap.add_argument("-cnumx", "--chess_num_x", help="Chessboard's number of squares in horizontal dimension.",
+    ap.add_argument("-cnumx", "--chess_num_x", help="Chessboard's number of corners in horizontal dimension.",
                     type=int, required=True)
-    ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of squares in vertical dimension.",
+    ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of corners in vertical dimension.",
                     type=int, required=True)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
@@ -143,11 +143,15 @@ def main():
 
     factor = round(1.)
     num_pts = int((args['chess_num_x'] * factor) * (args['chess_num_y'] * factor))
+    num_l_pts = int((args['chess_num_x'] * factor)*2) + int((args['chess_num_y'] * factor)*2) + 4
     chessboard_evaluation_points = np.zeros((4, num_pts), np.float32)
+    chessboard_limit_points = np.zeros((4, num_l_pts), np.float32)
     step_x = (args['chess_num_x']) * args['chess_size'] / (args['chess_num_x'] * factor)
     step_y = (args['chess_num_y']) * args['chess_size'] / (args['chess_num_y'] * factor)
 
     counter = 0
+    l_counter = 0
+
     for idx_y in range(0, int(args['chess_num_y'] * factor)):
         y = idx_y * step_y
         for idx_x in range(0, int(args['chess_num_x'] * factor)):
@@ -157,8 +161,71 @@ def main():
             chessboard_evaluation_points[2, counter] = 0
             chessboard_evaluation_points[3, counter] = 1
             counter += 1
+            if idx_y == 0:
+                chessboard_limit_points[0, l_counter] = x - step_x
+                chessboard_limit_points[1, l_counter] = y - step_y
+                chessboard_limit_points[2, l_counter] = 0
+                chessboard_limit_points[3, l_counter] = 1
+                l_counter += 1
+
+                if idx_x == (int(args['chess_num_x'] * factor) - 1):
+                    chessboard_limit_points[0, l_counter] = x
+                    chessboard_limit_points[1, l_counter] = y - step_y
+                    chessboard_limit_points[2, l_counter] = 0
+                    chessboard_limit_points[3, l_counter] = 1
+                    l_counter += 1
+
+            if idx_x == (int(args['chess_num_x'] * factor) - 1):
+                chessboard_limit_points[0, l_counter] = x + step_x
+                chessboard_limit_points[1, l_counter] = y - step_y
+                chessboard_limit_points[2, l_counter] = 0
+                chessboard_limit_points[3, l_counter] = 1
+                l_counter += 1
+
+                if idx_y == (int(args['chess_num_y'] * factor) - 1):
+                    chessboard_limit_points[0, l_counter] = x + step_x
+                    chessboard_limit_points[1, l_counter] = y
+                    chessboard_limit_points[2, l_counter] = 0
+                    chessboard_limit_points[3, l_counter] = 1
+                    l_counter += 1
+
+    for idx_y in range(0, int(args['chess_num_y'] * factor)):
+        idx_y = abs(idx_y - (int(args['chess_num_y'] * factor) - 1))
+        y = idx_y * step_y
+
+        for idx_x in range(0, int(args['chess_num_x'] * factor)):
+            idx_x = abs(idx_x - (int(args['chess_num_x'] * factor) - 1))
+            x = idx_x * step_x
+
+            if idx_y == (int(args['chess_num_y'] * factor) -1):
+                chessboard_limit_points[0, l_counter] = x + step_x
+                chessboard_limit_points[1, l_counter] = y + step_y
+                chessboard_limit_points[2, l_counter] = 0
+                chessboard_limit_points[3, l_counter] = 1
+                l_counter += 1
+
+                if idx_x == 0:
+                    chessboard_limit_points[0, l_counter] = x
+                    chessboard_limit_points[1, l_counter] = y + step_y
+                    chessboard_limit_points[2, l_counter] = 0
+                    chessboard_limit_points[3, l_counter] = 1
+                    l_counter += 1
+
+            if idx_x == 0:
+                chessboard_limit_points[0, l_counter] = x - step_x
+                chessboard_limit_points[1, l_counter] = y + step_y
+                chessboard_limit_points[2, l_counter] = 0
+                chessboard_limit_points[3, l_counter] = 1
+                l_counter += 1
+
+                if idx_y == 0:
+                    chessboard_limit_points[0, l_counter] = x - step_x
+                    chessboard_limit_points[1, l_counter] = y
+                    chessboard_limit_points[2, l_counter] = 0
+                    chessboard_limit_points[3, l_counter] = 1
 
     dataset_chessboards['evaluation_points'] = chessboard_evaluation_points
+    dataset_chessboards['limit_points'] = chessboard_limit_points
 
     objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
     objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1, 2)
@@ -166,7 +233,15 @@ def main():
     chessboard_points = np.vstack(
         (chessboard_points, np.ones((1, args['chess_num_x'] * args['chess_num_y']), dtype=np.float)))
 
-    dataset_chessboard_points = {'points': chessboard_points}
+    pts_l_chess = np.zeros((3, l_counter), np.float32)
+    for i in range(0, l_counter):
+        pts_l_chess[0, i] = chessboard_limit_points[0, i]
+        pts_l_chess[1, i] = chessboard_limit_points[1, i]
+
+    # homogenize points
+    pts_l_chess = np.vstack((pts_l_chess, np.ones((1, pts_l_chess.shape[1]), dtype=np.float)))
+
+    dataset_chessboard_points = {'points': chessboard_points, 'l_points': pts_l_chess}
 
     for collection_key, collection in dataset_sensors['collections'].items():
         flg_detected_chessboard = False
@@ -446,6 +521,22 @@ def main():
                                                                                                  axis_scale=0.5,
                                                                                                  line_width=2)
 
+            # Transform limit points to root
+            pts_l_chess_root = np.dot(root_T_chessboard, pts_l_chess)
+
+            # draw limit points
+            dataset_graphics['collections'][collection_key]['limit_handle'] = utilities.drawPoints3D(ax, None, pts_l_chess_root,
+                                                       color=dataset_graphics['collections'][collection_key][
+                                                           'color'],
+                                                       marker_size=2.5, line_width=2.2,
+                                                       marker='-o',
+                                                       mfc=dataset_graphics['collections'][collection_key]['color'],
+                                                       text=None,
+                                                       text_color=dataset_graphics['sensors'][sensor_key]['color'],
+                                                       sensor_color=dataset_graphics['sensors'][sensor_key][
+                                                           'color'],
+                                                       handles=None)
+
             trans = collection['trans']
             quat = collection['quat']
             root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
@@ -582,6 +673,13 @@ def main():
                                      chess_num_x=args['chess_num_x'], chess_num_y=args['chess_num_y'],
                                      color=color_collection, axis_scale=0.3, line_width=2,
                                      handles=dataset_graphics['collections'][_collection_key]['handle'])
+
+            # Transform limit points to root
+            pts_l_chess_root = np.dot(root_T_chessboard, pts_l_chess)
+
+            utilities.drawPoints3D(ax, None, pts_l_chess_root, line_width=1.0,
+                                   handles=
+                                   dataset_graphics['collections'][_collection_key]['limit_handle'])
 
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[fig])
 
