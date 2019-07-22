@@ -183,16 +183,18 @@ def objectiveFunction(data):
                     oe[0, counter] = np.absolute(pt_chessboard[2])  #orthogonal distance to the chessboard limit points in z coordinate
 
                     counter += 1
-                    ero = np.zeros((1, 2), np.float)
-                    ero[0, 0] = dists[0, 0] + oe[0, 0]
-                    ero[0, 1] = dists[0, 1] + oe[0, 1]
+                    # ero = np.zeros((1, 2), np.float)
+                    # ero[0, 0] = dists[0, 0] + oe[0, 0]
+                    # ero[0, 1] = dists[0, 1] + oe[0, 1]
 
                 num_detections += 1
 
                 # TODO error in meters? Seems small when compared with pixels ...
 
-                errors.append(ero[0, 0])
-                errors.append(ero[0, 1])
+                errors.append(dists[0, 0])
+                errors.append(dists[0, 1])
+                # errors.append(oe[0, 0])
+                # errors.append(oe[0, 1])
 
                 # Store for visualization
                 collection['labels'][sensor_key]['pts_root'] = pts_root
@@ -235,11 +237,12 @@ def objectiveFunction(data):
             else:
                 raise ValueError("Unknown sensor msg_type")
 
-            # print('error for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(error))
-        if num_detections == 0:
-            continue
-        else:
-            print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error / num_detections))
+            print('\n\nerror for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(errors))
+
+        # if num_detections == 0:
+        #     continue
+        # else:
+        #     print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error / num_detections))
 
     # Return the errors
     # createJSONFile('/tmp/data_collected_results.json', dataset_sensors)
