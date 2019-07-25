@@ -183,9 +183,6 @@ def objectiveFunction(data):
                     oe[0, counter] = np.absolute(pt_chessboard[2])  #orthogonal distance to the chessboard limit points in z coordinate
 
                     counter += 1
-                    # ero = np.zeros((1, 2), np.float)
-                    # ero[0, 0] = dists[0, 0] + oe[0, 0]
-                    # ero[0, 1] = dists[0, 1] + oe[0, 1]
 
                 num_detections += 1
 
@@ -193,8 +190,8 @@ def objectiveFunction(data):
 
                 errors.append(dists[0, 0])
                 errors.append(dists[0, 1])
-                # errors.append(oe[0, 0])
-                # errors.append(oe[0, 1])
+                errors.append(oe[0, 0])
+                errors.append(oe[0, 1])
 
                 # Store for visualization
                 collection['labels'][sensor_key]['pts_root'] = pts_root

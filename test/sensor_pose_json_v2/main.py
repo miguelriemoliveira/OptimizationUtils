@@ -429,7 +429,7 @@ def main():
                     opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
 
             elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
-                for idx in range(0, 2):
+                for idx in range(0, 4):
                     opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
 
     print('residuals = ' + str(opt.residuals))
