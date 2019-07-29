@@ -34,6 +34,7 @@ def objectiveFunction(data):
         sum_error = 0
         num_detections = 0
         for collection_key, collection in dataset_sensors['collections'].items():
+            c_error = 0
             if not collection['labels'][sensor_key]['detected']:  # chess not detected by sensor in collection
                 continue
 
@@ -192,6 +193,9 @@ def objectiveFunction(data):
                 errors.append(dists[0, 1])
                 errors.append(oe[0, 0])
                 errors.append(oe[0, 1])
+                c_error = (dists[0, 0] + dists[0, 1] + oe[0, 0] + oe[0, 1]) / 4
+
+                sum_error += c_error
 
                 # Store for visualization
                 collection['labels'][sensor_key]['pts_root'] = pts_root
@@ -233,13 +237,13 @@ def objectiveFunction(data):
 
             else:
                 raise ValueError("Unknown sensor msg_type")
+            #
+            # print('\n\nerror for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(errors))
 
-            print('\n\nerror for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(errors))
-
-        # if num_detections == 0:
-        #     continue
-        # else:
-        #     print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error / num_detections))
+        if num_detections == 0:
+            continue
+        else:
+            print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error / num_detections))
 
     # Return the errors
     # createJSONFile('/tmp/data_collected_results.json', dataset_sensors)
