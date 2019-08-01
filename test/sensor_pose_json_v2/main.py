@@ -14,6 +14,7 @@ import OptimizationUtils.OptimizationUtils as OptimizationUtils
 import KeyPressManager.KeyPressManager as KeyPressManager
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
+from numpy.linalg import inv
 import cv2
 import argparse
 import os
@@ -703,7 +704,7 @@ def main():
     #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-3})
 
     opt.startOptimization(
-        optimization_options={'ftol': 1e-5, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
+        optimization_options={'ftol': 0.15, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     # opt.startOptimization(
     #    optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
@@ -717,6 +718,34 @@ def main():
     print('\n')
     opt.printParameters(opt.xf, text='Final parameters')
 
+    print("AFONSO\n\n")
+
+    # for _sensor_key, _sensor in dataset_sensors['sensors'].items():
+    for _collection_key, _collection in dataset_sensors['collections'].items():
+
+        K_fc = np.zeros((3, 3), np.float32)
+        K_trc = np.zeros((3, 3), np.float32)
+        K_fc[0, :] = dataset_sensors['sensors']['frontal_camera']['camera_info']['K'][0:3]
+        K_fc[1, :] = dataset_sensors['sensors']['frontal_camera']['camera_info']['K'][3:6]
+        K_fc[2, :] = dataset_sensors['sensors']['frontal_camera']['camera_info']['K'][6:9]
+
+        K_trc[0, :] = dataset_sensors['sensors']['top_right_camera']['camera_info']['K'][0:3]
+        K_trc[1, :] = dataset_sensors['sensors']['top_right_camera']['camera_info']['K'][3:6]
+        K_trc[2, :] = dataset_sensors['sensors']['top_right_camera']['camera_info']['K'][6:9]
+
+        if _collection_key == "0":
+            root_T_fc = utilities.getAggregateTransform(dataset_sensors['sensors']['frontal_camera']['chain'],
+                                                        _collection['transforms'])
+            root_T_trc = utilities.getAggregateTransform(dataset_sensors['sensors']['top_right_camera']['chain'],
+                                                         _collection['transforms'])
+
+            # pts_root = np.dot(root_T_sensor, pts_laser)
+            fc_T_trc = np.dot(inv(root_T_fc), root_T_trc)
+            fc_T_trc_v = np.zeros((3, 3), np.float32)
+            fc_T_trc_v[:, 0] = fc_T_trc[0:3, 0]
+            fc_T_trc_v[:, 1] = fc_T_trc[0:3, 1]
+            fc_T_trc_v[:, 2] = fc_T_trc[0:3, 3]
+            point = dataset_sensors['sensors']['top_right_camera']['chain'], _collection['transforms']
     # ---------------------------------------
     # --- Save Results
     # ---------------------------------------
