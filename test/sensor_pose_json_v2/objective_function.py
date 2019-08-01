@@ -26,7 +26,7 @@ def objectiveFunction(data):
 
     # Get the data from the model
     dataset_sensors = data['dataset_sensors']
-    dataset_chessboards = data['dataset_chessboards']
+    dataset_chessboards = data['dataset_sensors']['chessboards']
     dataset_chessboard_points = data['dataset_chessboard_points']
     errors = []
 

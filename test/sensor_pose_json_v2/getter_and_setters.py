@@ -92,16 +92,16 @@ def setterCameraIntrinsics(data, value, sensor_key):
 # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
 
 def getterChessBoardTranslation(data, collection_key):
-    return data['collections'][collection_key]['trans']
+    return data['chessboards']['collections'][collection_key]['trans']
 
 
 def setterChessBoardTranslation(data, value, collection_key):
     assert len(value) == 3, "value must be a list with length 3."
-    data['collections'][collection_key]['trans'] = value
+    data['chessboards']['collections'][collection_key]['trans'] = value
 
 
 def getterChessBoardRotation(data, collection_key):
-    quat = data['collections'][collection_key]['quat']
+    quat = data['chessboards']['collections'][collection_key]['quat']
     hmatrix = transformations.quaternion_matrix(quat)
     matrix = hmatrix[0:3, 0:3]
     return utilities.matrixToRodrigues(matrix)
@@ -114,5 +114,5 @@ def setterChessBoardRotation(data, value, collection_key):
     hmatrix = np.identity(4).astype(np.float)
     hmatrix[0:3, 0:3] = matrix
     quat = transformations.quaternion_from_matrix(hmatrix)
-    data['collections'][collection_key]['quat'] = quat
+    data['chessboards']['collections'][collection_key]['quat'] = quat
 

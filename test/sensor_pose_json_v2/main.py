@@ -31,6 +31,9 @@ from objective_function import *
 # -------------------------------------------------------------------------------
 
 def is_jsonable(x):
+
+
+
     try:
         json.dumps(x)
         return True
@@ -43,16 +46,28 @@ def walk(node):
         if isinstance(item, dict):
             walk(item)
         else:
-            if not is_jsonable(item):
-                print ('Deleting ' + key)
+            if isinstance(item, np.ndarray) and key == 'data': # to avoid saning images in the json
                 del node[key]
 
+            elif isinstance(item, np.ndarray):
+                node[key] = item.tolist()
+                print('Converted to list')
+
+            # if not is_jsonable(item):
+            #     print ('Deleting ' + key + ' of type ' + str(type(item)))
+            #     del node[key]
+            # else:
+            #     print ('Not Deleting ' + key + ' of type ' + str(type(item)))
+            pass
 
 # Save to json file
 def createJSONFile(output_file, input):
     D = deepcopy(input)
 
+
+
     walk(D)
+
 
     print("Saving the json output file to " + str(output_file) + ", please wait, it could take a while ...")
     f = open(output_file, 'w')
@@ -108,6 +123,7 @@ def main():
     f = open(args['json_file'], 'r')
     dataset_sensors = json.load(f)
 
+
     # Load images from files into memory. Images in the json file are stored in separate png files and in their place
     # a field "data_file" is saved with the path to the file. We must load the images from the disk.
     for collection_key, collection in dataset_sensors['collections'].items():
@@ -118,6 +134,8 @@ def main():
             filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
             collection['data'][sensor_key]['data'] = cv2.imread(filename)
 
+
+
     if not args['collection_selection_function'] is None:
         deleted = []
         for collection_key in dataset_sensors['collections'].keys():
@@ -125,6 +143,8 @@ def main():
                 deleted.append(collection_key)
                 del dataset_sensors['collections'][collection_key]
         print("Deleted collections: " + str(deleted))
+
+
 
     # ---------------------------------------
     # --- CREATE CHESSBOARD DATASET
@@ -138,9 +158,10 @@ def main():
     #
     # print(chessboard_evaluation_points.shape)
 
-    dataset_chessboards = {'chess_num_x': args['chess_num_x'], 'chess_num_y': args['chess_num_y'],
+    dataset_sensors['chessboards'] = {'chess_num_x': args['chess_num_x'], 'chess_num_y': args['chess_num_y'],
                            'number_corners': int(args['chess_num_x'] * args['chess_num_y']),
                            'collections': {}}
+    dataset_chessboards = dataset_sensors['chessboards']
 
     factor = round(1.)
     num_pts = int((args['chess_num_x'] * factor) * (args['chess_num_y'] * factor))
@@ -152,6 +173,8 @@ def main():
 
     counter = 0
     l_counter = 0
+
+
 
     for idx_y in range(0, int(args['chess_num_y'] * factor)):
         y = idx_y * step_y
@@ -317,6 +340,8 @@ def main():
         if not flg_detected_chessboard:  # Abort when the chessboard is not detected by any camera on this collection
             raise ValueError('Collection ' + collection_key + ' could not find chessboard.')
 
+
+
     # ---------------------------------------
     # --- FILTER SOME OF THE ELEMENTS LOADED, TO USE ONLY A SUBSET IN THE CALIBRATION
     # ---------------------------------------
@@ -333,13 +358,15 @@ def main():
     print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
         len(dataset_sensors['collections'].keys())) + ' collections.')
 
+
+
     # ---------------------------------------
     # --- SETUP OPTIMIZER
     # ---------------------------------------
 
     opt = OptimizationUtils.Optimizer()
     opt.addModelData('dataset_sensors', dataset_sensors)
-    opt.addModelData('dataset_chessboards', dataset_chessboards)
+    # opt.addModelData('dataset_chessboards', dataset_chessboards)
     opt.addModelData('dataset_chessboard_points', dataset_chessboard_points)
 
     # For the getters we only need to get one collection. Lets take the first key on the dictionary and always get that
@@ -383,13 +410,13 @@ def main():
         # initial_values = getterChessBoardTranslation(dataset_chessboards, collection_key)
         # bound_max = [x + translation_delta for x in initial_values]
         # bound_min = [x - translation_delta for x in initial_values]
-        opt.pushParamVector(group_name='C_' + collection_key + '_t', data_key='dataset_chessboards',
+        opt.pushParamVector(group_name='C_' + collection_key + '_t', data_key='dataset_sensors',
                         getter=partial(getterChessBoardTranslation, collection_key=collection_key),
                         setter=partial(setterChessBoardTranslation, collection_key=collection_key),
                         suffix=['x', 'y', 'z'])
         # ,bound_max=bound_max, bound_min=bound_min)
 
-        opt.pushParamVector(group_name='C_' + collection_key + '_r', data_key='dataset_chessboards',
+        opt.pushParamVector(group_name='C_' + collection_key + '_r', data_key='dataset_sensors',
                         getter=partial(getterChessBoardRotation, collection_key=collection_key),
                         setter=partial(setterChessBoardRotation, collection_key=collection_key),
                         suffix=['1', '2', '3'])
@@ -409,6 +436,8 @@ def main():
     # --- Define THE OBJECTIVE FUNCTION
     # ---------------------------------------
     opt.setObjectiveFunction(objectiveFunction)
+
+
 
     # ---------------------------------------
     # --- Define THE RESIDUALS
@@ -601,13 +630,14 @@ def main():
 
     opt.addModelData('dataset_graphics', dataset_graphics)
 
+
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
     def visualizationFunction(data):
         # Get the data from the model
         _dataset_sensors = data['dataset_sensors']
-        _dataset_chessboard = data['dataset_chessboards']
+        _dataset_chessboard = data['dataset_sensors']['chessboards']
 
         for _collection_key, _collection in _dataset_sensors['collections'].items():
             for _sensor_key, _sensor in _dataset_sensors['sensors'].items():
@@ -703,8 +733,12 @@ def main():
     # opt.startOptimization(
     #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-3})
 
+
+
     opt.startOptimization(
-        optimization_options={'ftol': 0.15, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
+        optimization_options={'ftol': 14.35, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
+
+
 
     # opt.startOptimization(
     #    optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
@@ -718,6 +752,10 @@ def main():
     print('\n')
     opt.printParameters(opt.xf, text='Final parameters')
 
+
+    # Write json file with updated dataset_sensors
+    createJSONFile('/tmp/dataset_sensors_results.json', dataset_sensors)
+    exit(0)
     print("AFONSO\n\n")
 
     # for _sensor_key, _sensor in dataset_sensors['sensors'].items():
