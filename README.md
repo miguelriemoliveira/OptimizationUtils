@@ -90,3 +90,15 @@ If you want to filter out some sensors or collections you may use the sensor sel
 ```bash
 test/sensor_pose_json_v2/main.py -json ~/datasets/calib_without_fg/calibration_complete_nofg/data_collected.json -cradius .5 -csize 0.1054 -cnumx 8 -cnumy 6 -vo -ssf "lambda name: name in ['left_laser', 'right_laser']" -csf "lambda name: int(name) < 1"
 ```
+### Calibration results visualization
+
+In order to see the difference between the image points and the reprojected points you must run the following:
+
+```bash
+test/sensor_pose_json_v2/results_visualization.py -json /tmp/dataset_sensors_results.json -jm test/sensor_pose_json_v2/matlab.json -fs top_right_camera -ss frontal_camera -collection 0
+
+```
+You should give the augmented json (final json of the calibration) and the json that contains the Matlab stereo calibration results.
+Beside this, you must choose wich one is the first sensor (fs) and the second sensor (ss). 
+The points will be projected from the first sensor image (pixs) to the second sensor image (pixs).
+Finally, you should choose, also, the collection to study. For now, it only works with one collection at a time.
