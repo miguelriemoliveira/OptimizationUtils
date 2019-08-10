@@ -32,8 +32,6 @@ from objective_function import *
 
 def is_jsonable(x):
 
-
-
     try:
         json.dumps(x)
         return True
@@ -46,28 +44,21 @@ def walk(node):
         if isinstance(item, dict):
             walk(item)
         else:
-            if isinstance(item, np.ndarray) and key == 'data': # to avoid saning images in the json
+            if isinstance(item, np.ndarray) and key == 'data':    # to avoid saning images in the json
                 del node[key]
 
             elif isinstance(item, np.ndarray):
                 node[key] = item.tolist()
                 print('Converted to list')
-
-            # if not is_jsonable(item):
-            #     print ('Deleting ' + key + ' of type ' + str(type(item)))
-            #     del node[key]
-            # else:
-            #     print ('Not Deleting ' + key + ' of type ' + str(type(item)))
             pass
 
+
 # Save to json file
+
 def createJSONFile(output_file, input):
     D = deepcopy(input)
 
-
-
     walk(D)
-
 
     print("Saving the json output file to " + str(output_file) + ", please wait, it could take a while ...")
     f = open(output_file, 'w')
@@ -123,7 +114,6 @@ def main():
     f = open(args['json_file'], 'r')
     dataset_sensors = json.load(f)
 
-
     # Load images from files into memory. Images in the json file are stored in separate png files and in their place
     # a field "data_file" is saved with the path to the file. We must load the images from the disk.
     for collection_key, collection in dataset_sensors['collections'].items():
@@ -134,8 +124,6 @@ def main():
             filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
             collection['data'][sensor_key]['data'] = cv2.imread(filename)
 
-
-
     if not args['collection_selection_function'] is None:
         deleted = []
         for collection_key in dataset_sensors['collections'].keys():
@@ -143,8 +131,6 @@ def main():
                 deleted.append(collection_key)
                 del dataset_sensors['collections'][collection_key]
         print("Deleted collections: " + str(deleted))
-
-
 
     # ---------------------------------------
     # --- CREATE CHESSBOARD DATASET
@@ -173,8 +159,6 @@ def main():
 
     counter = 0
     l_counter = 0
-
-
 
     for idx_y in range(0, int(args['chess_num_y'] * factor)):
         y = idx_y * step_y
@@ -727,25 +711,9 @@ def main():
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
-    # print("\n\nStarting optimization")
-
-    # This optimizes well
-    # opt.startOptimization(
-    #     optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-3})
-
-
 
     opt.startOptimization(
-        optimization_options={'ftol': 14.35, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
-
-
-
-    # opt.startOptimization(
-    #    optimization_options={'x_scale': 'jac', 'ftol': 1e-5, 'xtol': 1e-5, 'gtol': 1e-5, 'diff_step': 1e-4,
-    #                          'max_nfev': 1})
-
-    # This optimized forever but was already at 1.5 pixels avg errror and going when I interrupted it
-    # opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4})
+        optimization_options={'ftol': 0.1, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     print('\n-----------------')
     opt.printParameters(opt.x0, text='Initial parameters')
@@ -753,41 +721,11 @@ def main():
     opt.printParameters(opt.xf, text='Final parameters')
 
 
-    # Write json file with updated dataset_sensors
-    createJSONFile('/tmp/dataset_sensors_results.json', dataset_sensors)
-    exit(0)
-    print("AFONSO\n\n")
-
-    # for _sensor_key, _sensor in dataset_sensors['sensors'].items():
-    for _collection_key, _collection in dataset_sensors['collections'].items():
-
-        K_fc = np.zeros((3, 3), np.float32)
-        K_trc = np.zeros((3, 3), np.float32)
-        K_fc[0, :] = dataset_sensors['sensors']['frontal_camera']['camera_info']['K'][0:3]
-        K_fc[1, :] = dataset_sensors['sensors']['frontal_camera']['camera_info']['K'][3:6]
-        K_fc[2, :] = dataset_sensors['sensors']['frontal_camera']['camera_info']['K'][6:9]
-
-        K_trc[0, :] = dataset_sensors['sensors']['top_right_camera']['camera_info']['K'][0:3]
-        K_trc[1, :] = dataset_sensors['sensors']['top_right_camera']['camera_info']['K'][3:6]
-        K_trc[2, :] = dataset_sensors['sensors']['top_right_camera']['camera_info']['K'][6:9]
-
-        if _collection_key == "0":
-            root_T_fc = utilities.getAggregateTransform(dataset_sensors['sensors']['frontal_camera']['chain'],
-                                                        _collection['transforms'])
-            root_T_trc = utilities.getAggregateTransform(dataset_sensors['sensors']['top_right_camera']['chain'],
-                                                         _collection['transforms'])
-
-            # pts_root = np.dot(root_T_sensor, pts_laser)
-            fc_T_trc = np.dot(inv(root_T_fc), root_T_trc)
-            fc_T_trc_v = np.zeros((3, 3), np.float32)
-            fc_T_trc_v[:, 0] = fc_T_trc[0:3, 0]
-            fc_T_trc_v[:, 1] = fc_T_trc[0:3, 1]
-            fc_T_trc_v[:, 2] = fc_T_trc[0:3, 3]
-            point = dataset_sensors['sensors']['top_right_camera']['chain'], _collection['transforms']
     # ---------------------------------------
     # --- Save Results
     # ---------------------------------------
-    # Todo should be saved back to a json or directly to xacro?
+   # Write json file with updated dataset_sensors
+    createJSONFile('/tmp/dataset_sensors_results.json', dataset_sensors)
 
 
 if __name__ == "__main__":

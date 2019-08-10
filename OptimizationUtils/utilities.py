@@ -321,6 +321,7 @@ def translationQuaternionToTransform(trans, quat):
     matrix[1, 3] = trans[1]
     matrix[2, 3] = trans[2]
     matrix[3, 3] = 1
+    # print(str(matrix))
     return matrix
 
 
@@ -334,11 +335,9 @@ def getAggregateTransform(chain, transforms, mode=0):
             trans = transforms[link['key']]['trans']
             quat = transforms[link['key']]['quat']
             parent_T_child = translationQuaternionToTransform(trans, quat)
-
             # print(parent + '_T_' + child + ' =\n' + str(parent_T_child))
-            # AT = np.dot(AT, parent_T_child)
-            # AT = np.dot(parent_T_child, AT)
             AT = np.dot(AT, parent_T_child)
+        # print(parent + '_T_' + child + ' =\n' + str(AT))
     else:
         for link in chain[::-1]:
             parent = link['parent']
