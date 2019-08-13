@@ -176,12 +176,12 @@ def objectiveFunction(data):
                     planar_l_chess_pts = dataset_chessboards['limit_points'][0:2, :]
                     vals = distance.cdist(pt.transpose(), planar_l_chess_pts.transpose(), 'euclidean')
                     minimum = np.amin(vals)
-                    dists[0, counter] = minimum   #longitudinal distance to the chessboard limits
+                    dists[0, counter] = minimum   # longitudinal distance to the chessboard limits
                     for i in range(0, len(planar_l_chess_pts[0])):
                         if vals[0,i] == minimum:
                             idxs_min[0, counter] = i
 
-                    oe[0, counter] = np.absolute(pt_chessboard[2])  #orthogonal distance to the chessboard limit points in z coordinate
+                    oe[0, counter] = np.absolute(pt_chessboard[2])  # orthogonal distance to the chessboard limit points in z coordinate
 
                     counter += 1
 

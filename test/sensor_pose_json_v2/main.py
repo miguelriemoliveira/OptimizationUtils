@@ -614,10 +614,10 @@ def main():
 
     opt.addModelData('dataset_graphics', dataset_graphics)
 
-
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
+
     def visualizationFunction(data):
         # Get the data from the model
         _dataset_sensors = data['dataset_sensors']
