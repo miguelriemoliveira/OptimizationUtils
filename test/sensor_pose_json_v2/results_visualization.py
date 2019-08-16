@@ -241,6 +241,9 @@ if __name__ == "__main__":
                 idx_s1[0, idx] = point['x']
                 idx_s1[1, idx] = point['y']
 
+            print(idx_s1)
+            print(idx_s2)
+
             homography_matrix_model[0:3, (int(collection_key)*3):((int(collection_key)*3)+3)], status = cv2.findHomography(
                 idx_s1[0:2, :].transpose(), idx_s2[0:2, :].transpose())
 
@@ -322,17 +325,17 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------
     # ------ SEE THE DIFFERENCE IN A SCATTER PLOT
     # -------------------------------------------------------------------
-    colors = cm.rainbow(np.linspace(0, 1, (points.shape[1]/n_points)))
+    colors = cm.tab20b(np.linspace(0, 1, (points.shape[1]/n_points)))
 
     fig, ax = plt.subplots()
-    plt.xlabel('x offset [pixels]')
-    plt.ylabel('y offset [pixels]')
+    plt.xlabel('x error (pixels)')
+    plt.ylabel('y error (pixels)')
 
     plt.grid(True, color='k', linestyle='--', linewidth=0.1)
     string = "Difference between the image pts and the reprojected pts"
     plt.title(string)
-    x_max = np.amax(np.absolute(points_model[0, :]))
-    y_max = np.amax(np.absolute(points_model[1, :]))
+    x_max = np.amax(np.absolute(points[0, :]))
+    y_max = np.amax(np.absolute(points[1, :]))
     delta = 20
     ax.set_xlim(-x_max - delta, x_max + delta)
     ax.set_ylim(-y_max - delta, y_max + delta)
@@ -348,8 +351,8 @@ if __name__ == "__main__":
 
         scatter_points.append([l1, l2])
 
-    legend1 = plt.legend(scatter_points[0], ["pixels error with our calibration",
-                                             "pixels error with OpenCV homography finder"], loc="upper left", shadow=True)
+    legend1 = plt.legend(scatter_points[0], ["proposed approach",
+                                             "OpenCV homography finder"], loc="upper left", shadow=True)
 
     plt.legend([l[0] for l in scatter_points], leg, loc=4, title="Collections", shadow=True)
     plt.gca().add_artist(legend1)
