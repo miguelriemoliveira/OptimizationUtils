@@ -78,14 +78,14 @@ if __name__ == "__main__":
     # --- Parse command line argument
     # ---------------------------------------
     ap = argparse.ArgumentParser()
-    ap.add_argument("-json", "--json_file", help="Json file containing input dataset.", type=str, required=True)
-    # ap.add_argument("-jm", "--json_model", help="Json file containing model dataset.", type=str, required=True)
+    ap.add_argument("-json_opt", "--json_file_opt",
+                    help="Json file containing input dataset from optimization procedure.", type=str, required=True)
+    ap.add_argument("-json_calibcam", "--json_file_calibcam",
+                    help="Json file containing input dataset from opencv stereo calibration.", type=str, required=True)
     ap.add_argument("-fs", "--first_sensor", help="First Sensor: his evaluation points will be projected to the second "
                                                   "sensor data.", type=str, required=True)
     ap.add_argument("-ss", "--second_sensor", help="Second Sensor: his evaluation points will be compared with the "
                                                    "projected ones from the first sensor.", type=str, required=True)
-    # ap.add_argument("-collection", "--collection_choosed", help="Must choose one collection to compare the points from"
-    #                 " MATLAB stereo calibration with our calibration method.", type=int, required=True)
 
     args = vars(ap.parse_args())
     print("\nArgument list=" + str(args) + '\n')
@@ -94,12 +94,10 @@ if __name__ == "__main__":
     # --- INITIALIZATION Read data from file and read sensors that will be compared
     # ---------------------------------------
     """ Loads a json file containing the chessboards poses for each collection"""
-    f = open(args['json_file'], 'r')
-    data = json.load(f)
-
-    # """ Loads a json file containing the cameras infos obtained with a different software calibration (matlab)"""
-    # fm = open(args['json_model'], 'r')         # This is the matlab results of stero calibration
-    # data_model = json.load(fm)
+    f = open(args['json_file_opt'], 'r')
+    ff = open(args['json_file_calibcam'], 'r')
+    data_opt = json.load(f)
+    data_cc = json.load(ff)
 
     sensor_1 = args['first_sensor']
     sensor_2 = args['second_sensor']
@@ -107,152 +105,178 @@ if __name__ == "__main__":
     input_sensors = {'first_sensor': sensor_1, 'second_sensor': sensor_2}
 
     n_sensors = 0
-    for sensor_key in data['sensors'].keys():
+    for sensor_key in data_opt['sensors'].keys():
         n_sensors += 1
 
     for i_sensor_key, i_sensor in input_sensors.items():
         a = 0
-        for sensor_key, sensor in data['sensors'].items():
+        for sensor_key, sensor in data_opt['sensors'].items():
             a += 1
             if i_sensor == sensor['_name']:
                 break
             elif a == n_sensors:
-                print("ERROR: " + i_sensor + " doesn't exist on the input sensors list from the json file.")
+                print("ERROR: " + i_sensor + " doesn't exist on the input sensors list from the optimization json file.")
                 exit(0)
 
     n_collections = 0
-    for collection_key in data['collections'].items():
+    for collection_key in data_opt['collections'].items():
         n_collections += 1
-    #
-    # aa = 0
-    # for collection_key, _collection in data['collections'].items():
-    #     aa += 1
-    #     if collection == collection_key:
-    #         break
-    #     elif aa == n_collections:
-    #         print("ERROR: collection selected doesn't exist in the json file with the input dataset.")
-    #         exit(0)
 
+    n_points = data_opt['chessboards']['number_corners']
     # ---------------------------------------
     # --- FILTER only te two cameras of interest  (this is not strictly necessary)
     # ---------------------------------------
     deleted = []
-    for sensor_key, sensor in data['sensors'].items():
+    for sensor_key, sensor in data_opt['sensors'].items():
         if sensor_1 == sensor['_name']:
             continue
         elif sensor_2 == sensor['_name']:
             continue
         else:
             deleted.append(sensor['_name'])
-            del data['sensors'][sensor_key]
+            del data_opt['sensors'][sensor_key]
     print("\nDeleted sensors: " + str(deleted) + "\n")
 
     n_cams = 0
 
-    for sensor_key, sensor in data['sensors'].items():
+    for sensor_key, sensor in data_opt['sensors'].items():
         if sensor['msg_type'] == "Image":
             n_cams += 1
 
     # print("\nNumber of cameras: " + str(n_cams) + "\n")
 
-    # -------------------------------------------------------------------
-    # ------ INTRINSICS MATRIX
-    # -------------------------------------------------------------------
+    # Intrinsic matrixes:
+    K_1_opt = np.zeros((3, 3), np.float32)
+    K_2_opt = np.zeros((3, 3), np.float32)
 
-    K_1 = np.zeros((3, 3), np.float32)
-    K_2 = np.zeros((3, 3), np.float32)
+    K_1_opt[0, :] = data_opt['sensors'][sensor_1]['camera_info']['K'][0:3]
+    K_1_opt[1, :] = data_opt['sensors'][sensor_1]['camera_info']['K'][3:6]
+    K_1_opt[2, :] = data_opt['sensors'][sensor_1]['camera_info']['K'][6:9]
 
-    K_1[0, :] = data['sensors'][sensor_1]['camera_info']['K'][0:3]
-    K_1[1, :] = data['sensors'][sensor_1]['camera_info']['K'][3:6]
-    K_1[2, :] = data['sensors'][sensor_1]['camera_info']['K'][6:9]
+    K_2_opt[0, :] = data_opt['sensors'][sensor_2]['camera_info']['K'][0:3]
+    K_2_opt[1, :] = data_opt['sensors'][sensor_2]['camera_info']['K'][3:6]
+    K_2_opt[2, :] = data_opt['sensors'][sensor_2]['camera_info']['K'][6:9]
 
-    K_2[0, :] = data['sensors'][sensor_2]['camera_info']['K'][0:3]
-    K_2[1, :] = data['sensors'][sensor_2]['camera_info']['K'][3:6]
-    K_2[2, :] = data['sensors'][sensor_2]['camera_info']['K'][6:9]
+    K_1_cc = np.zeros((3, 3), np.float32)
+    K_2_cc = np.zeros((3, 3), np.float32)
 
-    print("\nIntrinsic values: \n\n " + "K_" + sensor_1 + ":\n" + str(K_1) + "\n\n" + "K_" + sensor_2 + ":\n" + str(K_2) +
-          "\n")
+    K_1_cc[0, :] = data_cc['sensors'][sensor_1]['camera_info']['K'][0:3]
+    K_1_cc[1, :] = data_cc['sensors'][sensor_1]['camera_info']['K'][3:6]
+    K_1_cc[2, :] = data_cc['sensors'][sensor_1]['camera_info']['K'][6:9]
 
-    n_points = data['chessboards']['number_corners']
+    K_2_cc[0, :] = data_cc['sensors'][sensor_2]['camera_info']['K'][0:3]
+    K_2_cc[1, :] = data_cc['sensors'][sensor_2]['camera_info']['K'][3:6]
+    K_2_cc[2, :] = data_cc['sensors'][sensor_2]['camera_info']['K'][6:9]
 
-    homography_matrix_model = np.zeros((3, 3*n_collections), np.float32)
     accepted_collections = 0
+    leg = []
 
     points = np.zeros((2, 0), np.float32)
     points_model = np.zeros((2, 0), np.float32)
-    leg = []
-    for collection_key, collection in data['collections'].items():
+
+    for collection_key, collection in data_opt['collections'].items():
         if not (collection['labels'][sensor_2]['detected'] and collection['labels'][sensor_1]['detected']):
             continue
         else:
 
-            # -------------------------------------------------------------------------------
-            # ------ TRANSFORMS FROM EACH SENSOR TO CHESSBOARD OBTAINED WITH THE CALIBRATION
-            # -------------------------------------------------------------------------------
+            # -------------------------------------------------------------------
+            # ------ OPTIMIZATION
+            # -------------------------------------------------------------------
 
             root_T_s1 = utilities.getAggregateTransform(
-                data['sensors'][sensor_1]['chain'], data['collections']['0']['transforms'])
+                data_opt['sensors'][sensor_1]['chain'], data_opt['collections']['0']['transforms'])
 
             root_T_s2 = utilities.getAggregateTransform(
-                data['sensors'][sensor_2]['chain'], data['collections']['0']['transforms'])
+                data_opt['sensors'][sensor_2]['chain'], data_opt['collections']['0']['transforms'])
 
             root_T_chessboard = utilities.translationQuaternionToTransform(
-                data['chessboards']['collections'][collection_key]['trans'],
-                data['chessboards']['collections'][collection_key]['quat'])
+                data_opt['chessboards']['collections'][collection_key]['trans'],
+                data_opt['chessboards']['collections'][collection_key]['quat'])
 
-            s1_T_chessboard_h = np.dot(inv(root_T_s1), root_T_chessboard)
-            s2_T_chessboard_h = np.dot(inv(root_T_s2), root_T_chessboard)
+            s1_T_chessboard_opt_h = np.dot(inv(root_T_s1), root_T_chessboard)
+            s2_T_chessboard_opt_h = np.dot(inv(root_T_s2), root_T_chessboard)
 
-            s2_T_chessboard = np.zeros((3, 3), np.float32)
-            s1_T_chessboard = np.zeros((3, 3), np.float32)
+            s1_T_chessboard_opt = np.zeros((3, 3), np.float32)
+            s2_T_chessboard_opt = np.zeros((3, 3), np.float32)
 
-            for i in range(0, 2):
-                s1_T_chessboard[:, i] = s1_T_chessboard_h[0:3, i]
-                s2_T_chessboard[:, i] = s2_T_chessboard_h[0:3, i]
+            for c in range(0, 2):
+                for l in range(0, 3):
+                    s1_T_chessboard_opt[l, c] = s1_T_chessboard_opt_h[l, c]
+                    s2_T_chessboard_opt[l, c] = s2_T_chessboard_opt_h[l, c]
 
-            s1_T_chessboard[:, 2] = s1_T_chessboard_h[0:3, 3]
-            s2_T_chessboard[:, 2] = s2_T_chessboard_h[0:3, 3]
-            # print("\nVERDADEIRA TF s2 T chess:\n")
-            # print(s1_T_chessboard)
-
-            A = np.dot(K_2, s2_T_chessboard)
-            B = np.dot(A, inv(s1_T_chessboard))
-            homography_matrix = np.dot(B, inv(K_1))
+            s1_T_chessboard_opt[:, 2] = s1_T_chessboard_opt_h[0:3, 3]
+            s2_T_chessboard_opt[:, 2] = s2_T_chessboard_opt_h[0:3, 3]
 
             # -------------------------------------------------------------------
-            # ------ MATLAB STEREO CALIBRATION
+            # ------ CAMERA CALIBRATE
             # -------------------------------------------------------------------
-            # homography_matrix_model = matlab_stereo(data_model, sensor_1, sensor_2, collection_key)
+
+            s1_T_chessboard_cc_h = utilities.translationQuaternionToTransform(
+                data_cc['chessboards']['collections'][collection_key][sensor_1]['trans'],
+                data_cc['chessboards']['collections'][collection_key][sensor_1]['quat'])
+
+            s2_T_chessboard_cc_h = utilities.translationQuaternionToTransform(
+                data_cc['chessboards']['collections'][collection_key][sensor_2]['trans'],
+                data_cc['chessboards']['collections'][collection_key][sensor_2]['quat'])
+
+            s1_T_chessboard_cc = np.zeros((3, 3), np.float32)
+
+            s2_T_chessboard_cc = np.zeros((3, 3), np.float32)
+
+            for c in range(0, 2):
+                for l in range(0, 3):
+                    s1_T_chessboard_cc[l, c] = s1_T_chessboard_cc_h[l, c]
+                    s2_T_chessboard_cc[l, c] = s2_T_chessboard_cc_h[l, c]
+
+            s1_T_chessboard_cc[:, 2] = s1_T_chessboard_cc_h[0:3, 3]
+            s2_T_chessboard_cc[:, 2] = s2_T_chessboard_cc_h[0:3, 3]
 
             # -------------------------------------------------------------------
-            # ------ OPENCV HOMOGRAPHY FINDER
+            # ------ PRINTING TFS MATRIXES
             # -------------------------------------------------------------------
-            idx_s1 = np.ones((3, n_points), np.float32)
-            idx_s2 = np.ones((3, n_points), np.float32)
+            # print("\n Transform s1 T chess: (OPT)\n")
+            # print(s1_T_chessboard_opt)
+            # print("\n Transform s1 T chess: (CC)\n")
+            # print(s1_T_chessboard_cc)
+            #
+            # print("\n Transform s2 T chess: (OPT)\n")
+            # print(s2_T_chessboard_opt)
+            # print("\n Transform s2 T chess: (CC)\n")
+            # print(s2_T_chessboard_cc)
 
-            for idx, point in enumerate(data['collections'][collection_key]['labels'][sensor_2]['idxs']):
-                idx_s2[0, idx] = point['x']
-                idx_s2[1, idx] = point['y']
-
-            # print '\nCOLLECTION:\n'
-            # print(collection_key)
-
-            for idx, point in enumerate(data['collections'][collection_key]['labels'][sensor_1]['idxs']):
-                idx_s1[0, idx] = point['x']
-                idx_s1[1, idx] = point['y']
-
-            print(idx_s1)
-            print(idx_s2)
-
-            homography_matrix_model[0:3, (int(collection_key)*3):((int(collection_key)*3)+3)], status = cv2.findHomography(
-                idx_s1[0:2, :].transpose(), idx_s2[0:2, :].transpose())
-
-            # print '\nHMM:\n'
-            # print(homography_matrix_model)
             # -------------------------------------------------------------------
-            # ------ COMPARISON BETWEEN THE ERROR OF BOTH CALIBRATION
+            # ------ BUILDING HOMOGRAPHY MATRIXES
             # -------------------------------------------------------------------
-            s_idx_s2_proj = np.dot(homography_matrix, idx_s1)
+
+            A1 = np.dot(K_2_opt, s2_T_chessboard_opt)
+            B1 = np.dot(A1, inv(s1_T_chessboard_opt))
+            C1 = np.dot(B1, inv(K_1_opt))
+            homography_matrix = C1
+
+            A2 = np.dot(K_2_cc, s2_T_chessboard_cc)
+            B2 = np.dot(A2, inv(s1_T_chessboard_cc))
+            C2 = np.dot(B2, inv(K_1_cc))
+            homography_matrix_model = C2
+
+            # -------------------------------------------------------------------
+            # ------ Points to compute the difference
+            # -------------------------------------------------------------------
+
+            idx_s1_gt = np.ones((3, n_points), np.float32)
+            idx_s2_gt = np.ones((3, n_points), np.float32)
+
+            for idx, point in enumerate(data_opt['collections'][collection_key]['labels'][sensor_2]['idxs']):
+                idx_s2_gt[0, idx] = point['x']
+                idx_s2_gt[1, idx] = point['y']
+
+            for idx, point in enumerate(data_opt['collections'][collection_key]['labels'][sensor_1]['idxs']):
+                idx_s1_gt[0, idx] = point['x']
+                idx_s1_gt[1, idx] = point['y']
+
+            # -------------------------------------------------------------------
+            # ------ COMPARISON BETWEEN THE ERROR OF BOTH CALIBRATION (our opt with p idx and model with gt idx)
+            # -------------------------------------------------------------------
+            s_idx_s2_proj = np.dot(homography_matrix, idx_s1_gt)
 
             soma = 0
             for i in range(0, n_points):
@@ -260,12 +284,9 @@ if __name__ == "__main__":
             media = soma / n_points
             s = 1 / media
 
-            idx_s2_proj = s * s_idx_s2_proj
+            idx_s2_proj = s * s_idx_s2_proj  # (*s)
 
-            # print 'HMM:\n'
-            # print(homography_matrix_model)
-
-            s_idx_s2_proj_model = np.dot(homography_matrix_model[0:3, (int(collection_key)*3):((int(collection_key)*3)+3)], idx_s1)
+            s_idx_s2_proj_model = np.dot(homography_matrix_model, idx_s1_gt)
 
             soma_model = 0
             for ii in range(0, n_points):
@@ -273,26 +294,21 @@ if __name__ == "__main__":
             media_model = soma_model / n_points
             s_model = 1 / media_model
 
-            idx_s2_proj_model = s_model * s_idx_s2_proj_model
+            idx_s2_proj_model = s_model * s_idx_s2_proj_model  # s_model *
 
-            # print("\nNow, lets see if this works:\n\n")
-            # print("real idx (first 3 points):\n")
-            # print(idx_s2[:, 0:3])
-            # print("\nidx with our calib (first 3 points):\n")
-            # print(idx_s2_proj[:, 0:3])
-            # print("\nidx with openCV homography (first 3 points):\n")
-            # print(idx_s2_proj_model[:, 0:3])
+            # print('\n pontos opencv sem o fator escala:')
+            # print(s_idx_s2_proj_model)
 
-            points_ = idx_s2_proj[0:2, :] - idx_s2[0:2, :]
-            points_model_ = idx_s2_proj_model[0:2, :] - idx_s2[0:2, :]
+            points_ = idx_s2_proj[0:2, :] - idx_s2_gt[0:2, :]
+            points_model_ = idx_s2_proj_model[0:2, :] - idx_s2_gt[0:2, :]
 
             x_max_1 = np.amax(np.abs(points_[0, :]))
             y_max_1 = np.amax(np.abs(points_[1, :]))
             x_max_2 = np.amax(np.abs(points_model_[0, :]))
             y_max_2 = np.amax(np.abs(points_model_[1, :]))
 
-            if x_max_1 > 50 or y_max_1 > 50:
-                continue
+            # if x_max_1 > 50 or y_max_1 > 50:
+            #     continue
 
             print '\nCOLLECTION:'
             print(collection_key)
@@ -317,9 +333,9 @@ if __name__ == "__main__":
     avg_error_x_2 = np.sum(np.abs(points_model[0, :])) / total_points
     avg_error_y_2 = np.sum(np.abs(points_model[1, :])) / total_points
 
-    print("\n AVERAGE ERROR (our calib): \n")
+    print("\n AVERAGE ERROR (our optimization): \n")
     print("x = " + str(avg_error_x_1) + " pix ;   y = " + str(avg_error_y_1) + " pix")
-    print("\n AVERAGE ERROR (openCV): \n")
+    print("\n AVERAGE ERROR (openCV calibrate camera): \n")
     print("x = " + str(avg_error_x_2) + " pix ;   y = " + str(avg_error_y_2) + " pix")
 
     # -------------------------------------------------------------------
@@ -352,7 +368,7 @@ if __name__ == "__main__":
         scatter_points.append([l1, l2])
 
     legend1 = plt.legend(scatter_points[0], ["proposed approach",
-                                             "OpenCV homography finder"], loc="upper left", shadow=True)
+                                             "OpenCV calibrate camera"], loc="upper left", shadow=True)
 
     plt.legend([l[0] for l in scatter_points], leg, loc=4, title="Collections", shadow=True)
     plt.gca().add_artist(legend1)

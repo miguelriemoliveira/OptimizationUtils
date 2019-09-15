@@ -78,7 +78,6 @@ def drawSquare2D(image, x, y, size, color=(0, 0, 255), thickness=1):
     cv2.line(image, bl, tl, color, thickness)
 
 
-
 def drawPoints3D(ax, transform, pts, color=[0, 0, 0], marker_size=1.0, line_width=1.0, marker='.', mfc=None,
                  text=None, text_color=[0, 0, 0], sensor_color = [0,0,0], handles=None):
     """
@@ -464,6 +463,48 @@ def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
     yll = yl * (1 + k1 * r2 + k2 * r2 ** 2 + k3 * r2 ** 3) + p1 * (r2 + 2 * yl ** 2) + 2 * p2 * xl * yl
     pixs[0, :] = fx * xll + cx
     pixs[1, :] = fy * yll + cy
+
+    # Compute mask of valid projections
+    valid_z = z > 0
+    valid_xpix = np.logical_and(pixs[0, :] >= 0, pixs[0, :] < width)
+    valid_ypix = np.logical_and(pixs[1, :] >= 0, pixs[1, :] < height)
+    valid_pixs = np.logical_and(valid_z, np.logical_and(valid_xpix, valid_ypix))
+    return pixs, valid_pixs, dists
+
+
+def projectWithoutDistorcion(intrinsic_matrix, width, height, pts):
+    """
+    Projects a list of points to the camera defined transform, intrinsics and distortion
+    :param intrinsic_matrix: 3x3 intrinsic camera matrix
+    :param width: the image width
+    :param height: the image height
+    :param pts: a list of point coordinates (in the camera frame) with the following format
+    :return: a list of pixel coordinates with the same lenght as pts
+    """
+
+    _, n_pts = pts.shape
+
+    # Project the 3D points in the camera's frame to image pixels without considering the distorcion
+    # From https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
+    pixs = np.zeros((2, n_pts), dtype=np.float)
+
+    # fx, _, cx, _, fy, cy, _, _, _ = intrinsic_matrix
+
+    fx = intrinsic_matrix[0, 0]
+    fy = intrinsic_matrix[1, 1]
+    cx = intrinsic_matrix[0, 2]
+    cy = intrinsic_matrix[1, 2]
+
+    x = pts[0, :]
+    y = pts[1, :]
+    z = pts[2, :]
+
+    dists = norm(pts[0:3, :], axis=0)  # compute distances from point to camera
+    xl = np.divide(x, z)  # compute homogeneous coordinates
+    yl = np.divide(y, z)  # compute homogeneous coordinates
+
+    pixs[0, :] = fx * xl + cx
+    pixs[1, :] = fy * yl + cy
 
     # Compute mask of valid projections
     valid_z = z > 0

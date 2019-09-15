@@ -7,14 +7,9 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import json
-import math
-import sys
-from tf import transformations
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 import KeyPressManager.KeyPressManager as KeyPressManager
 import matplotlib.pyplot as plt
-from mpl_toolkits import mplot3d
-from numpy.linalg import inv
 import cv2
 import argparse
 import os
@@ -324,8 +319,6 @@ def main():
         if not flg_detected_chessboard:  # Abort when the chessboard is not detected by any camera on this collection
             raise ValueError('Collection ' + collection_key + ' could not find chessboard.')
 
-
-
     # ---------------------------------------
     # --- FILTER SOME OF THE ELEMENTS LOADED, TO USE ONLY A SUBSET IN THE CALIBRATION
     # ---------------------------------------
@@ -337,12 +330,8 @@ def main():
                 del dataset_sensors['sensors'][sensor_key]
         print("Deleted sensors: " + str(deleted))
 
-
-
     print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
         len(dataset_sensors['collections'].keys())) + ' collections.')
-
-
 
     # ---------------------------------------
     # --- SETUP OPTIMIZER
@@ -420,8 +409,6 @@ def main():
     # --- Define THE OBJECTIVE FUNCTION
     # ---------------------------------------
     opt.setObjectiveFunction(objectiveFunction)
-
-
 
     # ---------------------------------------
     # --- Define THE RESIDUALS
@@ -713,19 +700,18 @@ def main():
     # ---------------------------------------
 
     opt.startOptimization(
-        optimization_options={'ftol': 0.1, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
+        optimization_options={'ftol': 0.01, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     print('\n-----------------')
     opt.printParameters(opt.x0, text='Initial parameters')
     print('\n')
     opt.printParameters(opt.xf, text='Final parameters')
 
-
     # ---------------------------------------
     # --- Save Results
     # ---------------------------------------
-   # Write json file with updated dataset_sensors
-    createJSONFile('/tmp/dataset_sensors_results.json', dataset_sensors)
+    # Write json file with updated dataset_sensors
+    createJSONFile('test/sensor_pose_json_v2/results/dataset_sensors_results.json', dataset_sensors)
 
 
 if __name__ == "__main__":

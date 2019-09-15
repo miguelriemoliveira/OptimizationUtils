@@ -287,7 +287,7 @@ class Optimizer:
         self.errors0 = self.objective_function(self.data_models)  # call obj. func. (once) to get initial residuals
         errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
 
-        # Setup boundaries for parameters0.7042666256867649,2
+        # Setup boundaries for parameters 0.7042666256867649,2
         bounds_min = []
         bounds_max = []
         for name in self.groups:

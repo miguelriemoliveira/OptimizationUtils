@@ -56,7 +56,7 @@ def objectiveFunction(data):
                 height = collection['data'][sensor_key]['height']
 
                 pixs, valid_pixs, dists = utilities.projectToCamera(K, D, width, height, pts_sensor[0:3, :])
-                # print('pixs ' + str(pixs.shape) + ' =' + str(pixs))
+                # pixs, valid_pixs, dists = utilities.projectWithoutDistorcion(K, width, height, pts_sensor[0:3, :])
 
                 pixs_ground_truth = collection['labels'][sensor_key]['idxs']
                 array_gt = np.zeros(pixs.shape, dtype=np.float)  # transform to np array
