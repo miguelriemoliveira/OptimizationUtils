@@ -195,6 +195,13 @@ if __name__ == "__main__":
 
     tf_sensors = str(sensor_1 + '-' + sensor_2)
 
+    points_opt = np.zeros((2, 0), np.float32)
+    points_stereo = np.zeros((2, 0), np.float32)
+    points_cc = np.zeros((2, 0), np.float32)
+
+    accepted_collections = 0
+    leg = []
+
     for collection_key, collection in data_opt['collections'].items():
         if not (collection['labels'][sensor_2]['detected'] and collection['labels'][sensor_1]['detected']):
             continue
@@ -253,7 +260,7 @@ if __name__ == "__main__":
                         data_opt['chessboards']['collections'][collection_key]['quat'])
 
                     s2_T_chess_h_opt = np.dot(inv(root_T_s2), root_T_chessboard)
-
+                    s1_T_s2_h_opt = np.dot(s1_T_chess_h_opt, inv(s2_T_chess_h_opt))
                     s1_T_chess_opt = np.zeros((3, 3), np.float32)
                     s2_T_chess_opt = np.zeros((3, 3), np.float32)
 
@@ -277,11 +284,11 @@ if __name__ == "__main__":
                     s1_T_chess_h_stereo[0:3, 3] = tvecs[:, 0]
                     s1_T_chess_h_stereo[0:3, 0:3] = utilities.rodriguesToMatrix(rvecs)
 
-                    s1_T_s2_h = root_T_chessboard = utilities.translationQuaternionToTransform(
+                    s1_T_s2_h_stereo = inv(utilities.translationQuaternionToTransform(
                         data_stereo['transforms'][tf_sensors]['trans'],
-                        data_stereo['transforms'][tf_sensors]['quat'])
+                        data_stereo['transforms'][tf_sensors]['quat']))
 
-                    s2_T_chess_h_stereo = np.dot(inv(s1_T_s2_h), s1_T_chess_h_stereo)
+                    s2_T_chess_h_stereo = np.dot(inv(s1_T_s2_h_stereo), s1_T_chess_h_stereo)
 
                     s1_T_chess_stereo = np.zeros((3, 3), np.float32)
                     s2_T_chess_stereo = np.zeros((3, 3), np.float32)
@@ -339,6 +346,11 @@ if __name__ == "__main__":
             print("\n Transform s2 T chess: (CC)")
             print(s2_T_chess_cc)
 
+            print("\n s1 T s2 h: (OPT)")
+            print(s1_T_s2_h_opt)
+            print("\n s1 T s2 h: (STEREO)")
+            print(s1_T_s2_h_stereo)
+
             # -------------------------------------------------------------------
             # ------ BUILDING HOMOGRAPHY MATRIXES
             # -------------------------------------------------------------------
@@ -358,12 +370,26 @@ if __name__ == "__main__":
             C3 = np.dot(B3, inv(K_1_stereo))
             homography_matrix_stereo = C3
 
-            accepted_collections = 0
-            leg = []
+            print("\n K_1: (OPT)")
+            print(K_1_opt)
+            print("\n K_1: (STEREO)")
+            print(K_1_stereo)
+            print("\n K_1: (CC)")
+            print(K_1_cc)
 
-            points_opt = np.zeros((2, 0), np.float32)
-            points_stereo = np.zeros((2, 0), np.float32)
-            points_cc = np.zeros((2, 0), np.float32)
+            print("\n K_2: (OPT)")
+            print(K_2_opt)
+            print("\n K_2: (STEREO)")
+            print(K_2_stereo)
+            print("\n K_2: (CC)")
+            print(K_2_cc)
+
+            print("\n Homography matrix: (OPT)")
+            print(homography_matrix_opt)
+            print("\n Homography matrix: (STEREO)")
+            print(homography_matrix_stereo)
+            print("\n Homography matrix: (CC)")
+            print(homography_matrix_cc)
 
             # -------------------------------------------------------------------
             # ------ Points to compute the difference
@@ -411,6 +437,12 @@ if __name__ == "__main__":
             s_cc = 1 / media_cc
             idx_s2_proj_cc = s_cc * s_idx_s2_proj_cc  # s_cc *
 
+            print("\n re-projected idx (without s): (OPT)")
+            print(s_idx_s2_proj_opt[:, 0:3])
+            print("\n re-projected idx (without s): (STEREO)")
+            print(s_idx_s2_proj_stereo[:, 0:3])
+            print("\n re-projected idx (without s): (CC)")
+            print(s_idx_s2_proj_cc[:, 0:3])
             # -------------------------------------------------------------------
             # ------ ERROR!!!
 
@@ -454,11 +486,11 @@ if __name__ == "__main__":
     avg_error_x_cc = np.sum(np.abs(points_cc[0, :])) / total_points
     avg_error_y_cc = np.sum(np.abs(points_cc[1, :])) / total_points
 
-    print("\n AVERAGE ERROR (our optimization): \n")
+    print("\nAVERAGE ERROR (our optimization):")
     print("x = " + str(avg_error_x_opt) + " pix ;   y = " + str(avg_error_y_opt) + " pix")
-    print("\n AVERAGE ERROR (openCV stereo calibration): \n")
+    print("\nAVERAGE ERROR (openCV stereo calibration):")
     print("x = " + str(avg_error_x_stereo) + " pix ;   y = " + str(avg_error_y_stereo) + " pix")
-    print("\n AVERAGE ERROR (openCV calibrate camera): \n")
+    print("\nAVERAGE ERROR (openCV calibrate camera):")
     print("x = " + str(avg_error_x_cc) + " pix ;   y = " + str(avg_error_y_cc) + " pix")
 
     # -------------------------------------------------------------------
@@ -473,8 +505,8 @@ if __name__ == "__main__":
     plt.grid(True, color='k', linestyle='--', linewidth=0.1)
     string = "Difference between the image pts and the reprojected pts"
     plt.title(string)
-    x_max = np.amax(np.absolute(points_opt[0, :]))
-    y_max = np.amax(np.absolute(points_opt[1, :]))
+    x_max = np.amax(np.absolute([points_opt[0, :], points_stereo[0, :], points_cc[0, :]]))
+    y_max = np.amax(np.absolute([points_opt[1, :], points_stereo[1, :], points_cc[1, :]]))
     delta = 20
     ax.set_xlim(-x_max - delta, x_max + delta)
     ax.set_ylim(-y_max - delta, y_max + delta)
