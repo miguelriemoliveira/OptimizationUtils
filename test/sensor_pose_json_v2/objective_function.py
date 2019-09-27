@@ -47,7 +47,7 @@ def objectiveFunction(data):
                 pts_root = np.dot(root_T_chessboard, dataset_chessboard_points['points'])
 
                 sensor_T_root = np.linalg.inv(
-                    utilities.getAggregateTransform(sensor['chain'], collection['transforms']))
+                    utilities.getAggregateTransform(sensor['chain'], dataset_sensors['transforms']))
                 pts_sensor = np.dot(sensor_T_root, pts_root)
 
                 K = np.ndarray((3, 3), buffer=np.array(sensor['camera_info']['K']), dtype=np.float)
@@ -68,38 +68,31 @@ def objectiveFunction(data):
                 # Compute the error as the average of the Euclidean distances between detected and projected
                 error_sum = 0
                 error_vector = []
-                # for idx in range(0, dataset_chessboards['number_corners']):
-                #     # for idx in range(0, 1):
-                #     e1 = math.sqrt(
+                for idx in range(0, dataset_chessboards['number_corners']):
+                    e1 = math.sqrt(
+                        (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                    error_vector.append(e1)
+                    error_sum += e1
+
+                # idx = 0
+                # e1 = math.sqrt(
                 #         (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                #     error_vector.append(e1)
-                #     error_sum += e1
-
-                idx = 0
-                e1 = math.sqrt(
-                        (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                error_vector.append(e1)
-
-                idx = dataset_chessboards['chess_num_x']-1
-                e1 = math.sqrt(
-                        (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                error_vector.append(e1)
-
-                idx = dataset_chessboards['number_corners'] - dataset_chessboards['chess_num_x']
-                e1 = math.sqrt(
-                        (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                error_vector.append(e1)
-
-                idx = dataset_chessboards['chess_num_x']-1
-                e1 = math.sqrt(
-                        (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                error_vector.append(e1)
-
-                # for idx in range(dataset_chessboards['chess_num_x']-1, dataset_chessboards['chess_num_x']):
-                #     e2 = math.sqrt(
+                # error_vector.append(e1)
+                #
+                # idx = dataset_chessboards['chess_num_x']-1
+                # e1 = math.sqrt(
                 #         (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                    # error_sum += e2
+                # error_vector.append(e1)
 
+                # idx = dataset_chessboards['number_corners'] - dataset_chessboards['chess_num_x']
+                # e1 = math.sqrt(
+                #         (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                # error_vector.append(e1)
+                #
+                # idx = dataset_chessboards['number_corners']-1
+                # e1 = math.sqrt(
+                #         (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                # error_vector.append(e1)
 
                 # error = error_sum / (args['chess_num_x'] * args['chess_num_y'])
                 # error = error_sum

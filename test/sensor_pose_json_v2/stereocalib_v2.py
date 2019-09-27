@@ -11,7 +11,6 @@ import json
 import cv2
 import argparse
 from tf import transformations
-import OptimizationUtils.utilities as utilities
 import numpy as np
 
 # -------------------------------------------------------------------------------
@@ -72,7 +71,7 @@ def main():
                     help="Radius in meters of the maximum side of the chessboard calibration pattern.",
                     type=float, required=True)
     ap.add_argument("-cnumx", "--chess_num_x", help="Chessboard's number of corners in horizontal dimension.",
-                    type = int, required=True)
+                    type=int, required=True)
     ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of corners in vertical dimension.",
                     type=int, required=True)
     ap.add_argument("-fs", "--first_sensor", help="First Sensor: his evaluation points will be projected to the second "
@@ -119,10 +118,7 @@ def main():
     input_sensors = {'first_sensor': sensor_1, 'second_sensor': sensor_2}
 
     dataset_sensors['chessboards'] = {'chess_num_x': num_x, 'chess_num_y': num_y,
-                                      'number_corners': n_points,
-                                      'collections': {}}
-
-    dataset_chessboards = dataset_sensors['chessboards']
+                                      'number_corners': n_points}
 
     n_sensors = 0
     for sensor_key in dataset_sensors['sensors'].keys():
@@ -137,12 +133,6 @@ def main():
             elif a == n_sensors:
                 print("ERROR: " + i_sensor + " doesn't exist on the input sensors list from the json file.")
                 exit(0)
-
-    # for collection_key, collection in dataset_sensors['collections'].items():
-    #     if collection_key == '0':
-    #         continue
-    #     else:
-    #         del dataset_sensors['collections'][collection_key]
 
     n_collections = 0
     for collection_key in dataset_sensors['collections'].items():
@@ -240,132 +230,69 @@ def main():
     width = dataset_sensors['sensors'][sensor_1]['width']
     image_size = (height, width)
 
-    print("\n K_1: ")
-    print (K_1)
-    print("\n K_2: ")
-    print (K_2)
-    print("\n D_1: ")
-    print (D_1)
-    print("\n D_2: ")
-    print (D_2)
-    print("\n image_size: ")
-    print (image_size)
+    # print("\n K_1: ")
+    # print (K_1)
+    # print("\n K_2: ")
+    # print (K_2)
+    # print("\n D_1: ")
+    # print (D_1)
+    # print("\n D_2: ")
+    # print (D_2)
+    # print("\n image_size: ")
+    # print (image_size)
 
-    for sensor_key, sensor in dataset_sensors['sensors'].items():
-        if sensor['_name'] == sensor_1:
-            # flags = 0
-            # flags |= cv2.CALIB_FIX_INTRINSIC
-            # flags |= cv2.CALIB_FIX_PRINCIPAL_POINT
-            # flags |= cv2.CALIB_USE_INTRINSIC_GUESS
-            # flags |= cv2.CALIB_FIX_FOCAL_LENGTH
-            # flags |= cv2.CALIB_FIX_ASPECT_RATIO
-            # flags |= cv2.CALIB_ZERO_TANGENT_DIST
-            # flags |= cv2.CALIB_RATIONAL_MODEL
-            # flags |= cv2.CALIB_SAME_FOCAL_LENGTH
-            # flags |= cv2.CALIB_FIX_K3
-            # flags |= cv2.CALIB_FIX_K4
-            # flags |= cv2.CALIB_FIX_K5
+    # flags = 0
+    # flags |= cv2.CALIB_FIX_INTRINSIC
+    # # flags |= cv2.CALIB_FIX_PRINCIPAL_POINT
+    # flags |= cv2.CALIB_USE_INTRINSIC_GUESS
+    # flags |= cv2.CALIB_FIX_FOCAL_LENGTH
+    # # flags |= cv2.CALIB_FIX_ASPECT_RATIO
+    # flags |= cv2.CALIB_ZERO_TANGENT_DIST
+    # # flags |= cv2.CALIB_RATIONAL_MODEL
+    # # flags |= cv2.CALIB_SAME_FOCAL_LENGTH
+    # # flags |= cv2.CALIB_FIX_K3
+    # # flags |= cv2.CALIB_FIX_K4
+    # # flags |= cv2.CALIB_FIX_K5
 
-            calibcamera_criteria = (cv2.TERM_CRITERIA_MAX_ITER + cv2.TERM_CRITERIA_EPS, 100, 1e-5)
+    stereocalib_criteria = (cv2.TERM_CRITERIA_MAX_ITER + cv2.TERM_CRITERIA_EPS, 100, 1e-5)
+    ret, M1, d1, M2, d2, R, T, E, F = cv2.stereoCalibrate(objpoints, imgpoints_1, imgpoints_2, K_1, D_1, K_2, D_2,
+                                                          image_size, criteria=stereocalib_criteria)   # , flags=flags)
 
-            print(len(imgpoints_1))
-            print(imgpoints_1[0].shape)
-            # Calibrate the camera now using cv2 method
-            ret_1, cameraMatrix_1, distCoeffs_1, rvecs_1, tvecs_1 = cv2.calibrateCamera(objpoints, imgpoints_1,
-                                                                                        image_size, K_1, D_1,
-                                                                                        criteria=calibcamera_criteria)
-            # ,flags)
+    # print('Intrinsic_mtx_1', M1)
+    # print('dist_1', d1)
+    # print('Intrinsic_mtx_2', M2)
+    # print('dist_2', d2)
+    # print('R', R)
+    # print('T', T)
+    # print('E', E)
+    # print('F', F)
 
-            print("\n ret_1: ")
-            print (ret_1)
-            print("\n M1: ")
-            print (cameraMatrix_1)
-            print("\n D_1: ")
-            print (distCoeffs_1)
-            print("\n R_1: ")
-            print (rvecs_1)
-            print("\n T_1: ")
-            print (tvecs_1)
+    dataset_sensors['sensors'][sensor_2]['camera_info']['K'][0:3] = M2[0, :]
+    dataset_sensors['sensors'][sensor_2]['camera_info']['K'][3:6] = M2[1, :]
+    dataset_sensors['sensors'][sensor_2]['camera_info']['K'][6:9] = M2[2, :]
 
-            dataset_sensors['sensors'][sensor_1]['camera_info']['K'][0:3] = cameraMatrix_1[0, :]
-            dataset_sensors['sensors'][sensor_1]['camera_info']['K'][3:6] = cameraMatrix_1[1, :]
-            dataset_sensors['sensors'][sensor_1]['camera_info']['K'][6:9] = cameraMatrix_1[2, :]
+    dataset_sensors['sensors'][sensor_1]['camera_info']['K'][0:3] = M1[0, :]
+    dataset_sensors['sensors'][sensor_1]['camera_info']['K'][3:6] = M1[1, :]
+    dataset_sensors['sensors'][sensor_1]['camera_info']['K'][6:9] = M1[2, :]
 
-            dataset_sensors['sensors'][sensor_1]['camera_info']['D'][0:5] = distCoeffs_1[:, 0]
+    dataset_sensors['sensors'][sensor_2]['camera_info']['D'][0:5] = d2[:, 0]
+    dataset_sensors['sensors'][sensor_1]['camera_info']['D'][0:5] = d1[:, 0]
 
-        elif sensor['_name'] == sensor_2:
-            # flags = 0
-            # flags |= cv2.CALIB_FIX_INTRINSIC
-            # flags |= cv2.CALIB_FIX_PRINCIPAL_POINT
-            # flags |= cv2.CALIB_USE_INTRINSIC_GUESS
-            # flags |= cv2.CALIB_FIX_FOCAL_LENGTH
-            # flags |= cv2.CALIB_FIX_ASPECT_RATIO
-            # flags |= cv2.CALIB_ZERO_TANGENT_DIST
-            # flags |= cv2.CALIB_RATIONAL_MODEL
-            # flags |= cv2.CALIB_SAME_FOCAL_LENGTH
-            # flags |= cv2.CALIB_FIX_K3
-            # flags |= cv2.CALIB_FIX_K4
-            # flags |= cv2.CALIB_FIX_K5
+    dataset_sensors['transforms'].update({str(s1) + '-' + str(s2): {}})
 
-            calibcamera_criteria = (cv2.TERM_CRITERIA_MAX_ITER + cv2.TERM_CRITERIA_EPS, 100, 1e-5)
-
-            # Calibrate the camera now using cv2 method
-            ret_2, cameraMatrix_2, distCoeffs_2, rvecs_2, tvecs_2 = cv2.calibrateCamera(objpoints, imgpoints_2,
-                                                                                        image_size, K_2, D_2,
-                                                                                        criteria=calibcamera_criteria)
-            # ,flags)
-
-            print("\n ret_2: ")
-            print (ret_2)
-            print("\n M2: ")
-            print (cameraMatrix_2)
-            print("\n D_2: ")
-            print (distCoeffs_2)
-            print("\n R_2: ")
-            print (rvecs_2)
-            print("\n T_2: ")
-            print (tvecs_2)
-
-            dataset_sensors['sensors'][sensor_2]['camera_info']['K'][0:3] = cameraMatrix_2[0, :]
-            dataset_sensors['sensors'][sensor_2]['camera_info']['K'][3:6] = cameraMatrix_2[1, :]
-            dataset_sensors['sensors'][sensor_2]['camera_info']['K'][6:9] = cameraMatrix_2[2, :]
-
-            dataset_sensors['sensors'][sensor_2]['camera_info']['D'][0:5] = distCoeffs_2[:, 0]
-
-    # print("\nTESTE:\n")
-    # print("\nSo o primeiro rodrigues da primeiro rvecs:\n")
-    # print(float(tvecs_1[0][0]))
-    # print(rvecs_1[0])
-
-    n = 0
-    for collection_key, collection in dataset_sensors['collections'].items():
-
-        dataset_chessboards['collections'][collection_key] = {s1: {}, s2: {}}
-
-        d1 = {}
-        trans1 = [float(tvecs_1[n][0]), float(tvecs_1[n][1]), float(tvecs_1[n][2])]
-        d1['trans'] = trans1
-        T1 = np.zeros((4, 4), np.float32)
-        T1[3, 3] = 1
-        T1[0:3, 0:3] = utilities.rodriguesToMatrix(rvecs_1[n])
-        d1['quat'] = transformations.quaternion_from_matrix(T1).tolist()
-        dataset_chessboards['collections'][collection_key][s1] = d1
-
-        d2 = {}
-        trans2 = [float(tvecs_2[n][0]), float(tvecs_2[n][1]), float(tvecs_2[n][2])]
-        d2['trans'] = trans2
-        T2 = np.zeros((4, 4), np.float32)
-        T2[3, 3] = 1
-        T2[0:3, 0:3] = utilities.rodriguesToMatrix(rvecs_2[n])
-        d2['quat'] = transformations.quaternion_from_matrix(T2).tolist()
-        dataset_chessboards['collections'][collection_key][sensor_2] = d2
-        n += 1
+    d1 = {}
+    d1['trans'] = [float(T[0]), float(T[1]), float(T[2])]
+    T1 = np.zeros((4, 4), np.float32)
+    T1[3, 3] = 1
+    T1[0:3, 0:3] = R
+    d1['quat'] = transformations.quaternion_from_matrix(T1).tolist()
+    dataset_sensors['transforms'][str(s1) + '-' + str(s2)] = d1
 
     # ---------------------------------------
     # --- Save Results
     # ---------------------------------------
     # Write json file with updated dataset_sensors
-    createJSONFile('test/sensor_pose_json_v2/results/opencv_calibcamera.json', dataset_sensors)
+    createJSONFile('test/sensor_pose_json_v2/results/opencv_stereocalib.json', dataset_sensors)
 
 
 if __name__ == "__main__":

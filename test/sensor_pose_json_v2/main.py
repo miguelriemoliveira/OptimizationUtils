@@ -292,7 +292,7 @@ def main():
                     image_rgb = draw(image_rgb, corners2, imgpts)
                     # cv2.imshow('img', image_rgb)
 
-                    root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                    root_T_sensor = utilities.getAggregateTransform(sensor['chain'], dataset_sensors['transforms'])
                     # print('root_T_sensor=\n' + str(root_T_sensor) + '\n\n')
 
                     sensor_T_chessboard = utilities.traslationRodriguesToTransform(tvecs, rvecs)
@@ -352,20 +352,18 @@ def main():
     # Add parameters related to the sensors
     translation_delta = 0.3
     for sensor_key, sensor in dataset_sensors['sensors'].items():
-        initial_values = getterSensorTranslation(dataset_sensors, sensor_key=sensor_key,
-                                                 collection_key=selected_collection_key)
+        initial_values = getterSensorTranslation(dataset_sensors, sensor_key=sensor_key)
+
         bound_max = [x + translation_delta for x in initial_values]
         bound_min = [x - translation_delta for x in initial_values]
         opt.pushParamVector(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
-                        getter=partial(getterSensorTranslation, sensor_key=sensor_key,
-                                       collection_key=selected_collection_key),
+                        getter=partial(getterSensorTranslation, sensor_key=sensor_key),
                         setter=partial(setterSensorTranslation, sensor_key=sensor_key),
                         suffix=['x', 'y', 'z'])
         # bound_max=bound_max, bound_min=bound_min)
 
         opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
-                            getter=partial(getterSensorRotation, sensor_key=sensor_key,
-                                           collection_key=selected_collection_key),
+                            getter=partial(getterSensorRotation, sensor_key=sensor_key),
                             setter=partial(setterSensorRotation, sensor_key=sensor_key),
                             suffix=['1', '2', '3'])
 
@@ -425,8 +423,8 @@ def main():
             params.extend(opt.getParamsContainingPattern('C_' + collection_key + '_'))  # chessboard related params
 
             if sensor['msg_type'] == 'Image':  # if sensor is a camera use four residuals
-                # for idx in range(0, dataset_chessboards['number_corners']):
-                for idx in range(0, 4):
+                for idx in range(0, dataset_chessboards['number_corners']):
+                    # for idx in range(0, 2):
                     opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
 
             elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
@@ -494,9 +492,7 @@ def main():
 
         # Draw sensor poses (use sensor pose from collection '0' since they are all the same)
         for sensor_key, sensor in dataset_sensors['sensors'].items():
-            root_T_sensor = utilities.getAggregateTransform(sensor['chain'],
-                                                            dataset_sensors['collections'][selected_collection_key][
-                                                                'transforms'])
+            root_T_sensor = utilities.getAggregateTransform(sensor['chain'], dataset_sensors['transforms'])
 
             dataset_graphics['sensors'][sensor_key]['handle'] = utilities.drawAxis3D(ax, root_T_sensor, sensor_key,
                                                                                      text_color=
@@ -577,7 +573,7 @@ def main():
                 pts_laser = np.vstack((pts_laser, np.ones((1, pts_laser.shape[1]), dtype=np.float)))
 
                 # Transform points to root
-                root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                root_T_sensor = utilities.getAggregateTransform(sensor['chain'], dataset_sensors['transforms'])
                 pts_root = np.dot(root_T_sensor, pts_laser)
 
                 # draw points
@@ -661,9 +657,7 @@ def main():
 
         # Draw sensor poses (use sensor pose from collection '0' since they are all the same)
         for _sensor_key, _sensor in _dataset_sensors['sensors'].items():
-            root_T_sensor = utilities.getAggregateTransform(_sensor['chain'],
-                                                            _dataset_sensors['collections'][selected_collection_key][
-                                                                'transforms'])
+            root_T_sensor = utilities.getAggregateTransform(_sensor['chain'], dataset_sensors['transforms'])
             utilities.drawAxis3D(ax, root_T_sensor, _sensor_key, axis_scale=0.3, line_width=2,
                                  handles=dataset_graphics['sensors'][_sensor_key]['handle'])
 
@@ -700,7 +694,7 @@ def main():
     # ---------------------------------------
 
     opt.startOptimization(
-        optimization_options={'ftol': 0.01, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
+        optimization_options={'ftol': 1e-4, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4})
 
     print('\n-----------------')
     opt.printParameters(opt.x0, text='Initial parameters')

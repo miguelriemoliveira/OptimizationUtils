@@ -20,12 +20,12 @@ import OptimizationUtils.utilities as utilities
 # ------------  Sensors -----------------
 # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
 
-def getterSensorTranslation(data, sensor_key, collection_key):
+def getterSensorTranslation(data, sensor_key):
     calibration_parent = data['sensors'][sensor_key]['calibration_parent']
     calibration_child = data['sensors'][sensor_key]['calibration_child']
     transform_key = calibration_parent + '-' + calibration_child
     # We use collection selected_collection and assume they are all the same
-    return data['collections'][collection_key]['transforms'][transform_key]['trans']
+    return data['transforms'][transform_key]['trans']
 
 
 def setterSensorTranslation(data, value, sensor_key):
@@ -34,18 +34,16 @@ def setterSensorTranslation(data, value, sensor_key):
     calibration_parent = data['sensors'][sensor_key]['calibration_parent']
     calibration_child = data['sensors'][sensor_key]['calibration_child']
     transform_key = calibration_parent + '-' + calibration_child
-
-    for _collection_key in data['collections']:
-        data['collections'][_collection_key]['transforms'][transform_key]['trans'] = value
+    data['transforms'][transform_key]['trans'] = value
 
 
-def getterSensorRotation(data, sensor_key, collection_key):
+def getterSensorRotation(data, sensor_key):
     calibration_parent = data['sensors'][sensor_key]['calibration_parent']
     calibration_child = data['sensors'][sensor_key]['calibration_child']
     transform_key = calibration_parent + '-' + calibration_child
 
     # We use collection selected_collection and assume they are all the same
-    quat = data['collections'][collection_key]['transforms'][transform_key]['quat']
+    quat = data['transforms'][transform_key]['quat']
     hmatrix = transformations.quaternion_matrix(quat)
     matrix = hmatrix[0:3, 0:3]
 
@@ -64,8 +62,7 @@ def setterSensorRotation(data, value, sensor_key):
     calibration_child = data['sensors'][sensor_key]['calibration_child']
     transform_key = calibration_parent + '-' + calibration_child
 
-    for _collection_key in data['collections']:
-        data['collections'][_collection_key]['transforms'][transform_key]['quat'] = quat
+    data['transforms'][transform_key]['quat'] = quat
 
 
 def getterCameraIntrinsics(data, sensor_key):
