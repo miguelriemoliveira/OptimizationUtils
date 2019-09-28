@@ -119,8 +119,7 @@ def main():
     input_sensors = {'first_sensor': sensor_1, 'second_sensor': sensor_2}
 
     dataset_sensors['chessboards'] = {'chess_num_x': num_x, 'chess_num_y': num_y,
-                                      'number_corners': n_points,
-                                      'collections': {}}
+                                      'number_corners': n_points, 'square_size': chess_size, 'collections': {}}
 
     dataset_chessboards = dataset_sensors['chessboards']
 

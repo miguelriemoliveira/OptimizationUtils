@@ -140,8 +140,9 @@ def main():
     # print(chessboard_evaluation_points.shape)
 
     dataset_sensors['chessboards'] = {'chess_num_x': args['chess_num_x'], 'chess_num_y': args['chess_num_y'],
-                           'number_corners': int(args['chess_num_x'] * args['chess_num_y']),
-                           'collections': {}}
+                                      'number_corners': int(args['chess_num_x'] * args['chess_num_y']),
+                                      'square_size': args['chess_size'], 'collections': {}}
+
     dataset_chessboards = dataset_sensors['chessboards']
 
     factor = round(1.)

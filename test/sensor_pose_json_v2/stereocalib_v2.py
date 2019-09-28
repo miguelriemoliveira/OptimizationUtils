@@ -118,7 +118,7 @@ def main():
     input_sensors = {'first_sensor': sensor_1, 'second_sensor': sensor_2}
 
     dataset_sensors['chessboards'] = {'chess_num_x': num_x, 'chess_num_y': num_y,
-                                      'number_corners': n_points}
+                                      'number_corners': n_points, 'square_size': chess_size}
 
     n_sensors = 0
     for sensor_key in dataset_sensors['sensors'].keys():
@@ -278,7 +278,7 @@ def main():
     dataset_sensors['sensors'][sensor_2]['camera_info']['D'][0:5] = d2[:, 0]
     dataset_sensors['sensors'][sensor_1]['camera_info']['D'][0:5] = d1[:, 0]
 
-    dataset_sensors['transforms'].update({str(s1) + '-' + str(s2): {}})
+    dataset_sensors['transforms'].update({str(s2) + '-' + str(s1): {}})
 
     d1 = {}
     d1['trans'] = [float(T[0]), float(T[1]), float(T[2])]

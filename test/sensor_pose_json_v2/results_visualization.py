@@ -79,9 +79,7 @@ def matlab_stereo(data_model, sensor1, sensor2, collection_key_):
 
 
 if __name__ == "__main__":
-    # TODO chess size should be also in json files with the chess info
 
-    chess_size = 0.1054
     # ---------------------------------------
     # --- Parse command line argument
     # ---------------------------------------
@@ -136,7 +134,7 @@ if __name__ == "__main__":
         n_collections += 1
 
     n_points = data_opt['chessboards']['number_corners']
-
+    chess_size = data_opt['chessboards']['square_size']
     # ---------------------------------------
     # --- FILTER only te two cameras of interest  (this is not strictly necessary)
     # ---------------------------------------
@@ -193,7 +191,8 @@ if __name__ == "__main__":
     num_x = data_opt['chessboards']['chess_num_x']
     num_y = data_opt['chessboards']['chess_num_y']
 
-    tf_sensors = str(sensor_1 + '-' + sensor_2)
+    tf_sensors_1t2 = str(sensor_1 + '-' + sensor_2)
+    tf_sensors_2t1 = str(sensor_2 + '-' + sensor_1)
 
     points_opt = np.zeros((2, 0), np.float32)
     points_stereo = np.zeros((2, 0), np.float32)
@@ -240,7 +239,7 @@ if __name__ == "__main__":
                     counter += 1
 
             for data_key, data in input_datas.items():
-                if data_key == 'data_opt':
+                if data_key == 'data_opt':  # ---------------------------OPTIMIZATION----------------------------------
 
                     # Finding transform from sensor 1 to chessboard:
                     ret, rvecs, tvecs = cv2.solvePnP(object_points, img_points_1, K_1_opt, D_1_opt)
@@ -272,7 +271,7 @@ if __name__ == "__main__":
                     s1_T_chess_opt[:, 2] = s1_T_chess_h_opt[0:3, 3]
                     s2_T_chess_opt[:, 2] = s2_T_chess_h_opt[0:3, 3]
 
-                elif data_key == 'data_stereo':
+                elif data_key == 'data_stereo':  # ---------------------------STEREO-----------------------------------
 
                     # Finding transform from sensor 1 to chessboard:
                     ret, rvecs, tvecs = cv2.solvePnP(object_points, img_points_1, K_1_stereo, D_1_stereo)
@@ -283,10 +282,11 @@ if __name__ == "__main__":
                     s1_T_chess_h_stereo[3, 3] = 1
                     s1_T_chess_h_stereo[0:3, 3] = tvecs[:, 0]
                     s1_T_chess_h_stereo[0:3, 0:3] = utilities.rodriguesToMatrix(rvecs)
-
-                    s1_T_s2_h_stereo = inv(utilities.translationQuaternionToTransform(
-                        data_stereo['transforms'][tf_sensors]['trans'],
-                        data_stereo['transforms'][tf_sensors]['quat']))
+                    for tf_key, tf in data_stereo['transforms'].items():
+                        if tf_key == tf_sensors_1t2:
+                            s1_T_s2_h_stereo = utilities.translationQuaternionToTransform(tf['trans'], tf['quat'])
+                        elif tf_key == tf_sensors_2t1:
+                            s1_T_s2_h_stereo = inv(utilities.translationQuaternionToTransform(tf['trans'], tf['quat']))
 
                     s2_T_chess_h_stereo = np.dot(inv(s1_T_s2_h_stereo), s1_T_chess_h_stereo)
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
                     s1_T_chess_stereo[:, 2] = s1_T_chess_h_stereo[0:3, 3]
                     s2_T_chess_stereo[:, 2] = s2_T_chess_h_stereo[0:3, 3]
 
-                elif data_key == 'data_cc':
+                elif data_key == 'data_cc':  # ---------------------------CAMERA CALIB----------------------------------
 
                     # Finding transform from sensor 1 to chessboard:
                     ret, rvecs, tvecs = cv2.solvePnP(object_points, img_points_1, K_1_cc, D_1_cc)
