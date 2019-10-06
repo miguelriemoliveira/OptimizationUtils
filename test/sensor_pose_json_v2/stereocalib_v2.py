@@ -152,6 +152,17 @@ def main():
             del dataset_sensors['sensors'][sensor_key]
     print("\nDeleted sensors: " + str(deleted) + "\n")
 
+    # DELETING COLLECTIONS WHERE THE CHESSBOARD WAS NOT FOUND BY BOTH CAMERAS:
+
+    for collection_key, collection in dataset_sensors['collections'].items():
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            if not collection['labels'][sensor_key]['detected']:  # if chessboard not detected by sensor in collection
+                del dataset_sensors['collections'][collection_key]
+                break
+    print("\nCollections where chess was detected by all sensors:\n")
+    for collection_key, collection in dataset_sensors['collections'].items():
+        print(collection_key)
+
     # -------------------------------------------------------------------
     # ------ INTRINSICS MATRIX
     # -------------------------------------------------------------------
@@ -226,8 +237,8 @@ def main():
             imgpoints_1.append(image_points_1)
             imgpoints_2.append(image_points_2)
 
-    height = dataset_sensors['sensors'][sensor_1]['height']
-    width = dataset_sensors['sensors'][sensor_1]['width']
+    height = dataset_sensors['sensors'][sensor_1]['camera_info']['height']
+    width = dataset_sensors['sensors'][sensor_1]['camera_info']['width']
     image_size = (height, width)
 
     # print("\n K_1: ")
@@ -278,7 +289,7 @@ def main():
     dataset_sensors['sensors'][sensor_2]['camera_info']['D'][0:5] = d2[:, 0]
     dataset_sensors['sensors'][sensor_1]['camera_info']['D'][0:5] = d1[:, 0]
 
-    dataset_sensors['transforms'].update({str(s2) + '-' + str(s1): {}})
+    # dataset_sensors['transforms'].update({str(s2) + '-' + str(s1): {}})
 
     d1 = {}
     d1['trans'] = [float(T[0]), float(T[1]), float(T[2])]

@@ -127,6 +127,17 @@ def main():
                 del dataset_sensors['collections'][collection_key]
         print("Deleted collections: " + str(deleted))
 
+    # DELETING COLLECTIONS WHERE THE CHESSBOARD WAS NOT FOUND BY BOTH CAMERAS:
+
+    for collection_key, collection in dataset_sensors['collections'].items():
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            if not collection['labels'][sensor_key]['detected']:  # if chessboard not detected by sensor in collection
+                del dataset_sensors['collections'][collection_key]
+                break
+    print("\nCollections where chess was detected by all sensors:\n")
+    for collection_key, collection in dataset_sensors['collections'].items():
+        print(collection_key)
+
     # ---------------------------------------
     # --- CREATE CHESSBOARD DATASET
     # ---------------------------------------
@@ -393,7 +404,7 @@ def main():
                         setter=partial(setterChessBoardRotation, collection_key=collection_key),
                         suffix=['1', '2', '3'])
 
-    opt.printParameters()
+    # opt.printParameters()
 
     # Create a 3D plot in which the sensor poses and chessboards are drawn
     fig = plt.figure()
@@ -432,7 +443,7 @@ def main():
                 for idx in range(0, 4):
                     opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
 
-    print('residuals = ' + str(opt.residuals))
+    # print('residuals = ' + str(opt.residuals))
     opt.printResiduals()
 
     # ---------------------------------------

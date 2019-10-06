@@ -507,7 +507,7 @@ if __name__ == "__main__":
     plt.title(string)
     x_max = np.amax(np.absolute([points_opt[0, :], points_stereo[0, :], points_cc[0, :]]))
     y_max = np.amax(np.absolute([points_opt[1, :], points_stereo[1, :], points_cc[1, :]]))
-    delta = 20
+    delta = 0.5
     ax.set_xlim(-x_max - delta, x_max + delta)
     ax.set_ylim(-y_max - delta, y_max + delta)
     # print '\nCOLORS:\n'
