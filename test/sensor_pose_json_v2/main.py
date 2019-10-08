@@ -131,10 +131,10 @@ def main():
 
     for collection_key, collection in dataset_sensors['collections'].items():
         for sensor_key, sensor in dataset_sensors['sensors'].items():
-            if not collection['labels'][sensor_key]['detected']:  # if chessboard not detected by sensor in collection
+            if not collection['labels'][sensor_key]['detected']:
                 del dataset_sensors['collections'][collection_key]
                 break
-    print("\nCollections where chess was detected by all sensors:\n")
+    print("\nCollections studied:\n")
     for collection_key, collection in dataset_sensors['collections'].items():
         print(collection_key)
 
@@ -435,12 +435,12 @@ def main():
             params.extend(opt.getParamsContainingPattern('C_' + collection_key + '_'))  # chessboard related params
 
             if sensor['msg_type'] == 'Image':  # if sensor is a camera use four residuals
-                for idx in range(0, dataset_chessboards['number_corners']):
-                    # for idx in range(0, 2):
+                # for idx in range(0, dataset_chessboards['number_corners']):
+                for idx in range(0, 4):
                     opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
 
             elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
-                for idx in range(0, 4):
+                for idx in range(0, 2):
                     opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
 
     # print('residuals = ' + str(opt.residuals))

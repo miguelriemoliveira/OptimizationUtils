@@ -79,22 +79,15 @@ def main():
     ap.add_argument("-ss", "--second_sensor", help="Second Sensor: his evaluation points will be compared with the "
                                                    "projected ones from the first sensor.", type=str, required=True)
 
-    #
-    # # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
-    # def create_lambda_with_globals(s):
-    #     return eval(s, globals())
-    #
-    # ap.add_argument("-ssf", "--sensor_selection_function", default=None, type=create_lambda_with_globals,
-    #                 help='A string to be evaluated into a lambda function that receives a sensor name as input and '
-    #                      'returns True or False to indicate if the sensor should be loaded (and used in the '
-    #                      'optimization). The Syntax is lambda name: f(x), where f(x) is the function in python '
-    #                      'language. Example: lambda name: name in ["left_laser", "frontal_camera"] , to load only '
-    #                      'sensors left_laser and frontal_camera')
-    # ap.add_argument("-csf", "--collection_selection_function", default=None, type=create_lambda_with_globals,
-    #                 help='A string to be evaluated into a lambda function that receives a collection name as input and '
-    #                      'returns True or False to indicate if the collection should be loaded (and used in the '
-    #                      'optimization). The Syntax is lambda name: f(x), where f(x) is the function in python '
-    #                      'language. Example: lambda name: int(name) > 5 , to load only collections 6, 7, and onward.')
+    # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
+    def create_lambda_with_globals(s):
+        return eval(s, globals())
+
+    ap.add_argument("-csf", "--collection_selection_function", default=None, type=create_lambda_with_globals,
+                    help='A string to be evaluated into a lambda function that receives a collection name as input and '
+                         'returns True or False to indicate if the collection should be loaded (and used in the '
+                         'optimization). The Syntax is lambda name: f(x), where f(x) is the function in python '
+                         'language. Example: lambda name: int(name) > 5 , to load only collections 6, 7, and onward.')
 
     args = vars(ap.parse_args())
     print("\nArgument list=" + str(args) + '\n')
@@ -152,14 +145,22 @@ def main():
             del dataset_sensors['sensors'][sensor_key]
     print("\nDeleted sensors: " + str(deleted) + "\n")
 
+    if not args['collection_selection_function'] is None:
+        deleted = []
+        for collection_key in dataset_sensors['collections'].keys():
+            if not args['collection_selection_function'](collection_key):  # use the lambda expression csf
+                deleted.append(collection_key)
+                del dataset_sensors['collections'][collection_key]
+        print("Deleted collections: " + str(deleted))
+
     # DELETING COLLECTIONS WHERE THE CHESSBOARD WAS NOT FOUND BY BOTH CAMERAS:
 
     for collection_key, collection in dataset_sensors['collections'].items():
         for sensor_key, sensor in dataset_sensors['sensors'].items():
-            if not collection['labels'][sensor_key]['detected']:  # if chessboard not detected by sensor in collection
+            if not collection['labels'][sensor_key]['detected']:
                 del dataset_sensors['collections'][collection_key]
                 break
-    print("\nCollections where chess was detected by all sensors:\n")
+    print("\nCollections studied:\n")
     for collection_key, collection in dataset_sensors['collections'].items():
         print(collection_key)
 
