@@ -413,11 +413,6 @@ class Optimizer:
                         # print("idx = " + str(idx))
                         self.sparse_matrix[i, idx] = 1
 
-        print('Sparsity matrix:')
-        data_frame = pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, params)
-        print(data_frame)
-        data_frame.to_csv('sparse_matrix.csv')
-
     # ---------------------------
     # Print and display
     # ---------------------------
@@ -497,6 +492,13 @@ class Optimizer:
         print('\nResiduals:')
         df = pandas.DataFrame(table, rows, ['error'])
         print(df)
+
+    def printSparseMatrix(self):
+        """ Print to stdout the sparse matrix"""
+        data_frame = pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, params)
+        print('Sparsity matrix:')
+        print(data_frame)
+        # data_frame.to_csv('sparse_matrix.csv')
 
     # ---------------------------
     # Drawing and figures

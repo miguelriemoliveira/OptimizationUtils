@@ -205,6 +205,7 @@ if __name__ == "__main__":
     # --- Compute the SPARSE MATRIX
     # ---------------------------------------
     opt.computeSparseMatrix()
+    opt.printSparseMatrix()
 
     # ---------------------------------------
     # --- SETUP THE VISUALIZATION FUNCTION
