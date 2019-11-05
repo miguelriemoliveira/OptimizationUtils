@@ -298,7 +298,12 @@ def main():
     T1[3, 3] = 1
     T1[0:3, 0:3] = R
     d1['quat'] = transformations.quaternion_from_matrix(T1).tolist()
-    dataset_sensors['transforms'][str(s1) + '-' + str(s2)] = d1
+
+    for collection_key, collection in dataset_sensors['collections'].items():
+        collection['transforms'][str(s1) + '-' + str(s2)] = d1
+
+
+
 
     # ---------------------------------------
     # --- Save Results

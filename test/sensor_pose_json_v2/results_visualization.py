@@ -252,7 +252,7 @@ if __name__ == "__main__":
                     s1_T_chess_h_opt[0:3, 0:3] = utilities.rodriguesToMatrix(rvecs)
 
                     root_T_s2 = utilities.getAggregateTransform(
-                        data_opt['sensors'][sensor_2]['chain'], data_opt['transforms'])
+                        data_opt['sensors'][sensor_2]['chain'], data_opt['collections'][collection_key]['transforms'])
 
                     root_T_chessboard = utilities.translationQuaternionToTransform(
                         data_opt['chessboards']['collections'][collection_key]['trans'],
@@ -282,7 +282,7 @@ if __name__ == "__main__":
                     s1_T_chess_h_stereo[3, 3] = 1
                     s1_T_chess_h_stereo[0:3, 3] = tvecs[:, 0]
                     s1_T_chess_h_stereo[0:3, 0:3] = utilities.rodriguesToMatrix(rvecs)
-                    for tf_key, tf in data_stereo['transforms'].items():
+                    for tf_key, tf in data_stereo['collections'][collection_key]['transforms'].items():
                         if tf_key == tf_sensors_1t2:
                             s1_T_s2_h_stereo = utilities.translationQuaternionToTransform(tf['trans'], tf['quat'])
                         elif tf_key == tf_sensors_2t1:

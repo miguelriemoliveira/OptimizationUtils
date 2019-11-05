@@ -47,7 +47,7 @@ def objectiveFunction(data):
                 pts_root = np.dot(root_T_chessboard, dataset_chessboard_points['points'])
 
                 sensor_T_root = np.linalg.inv(
-                    utilities.getAggregateTransform(sensor['chain'], dataset_sensors['transforms']))
+                    utilities.getAggregateTransform(sensor['chain'], collection['transforms']))
                 pts_sensor = np.dot(sensor_T_root, pts_root)
 
                 K = np.ndarray((3, 3), buffer=np.array(sensor['camera_info']['K']), dtype=np.float)
