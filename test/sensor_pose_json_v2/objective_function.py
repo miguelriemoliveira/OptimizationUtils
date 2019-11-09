@@ -8,7 +8,6 @@ from scipy.spatial import distance
 
 import OptimizationUtils.utilities as utilities
 
-
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------

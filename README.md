@@ -71,14 +71,14 @@ roslaunch interactive_calibration atlascar2_calibration.launch read_first_guess:
 and then:
 
 ```bash
-clear && rosrun interactive_calibration collect_and_label_data.py -w base_link -o /home/mike/datasets/calibration_test2 -c /home/mike/catkin_ws/src/AtlasCarCalibration/interactive_calibration/calibrations/atlascar2/atlascar2_calibration.json -s .5 -cnumx 9 -cnumy 6
+rosrun interactive_calibration collect_and_label_data.py -w base_link -o ~/datasets/calib_complete_fg_v2 -s .5 -cnumx 9 -cnumy 6 -c ~/catkin_ws/src/AtlasCarCalibration/interactive_calibration/calibrations/atlascar2/atlascar2_calibration.json
 ```
 
 You can visualize the json file by copying to 
 
 https://jsoneditoronline.org/#/
 
-and copy the contents of the /home/mike/datasets/calibration_test2/data_collected.json to the left window.
+and copy the contents of the ~/datasets/calib_complete_fg_v2/data_collected.json to the left window.
 
 
 ```bash
@@ -88,7 +88,7 @@ test/sensor_pose_json_v2/main.py -json ~/datasets/calibration_test2/data_collect
 If you want to filter out some sensors or collections you may use the sensor selection function (ssf) or collection selection function (csf) as follows:
 
 ```bash
-test/sensor_pose_json_v2/main.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -vo -ssf "lambda name: name in ['left_laser', 'right_laser']" -csf "lambda name: int(name) < 1"
+test/sensor_pose_json_v2/main.py -json ~/datasets/calib_complete_fg_v2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -ssf "lambda name: name in ['top_left_camera', 'top_right_camera']"
 ```
 ### Calibration results visualization
 
@@ -96,18 +96,17 @@ Comparing this optimization procedure with some openCV tools:
 
 Calibrating using openCV stereo calibration (https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html?highlight=stereo#cv2.stereoCalibrate):
 ```bash
-test/sensor_pose_json_v2/stereocalib_v2.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -fs top_left_camera -ss top_right_camera 
+test/sensor_pose_json_v2/stereocalib_v2.py -json ~/datasets/calib_complete_fg_v2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -fs top_left_camera -ss top_right_camera
 
 ```
 Calibrating using openCV calibrate camera (https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html#calibratecamera):
 ```bash
-test/sensor_pose_json_v2/calibcamera.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -fs top_left_camera -ss top_right_camera 
-
+test/sensor_pose_json_v2/calibcamera.py -json ~/datasets/calib_complete_fg_v2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -fs top_left_camera -ss top_right_camera 
 ```
 In order to see the difference between the image points and the reprojected points (for each collection, for each procedure) you must run the following:
 
 ```bash
-test/sensor_pose_json_v2/results_visualization.py -json_opt test/sensor_pose_json_v2/results/dataset_sensors_results.json -json_stereo test/sensor_pose_json_v2/results/opencv_stereocalib.json -json_calibcam test/sensor_pose_json_v2/results/opencv_calibcamera.json -fs top_left_camera -ss top_right_camera 
+test/sensor_pose_json_v2/results_visualization.py -json_opt test/sensor_pose_json_v2/results/dataset_sensors_results.json -json_stereo test/sensor_pose_json_v2/results/opencv_stereocalib.json -json_calibcam test/sensor_pose_json_v2/results/opencv_calibcamera.json -fs top_left_camera -ss top_right_camera
 
 ```
 You should give the augmented json (final json of the calibration) 
