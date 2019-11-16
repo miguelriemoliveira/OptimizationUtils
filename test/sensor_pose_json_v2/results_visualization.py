@@ -485,6 +485,12 @@ if __name__ == "__main__":
     avg_error_y_stereo = np.sum(np.abs(points_stereo[1, :])) / total_points
     avg_error_x_cc = np.sum(np.abs(points_cc[0, :])) / total_points
     avg_error_y_cc = np.sum(np.abs(points_cc[1, :])) / total_points
+    standard_deviation_opt = np.std(points_opt)
+    standard_deviation_ax2_opt = np.std(points_opt, axis=1)
+    standard_deviation_stereo = np.std(points_stereo)
+    standard_deviation_ax2_stereo = np.std(points_stereo, axis=1)
+    standard_deviation_cc = np.std(points_cc)
+    standard_deviation_ax2_cc = np.std(points_cc, axis=1)
 
     print("\nAVERAGE ERROR (our optimization):")
     print("x = " + str(avg_error_x_opt) + " pix ;   y = " + str(avg_error_y_opt) + " pix")
@@ -492,6 +498,18 @@ if __name__ == "__main__":
     print("x = " + str(avg_error_x_stereo) + " pix ;   y = " + str(avg_error_y_stereo) + " pix")
     print("\nAVERAGE ERROR (openCV calibrate camera):")
     print("x = " + str(avg_error_x_cc) + " pix ;   y = " + str(avg_error_y_cc) + " pix")
+    print("\nSTANDARD DEVIATION (our optimization):")
+    print("std = " + str(standard_deviation_opt))
+    print("\nSTANDARD DEVIATION per axis (our optimization):")
+    print("std = " + str(standard_deviation_ax2_opt))
+    print("\nSTANDARD DEVIATION (openCV stereo calibration):")
+    print("std = " + str(standard_deviation_stereo))
+    print("\nSTANDARD DEVIATION per axis (openCV stereo calibration):")
+    print("std = " + str(standard_deviation_ax2_stereo))
+    print("\nSTANDARD DEVIATION (openCV calibrate camera):")
+    print("std = " + str(standard_deviation_cc))
+    print("\nSTANDARD DEVIATION per axis (openCV calibrate camera):")
+    print("std = " + str(standard_deviation_ax2_cc))
 
     # -------------------------------------------------------------------
     # ------ SEE THE DIFFERENCE IN A SCATTER PLOT
