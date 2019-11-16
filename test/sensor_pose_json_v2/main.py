@@ -82,6 +82,7 @@ def main():
                     type=int, required=True)
     ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of corners in vertical dimension.",
                     type=int, required=True)
+    ap.add_argument("-si", "--show_images", help="shows images for each camera", action='store_true', default=False)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
     def create_lambda_with_globals(s):
@@ -471,23 +472,24 @@ def main():
             dataset_graphics['sensors'][sensor_key]['color'] = color_map_sensors[idx, :]
 
         # Create opencv windows. One per sensor image and collection
-        counter = 0
-        for collection_key, collection in dataset_sensors['collections'].items():
-            for sensor_key, sensor in dataset_sensors['sensors'].items():
+        if args['show_images']:
+            counter = 0
+            for collection_key, collection in dataset_sensors['collections'].items():
+                for sensor_key, sensor in dataset_sensors['sensors'].items():
 
-                # print('for sensor_key ' + str(sensor_key))
-                if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
-                    continue
+                    # print('for sensor_key ' + str(sensor_key))
+                    if not collection['labels'][sensor_key]['detected']:  # chessboard not detected by sensor in collection
+                        continue
 
-                if sensor['msg_type'] == 'Image':
-                    filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
+                    if sensor['msg_type'] == 'Image':
+                        filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
 
-                    image = cv2.imread(filename)
-                    window_name = sensor_key + '-' + collection_key
-                    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-                    cv2.moveWindow(window_name, 300 * counter, 50)
-                    cv2.imshow(window_name, image)
-                    counter += 1
+                        image = cv2.imread(filename)
+                        window_name = sensor_key + '-' + collection_key
+                        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+                        cv2.moveWindow(window_name, 300 * counter, 50)
+                        cv2.imshow(window_name, image)
+                        counter += 1
 
         # Create a 3D plot in which the sensor poses and chessboards are drawn
         # fig = plt.figure()
@@ -629,37 +631,38 @@ def main():
                     continue
 
                 if _sensor['msg_type'] == 'Image':
-                    filename = os.path.dirname(args['json_file']) + '/' + _collection['data'][_sensor_key]['data_file']
+                    if args['show_images']:
+                        filename = os.path.dirname(args['json_file']) + '/' + _collection['data'][_sensor_key]['data_file']
 
-                    # TODO should not read image again from disk
-                    image = cv2.imread(filename)
-                    width = _collection['data'][_sensor_key]['width']
-                    height = _collection['data'][_sensor_key]['height']
-                    diagonal = math.sqrt(width ** 2 + height ** 2)
+                        # TODO should not read image again from disk
+                        image = cv2.imread(filename)
+                        width = _collection['data'][_sensor_key]['width']
+                        height = _collection['data'][_sensor_key]['height']
+                        diagonal = math.sqrt(width ** 2 + height ** 2)
 
-                    # Draw projected points (as dots)
-                    for idx, point in enumerate(_collection['labels'][_sensor_key]['idxs_projected']):
-                        x = int(round(point['x']))
-                        y = int(round(point['y']))
-                        color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
-                        cv2.line(image, (x, y), (x, y), color, int(6E-3 * diagonal))
+                        # Draw projected points (as dots)
+                        for idx, point in enumerate(_collection['labels'][_sensor_key]['idxs_projected']):
+                            x = int(round(point['x']))
+                            y = int(round(point['y']))
+                            color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
+                            cv2.line(image, (x, y), (x, y), color, int(6E-3 * diagonal))
 
-                    # Draw ground truth points (as squares)
-                    for idx, point in enumerate(_collection['labels'][_sensor_key]['idxs']):
-                        x = int(round(point['x']))
-                        y = int(round(point['y']))
-                        color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
-                        utilities.drawSquare2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=2)
+                        # Draw ground truth points (as squares)
+                        for idx, point in enumerate(_collection['labels'][_sensor_key]['idxs']):
+                            x = int(round(point['x']))
+                            y = int(round(point['y']))
+                            color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
+                            utilities.drawSquare2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=2)
 
-                    # Draw initial projected points (as crosses)
-                    for idx, point in enumerate(_collection['labels'][_sensor_key]['idxs_initial']):
-                        x = int(round(point['x']))
-                        y = int(round(point['y']))
-                        color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
-                        utilities.drawCross2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=1)
+                        # Draw initial projected points (as crosses)
+                        for idx, point in enumerate(_collection['labels'][_sensor_key]['idxs_initial']):
+                            x = int(round(point['x']))
+                            y = int(round(point['y']))
+                            color = (color_map[idx, 2] * 255, color_map[idx, 1] * 255, color_map[idx, 0] * 255)
+                            utilities.drawCross2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=1)
 
-                    window_name = _sensor_key + '-' + _collection_key
-                    cv2.imshow(window_name, image)
+                        window_name = _sensor_key + '-' + _collection_key
+                        cv2.imshow(window_name, image)
 
                 elif _sensor['msg_type'] == 'LaserScan':
                     pts_root = _collection['labels'][_sensor_key]['pts_root']
