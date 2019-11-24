@@ -495,10 +495,10 @@ class Optimizer:
 
     def printSparseMatrix(self):
         """ Print to stdout the sparse matrix"""
-        data_frame = pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, params)
+        data_frame = pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, self.getParameters() )
         print('Sparsity matrix:')
         print(data_frame)
-        # data_frame.to_csv('sparse_matrix.csv')
+        data_frame.to_csv('sparse_matrix.csv')
 
     # ---------------------------
     # Drawing and figures

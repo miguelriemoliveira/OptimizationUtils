@@ -20,7 +20,6 @@ from open3d import *
 from getter_and_setters import *
 from objective_function import *
 
-
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
@@ -248,6 +247,10 @@ def main():
     chessboard_points = np.transpose(objp)
     chessboard_points = np.vstack(
         (chessboard_points, np.ones((1, args['chess_num_x'] * args['chess_num_y']), dtype=np.float)))
+    print("chessboard_points")
+    print(chessboard_points)
+    print("objp")
+    print(objp)
 
     pts_l_chess = np.zeros((3, l_counter), np.float32)
     for i in range(0, l_counter):
@@ -288,6 +291,9 @@ def main():
                 objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1,
                                                                                                                     2)
 
+
+                # objp = [[],[],[]]
+
                 axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, 3]]).reshape(-1, 3)
 
                 gray = cv2.cvtColor(image_rgb, cv2.COLOR_BGR2GRAY)
@@ -296,6 +302,8 @@ def main():
                 # TODO use the corners already in the json
                 if ret == True:
                     corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+                    print("corners2.shape()")
+                    print(corners2.shape)
                     # Find the rotation and translation vectors.
                     ret, rvecs, tvecs = cv2.solvePnP(objp, corners2, mtx, dist)
                     # print("First guess is:\n" + str(rvecs) + "\n" + str(tvecs))
@@ -332,6 +340,7 @@ def main():
         if not flg_detected_chessboard:  # Abort when the chessboard is not detected by any camera on this collection
             raise ValueError('Collection ' + collection_key + ' could not find chessboard.')
 
+    # exit(0)
     # ---------------------------------------
     # --- FILTER SOME OF THE ELEMENTS LOADED, TO USE ONLY A SUBSET IN THE CALIBRATION
     # ---------------------------------------
@@ -451,6 +460,8 @@ def main():
     # --- Compute the SPARSE MATRIX
     # ---------------------------------------
     opt.computeSparseMatrix()
+    # opt.printSparseMatrix()
+    # exit(0)
 
     # ---------------------------------------
     # --- SETUP THE VISUALIZATION FUNCTION

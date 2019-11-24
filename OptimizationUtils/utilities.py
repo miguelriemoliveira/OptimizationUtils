@@ -213,6 +213,50 @@ def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='bl
         handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
 
 
+def drawAxis3D_plotly(ax, transform, text, text_color = [0,0,0], axis_scale=0.1, line_width=1.0, handles=None):
+    """
+    Draws (or replots) a 3D reference system
+    :param text_color:
+    :param ax:
+    :param transform:
+    :param text:
+    :param axis_scale:
+    :param line_width:
+    :param hin: handles in
+    """
+    pt_origin = np.array([[0, 0, 0, 1]], dtype=np.float).transpose()
+    x_axis = np.array([[0, 0, 0, 1], [axis_scale, 0, 0, 1]], dtype=np.float).transpose()
+    y_axis = np.array([[0, 0, 0, 1], [0, axis_scale, 0, 1]], dtype=np.float).transpose()
+    z_axis = np.array([[0, 0, 0, 1], [0, 0, axis_scale, 1]], dtype=np.float).transpose()
+
+    pt_origin = np.dot(transform, pt_origin)
+    x_axis = np.dot(transform, x_axis)
+    y_axis = np.dot(transform, y_axis)
+    z_axis = np.dot(transform, z_axis)
+
+    if handles == None:
+        handles_out = {}
+        handles_out['x'] = ax.plot(x_axis[0, :], x_axis[1, :], x_axis[2, :], 'r-', linewidth=line_width)[0]
+        handles_out['y'] = ax.plot(y_axis[0, :], y_axis[1, :], y_axis[2, :], 'g-', linewidth=line_width)[0]
+        handles_out['z'] = ax.plot(z_axis[0, :], z_axis[1, :], z_axis[2, :], 'b-', linewidth=line_width)[0]
+        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color=text_color, fontsize=10)
+        return handles_out
+    else:
+        handles['x'].set_xdata(x_axis[0, :])
+        handles['x'].set_ydata(x_axis[1, :])
+        handles['x'].set_3d_properties(zs=x_axis[2, :])
+
+        handles['y'].set_xdata(y_axis[0, :])
+        handles['y'].set_ydata(y_axis[1, :])
+        handles['y'].set_3d_properties(zs=y_axis[2, :])
+
+        handles['z'].set_xdata(z_axis[0, :])
+        handles['z'].set_ydata(z_axis[1, :])
+        handles['z'].set_3d_properties(zs=z_axis[2, :])
+
+        handles['text'].set_position((pt_origin[0, 0], pt_origin[1, 0]))
+        handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
+
 def drawAxis3D(ax, transform, text, text_color = [0,0,0], axis_scale=0.1, line_width=1.0, handles=None):
     """
     Draws (or replots) a 3D reference system

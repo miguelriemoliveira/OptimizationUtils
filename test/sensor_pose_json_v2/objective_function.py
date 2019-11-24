@@ -8,6 +8,7 @@ from scipy.spatial import distance
 
 import OptimizationUtils.utilities as utilities
 
+
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
@@ -75,22 +76,26 @@ def objectiveFunction(data):
 
                 idx = 0
                 e1 = math.sqrt(
-                        (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                    (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                e1 = e1 / 100
                 error_vector.append(e1)
 
-                idx = dataset_chessboards['chess_num_x']-1
+                idx = dataset_chessboards['chess_num_x'] - 1
                 e1 = math.sqrt(
-                        (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                    (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['number_corners'] - dataset_chessboards['chess_num_x']
                 e1 = math.sqrt(
-                        (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                    (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                e1 = e1 / 100
                 error_vector.append(e1)
 
-                idx = dataset_chessboards['number_corners']-1
+                idx = dataset_chessboards['number_corners'] - 1
                 e1 = math.sqrt(
-                        (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                    (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
+                e1 = e1 / 100
                 error_vector.append(e1)
 
                 # error = error_sum / (args['chess_num_x'] * args['chess_num_y'])
@@ -131,7 +136,7 @@ def objectiveFunction(data):
                 idxs = collection['labels'][sensor_key]['idxs']
                 rhos = [collection['data'][sensor_key]['ranges'][idx] for idx in idxs]
                 thetas = [collection['data'][sensor_key]['angle_min'] +
-                           collection['data'][sensor_key]['angle_increment'] * idx for idx in idxs]
+                          collection['data'][sensor_key]['angle_increment'] * idx for idx in idxs]
 
                 # Convert from polar to cartesian coordinates and create np array with xyz coords
                 pts_laser = np.zeros((3, len(rhos)), np.float32)
@@ -168,12 +173,13 @@ def objectiveFunction(data):
                     planar_l_chess_pts = dataset_chessboards['limit_points'][0:2, :]
                     vals = distance.cdist(pt.transpose(), planar_l_chess_pts.transpose(), 'euclidean')
                     minimum = np.amin(vals)
-                    dists[0, counter] = minimum   # longitudinal distance to the chessboard limits
+                    dists[0, counter] = minimum  # longitudinal distance to the chessboard limits
                     for i in range(0, len(planar_l_chess_pts[0])):
-                        if vals[0,i] == minimum:
+                        if vals[0, i] == minimum:
                             idxs_min[0, counter] = i
 
-                    oe[0, counter] = np.absolute(pt_chessboard[2])  # orthogonal distance to the chessboard limit points in z coordinate
+                    oe[0, counter] = np.absolute(
+                        pt_chessboard[2])  # orthogonal distance to the chessboard limit points in z coordinate
 
                     counter += 1
 
