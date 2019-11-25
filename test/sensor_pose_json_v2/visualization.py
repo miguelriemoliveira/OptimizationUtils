@@ -6,6 +6,7 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # -------------------------------------------------------------------------------
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
+import copy
 import cv2
 import math
 import os
@@ -49,14 +50,14 @@ def setupVisualization(dataset_sensors, args):
     dataset_graphics['chessboard']['colormap'] = cm.plasma(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
 
     dataset_graphics['collections']['colormap'] = cm.Set3(np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
-    for idx, collection_key in enumerate(sorted(dataset_sensors['collections'].keys())):
+    for row_idx, collection_key in enumerate(sorted(dataset_sensors['collections'].keys())):
         dataset_graphics['collections'][str(collection_key)] = {
-            'color': dataset_graphics['collections']['colormap'][idx, :]}
+            'color': dataset_graphics['collections']['colormap'][row_idx, :]}
 
     color_map_sensors = cm.gist_rainbow(np.linspace(0, 1, len(dataset_sensors['sensors'].keys())))
-    for idx, sensor_key in enumerate(sorted(dataset_sensors['sensors'].keys())):
+    for row_idx, sensor_key in enumerate(sorted(dataset_sensors['sensors'].keys())):
         sensor_key = str(sensor_key)
-        dataset_graphics['sensors'][sensor_key] = {'color': color_map_sensors[idx, :]}
+        dataset_graphics['sensors'][sensor_key] = {'color': color_map_sensors[row_idx, :]}
 
     # Create image publishers ----------------------------------------------------------
     # We need to republish a new image at every visualization
@@ -72,7 +73,6 @@ def setupVisualization(dataset_sensors, args):
                     topic_name, msg_type, queue_size=0, latch=True)}
 
     # Create Lasers MarkerArray -----------------------------------------------------------
-
     markers = MarkerArray()
     for collection_key, collection in dataset_sensors['collections'].items():
         for sensor_key, _sensor in dataset_sensors['sensors'].items():
@@ -108,11 +108,11 @@ def setupVisualization(dataset_sensors, args):
 
                 # Get laser points that belong to the chessboard
                 idxs = collection['labels'][sensor_key]['idxs']
-                rhos = [collection['data'][sensor_key]['ranges'][idx] for idx in idxs]
+                rhos = [collection['data'][sensor_key]['ranges'][row_idx] for row_idx in idxs]
                 thetas = [collection['data'][sensor_key]['angle_min'] +
-                          collection['data'][sensor_key]['angle_increment'] * idx for idx in idxs]
+                          collection['data'][sensor_key]['angle_increment'] * row_idx for row_idx in idxs]
 
-                for idx, (rho, theta) in enumerate(zip(rhos, thetas)):
+                for row_idx, (rho, theta) in enumerate(zip(rhos, thetas)):
                     p = Point()
                     p.z = 0
                     p.x = rho * math.cos(theta)
@@ -123,6 +123,69 @@ def setupVisualization(dataset_sensors, args):
 
     dataset_graphics['ros']['MarkersLaserScans'] = markers
     dataset_graphics['ros']['PubLaserScans'] = rospy.Publisher('LaserScans', MarkerArray, queue_size=0, latch=True)
+
+    # Create Chessboards MarkerArray -----------------------------------------------------------
+
+    # a general drawing of a chessboard. Will be replicated for each collection based on each
+    # collections's chessboard pose. Fields ".header.frame_id" to be filled for each collection
+    marker = Marker()
+    marker.id = 0
+    marker.frame_locked = True
+    marker.type = Marker.LINE_LIST
+    marker.action = Marker.ADD
+    marker.lifetime = rospy.Duration(0)
+    marker.pose.position.x = 0
+    marker.pose.position.y = 0
+    marker.pose.position.z = 0
+    marker.pose.orientation.x = 0
+    marker.pose.orientation.y = 0
+    marker.pose.orientation.z = 0
+    marker.pose.orientation.w = 1.0
+    marker.scale.x = 0.01
+
+    pts = dataset_sensors['chessboards']['evaluation_points']
+    num_x = dataset_sensors['chessboards']['chess_num_x']
+    num_y = dataset_sensors['chessboards']['chess_num_y']
+
+    for row_idx in range(0, num_y):  # visit all rows and draw an horizontal line for each
+        p = Point()
+        p.x = pts[0, num_x * row_idx]
+        p.y = pts[1, num_x * row_idx]
+        p.z = pts[2, num_x * row_idx]
+        marker.points.append(p)
+        p = Point()
+        p.x = pts[0, num_x * row_idx + num_x - 1]
+        p.y = pts[1, num_x * row_idx + num_x - 1]
+        p.z = pts[2, num_x * row_idx + num_x - 1]
+        marker.points.append(p)
+
+    for col_idx in range(0, num_x):  # visit all columns and draw a vertical line for each
+        p = Point()
+        p.x = pts[0, col_idx]
+        p.y = pts[1, col_idx]
+        p.z = pts[2, col_idx]
+        marker.points.append(p)
+        p = Point()
+        p.x = pts[0, col_idx + (num_y-1) * num_x]
+        p.y = pts[1, col_idx + (num_y-1) * num_x]
+        p.z = pts[2, col_idx + (num_y-1) * num_x]
+        marker.points.append(p)
+
+    # Create a marker array for drawing a chessboard for each collection
+    markers = MarkerArray()
+    now = rospy.Time.now()
+    for collection_chess_key, collection_chess in dataset_sensors['chessboards']['collections'].items():
+        marker.header.frame_id = 'chessboard_' + collection_chess_key
+        marker.header.stamp = now
+        marker.ns = str(collection_chess_key)
+        marker.color.r = dataset_graphics['collections'][collection_chess_key]['color'][0]
+        marker.color.g = dataset_graphics['collections'][collection_chess_key]['color'][1]
+        marker.color.b = dataset_graphics['collections'][collection_chess_key]['color'][2]
+        marker.color.a = 1.0
+        markers.markers.append(copy.deepcopy(marker))
+
+    dataset_graphics['ros']['MarkersChessboards'] = markers
+    dataset_graphics['ros']['PubChessboards'] = rospy.Publisher('Chessboards', MarkerArray, queue_size=0, latch=True)
 
     return dataset_graphics
 
@@ -158,12 +221,15 @@ def visualizationFunction(data):
     # Publishes the chessboards transforms
     for idx, (collection_chess_key, collection_chess) in enumerate(dataset_chessboard['collections'].items()):
         parent = 'base_link'
-        child = 'chess_' + collection_chess_key
+        child = 'chessboard_' + collection_chess_key
         dataset_graphics['ros']['tf_broadcaster'].sendTransform(collection_chess['trans'], collection_chess['quat'],
                                                                 now, child, parent)
 
     # Publish Laser Scans
     dataset_graphics['ros']['PubLaserScans'].publish(dataset_graphics['ros']['MarkersLaserScans'])
+
+    # Publish Chessboards
+    dataset_graphics['ros']['PubChessboards'].publish(dataset_graphics['ros']['MarkersChessboards'])
 
     for collection_key, collection in dataset_sensors['collections'].items():
         for sensor_key, sensor in dataset_sensors['sensors'].items():
