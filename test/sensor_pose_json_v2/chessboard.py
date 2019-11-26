@@ -200,9 +200,11 @@ def createChessBoardData(args, dataset_sensors):
                     # print('root_T_sensor=\n' + str(root_T_sensor) + '\n\n')
 
                     sensor_T_chessboard = utilities.traslationRodriguesToTransform(tvecs, rvecs)
+                    # sensor_T_chessboard = np.linalg.inv(utilities.traslationRodriguesToTransform(tvecs, rvecs))
                     # print('sensor_T_chessboard =\n ' + str(sensor_T_chessboard))
 
                     root_T_chessboard = np.dot(root_T_sensor, sensor_T_chessboard)
+                    # root_T_chessboard = np.dot(sensor_T_chessboard, root_T_sensor)
                     # print('root_T_chessboard =\n ' + str(root_T_chessboard))
 
                     d = {}
@@ -216,7 +218,6 @@ def createChessBoardData(args, dataset_sensors):
                     dataset_chessboards['collections'][str(collection_key)] = d
 
                     flg_detected_chessboard = True
-                    print('Breaking ...')
                     break  # don't search for this collection's chessboard on anymore sensors
 
         if not flg_detected_chessboard:  # Abort when the chessboard is not detected by any camera on this collection
