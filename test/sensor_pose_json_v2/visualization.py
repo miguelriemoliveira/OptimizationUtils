@@ -276,6 +276,7 @@ def visualizationFunction(data):
 
                     msg = CvBridge().cv2_to_imgmsg(image, "bgr8")
                     dataset_graphics['collections'][collection_key][sensor_key]['publisher'].publish(msg)
+                    print("publish image ...")
 
             elif sensor['msg_type'] == 'LaserScan':
                 pass

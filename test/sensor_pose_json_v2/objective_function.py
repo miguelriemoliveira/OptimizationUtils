@@ -77,25 +77,25 @@ def objectiveFunction(data):
                 idx = 0
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                e1 = e1 / 100
+                # e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['chess_num_x'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                e1 = e1 / 100
+                # e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['number_corners'] - dataset_chessboards['chess_num_x']
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                e1 = e1 / 100
+                # e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['number_corners'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                e1 = e1 / 100
+                # e1 = e1 / 100
                 error_vector.append(e1)
 
                 # error = error_sum / (args['chess_num_x'] * args['chess_num_y'])

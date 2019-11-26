@@ -6,7 +6,7 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # -------------------------------------------------------------------------------
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
-
+import copy
 import numpy as np
 import cv2
 from copy import deepcopy
@@ -158,7 +158,7 @@ def createChessBoardData(args, dataset_sensors):
 
             if sensor['msg_type'] == 'Image':
 
-                image_rgb = collection['data'][sensor_key]['data']
+                image_rgb = copy.deepcopy(collection['data'][sensor_key]['data'])
 
                 mtx = np.ndarray((3, 3), dtype=np.float,
                                  buffer=np.array(sensor['camera_info']['K']))

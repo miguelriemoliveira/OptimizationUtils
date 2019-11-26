@@ -8,6 +8,8 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # -------------------------------------------------------------------------------
 import json
 import pprint
+import sys
+from numpy import inf
 
 import rospy
 import tf
@@ -186,25 +188,45 @@ def main():
     # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
 
     # Add parameters related to the sensors
-    translation_delta = 0.3
+    # translation_delta = 0.3
+    anchored_sensor = 'top_left_camera'
     for _sensor_key, sensor in dataset_sensors['sensors'].items():
-        initial_values = getterSensorTranslation(dataset_sensors, sensor_key=_sensor_key,
-                                                 collection_key=selected_collection_key)
 
-        bound_max = [x + translation_delta for x in initial_values]
-        bound_min = [x - translation_delta for x in initial_values]
+        # Translation -------------------------------------
+        initial_translation = getterSensorTranslation(dataset_sensors, sensor_key=_sensor_key,
+                                                      collection_key=selected_collection_key)
+
+        if _sensor_key == anchored_sensor:
+            bound_max = [x + sys.float_info.epsilon for x in initial_translation]
+            bound_min = [x - sys.float_info.epsilon for x in initial_translation]
+        else:
+            bound_max = [+inf for x in initial_translation]
+            bound_min = [-inf for x in initial_translation]
+
         opt.pushParamVector(group_name='S_' + _sensor_key + '_t', data_key='dataset_sensors',
                             getter=partial(getterSensorTranslation, sensor_key=_sensor_key,
                                            collection_key=selected_collection_key),
                             setter=partial(setterSensorTranslation, sensor_key=_sensor_key),
-                            suffix=['x', 'y', 'z'])
-        # bound_max=bound_max, bound_min=bound_min)
+                            suffix=['x', 'y', 'z'],
+                            bound_max=bound_max, bound_min=bound_min)
+
+        # Rotation --------------------------------------
+        initial_rotation = getterSensorRotation(dataset_sensors, sensor_key=_sensor_key,
+                                                collection_key=selected_collection_key)
+
+        if _sensor_key == anchored_sensor:
+            bound_max = [x + sys.float_info.epsilon for x in initial_rotation]
+            bound_min = [x - sys.float_info.epsilon for x in initial_rotation]
+        else:
+            bound_max = [+inf for x in initial_rotation]
+            bound_min = [-inf for x in initial_rotation]
 
         opt.pushParamVector(group_name='S_' + _sensor_key + '_r', data_key='dataset_sensors',
                             getter=partial(getterSensorRotation, sensor_key=_sensor_key,
                                            collection_key=selected_collection_key),
                             setter=partial(setterSensorRotation, sensor_key=_sensor_key),
-                            suffix=['1', '2', '3'])
+                            suffix=['1', '2', '3'],
+                            bound_max=bound_max, bound_min=bound_min)
 
         if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
             opt.pushParamVector(group_name='S_' + _sensor_key + '_I_', data_key='dataset_sensors',
@@ -234,13 +256,13 @@ def main():
     # opt.printParameters()
 
     # Create a 3D plot in which the sensor poses and chessboards are drawn
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
-    ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
-    # limit = 1.5
-    ax.set_xlim3d(-1.5, 1.5), ax.set_ylim3d(-4, 1.5), ax.set_zlim3d(-.5, 1.5)
-    ax.view_init(elev=27, azim=46)
+    # fig = plt.figure()
+    # ax = fig.gca(projection='3d')
+    # ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
+    # ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
+    # # limit = 1.5
+    # ax.set_xlim3d(-1.5, 1.5), ax.set_ylim3d(-4, 1.5), ax.set_zlim3d(-.5, 1.5)
+    # ax.view_init(elev=27, azim=46)
 
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
@@ -289,7 +311,7 @@ def main():
         pp.pprint(dataset_graphics)
         opt.addModelData('dataset_graphics', dataset_graphics)
 
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[fig])
+    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[])
 
     # ---------------------------------------
     # --- Create X0 (First Guess)

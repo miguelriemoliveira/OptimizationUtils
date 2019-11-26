@@ -90,6 +90,22 @@ If you want to filter out some sensors or collections you may use the sensor sel
 ```bash
 test/sensor_pose_json_v2/main.py -json ~/datasets/calib_complete_fg_v2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -ssf "lambda name: name in ['top_left_camera', 'top_right_camera']"
 ```
+
+
+### Calibration of sensors in the atlascar (with RVIZ visualization)
+
+
+First launch rviz. There a dedicated launch file for this.
+
+```bash
+roslaunch interactive_calibration atlascar2_view_optimization.launch 
+```
+
+```bash
+test/sensor_pose_json_v2/main_ros_visualization.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -vo -si
+```
+
+
 ### Calibration results visualization
 
 Comparing this optimization procedure with some openCV tools:
