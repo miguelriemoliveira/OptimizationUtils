@@ -121,6 +121,7 @@ def setupVisualization(dataset_sensors, args):
 
                 markers.markers.append(marker)
 
+
     dataset_graphics['ros']['MarkersLaserScans'] = markers
     dataset_graphics['ros']['PubLaserScans'] = rospy.Publisher('LaserScans', MarkerArray, queue_size=0, latch=True)
 
@@ -226,9 +227,16 @@ def visualizationFunction(data):
                                                                 now, child, parent)
 
     # Publish Laser Scans
+    now = rospy.Time.now()
+    for marker in dataset_graphics['ros']['MarkersLaserScans'].markers:
+        marker.header.stamp = now
     dataset_graphics['ros']['PubLaserScans'].publish(dataset_graphics['ros']['MarkersLaserScans'])
 
     # Publish Chessboards
+    now = rospy.Time.now()
+    for marker in dataset_graphics['ros']['MarkersChessboards'].markers:
+        marker.header.stamp = now
+
     dataset_graphics['ros']['PubChessboards'].publish(dataset_graphics['ros']['MarkersChessboards'])
 
     for collection_key, collection in dataset_sensors['collections'].items():
@@ -239,11 +247,7 @@ def visualizationFunction(data):
 
             if sensor['msg_type'] == 'Image':
                 if args['show_images']:
-                    filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key][
-                        'data_file']
-
-                    # TODO should not read image again from disk
-                    image = cv2.imread(filename)
+                    image = copy.deepcopy(collection['data'][sensor_key]['data'])
                     width = collection['data'][sensor_key]['width']
                     height = collection['data'][sensor_key]['height']
                     diagonal = math.sqrt(width ** 2 + height ** 2)
@@ -270,13 +274,8 @@ def visualizationFunction(data):
                         color = (cm[idx, 2] * 255, cm[idx, 1] * 255, cm[idx, 0] * 255)
                         utilities.drawCross2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=1)
 
-                    window_name = sensor_key + '-' + collection_key
-
-                    # cv2.imshow(window_name, image)
                     msg = CvBridge().cv2_to_imgmsg(image, "bgr8")
-
                     dataset_graphics['collections'][collection_key][sensor_key]['publisher'].publish(msg)
-                    # print('publishing image')
 
             elif sensor['msg_type'] == 'LaserScan':
                 pass
