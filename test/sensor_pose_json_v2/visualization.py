@@ -49,7 +49,8 @@ def setupVisualization(dataset_sensors, args):
     # Create colormaps to be used for colloring the elements. Each collection contains a color, each sensor likewise.
     dataset_graphics['chessboard']['colormap'] = cm.plasma(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
 
-    dataset_graphics['collections']['colormap'] = cm.Set3(np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
+    dataset_graphics['collections']['colormap'] = cm.tab20(
+        np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
     for row_idx, collection_key in enumerate(sorted(dataset_sensors['collections'].keys())):
         dataset_graphics['collections'][str(collection_key)] = {
             'color': dataset_graphics['collections']['colormap'][row_idx, :]}
@@ -119,8 +120,19 @@ def setupVisualization(dataset_sensors, args):
                     p.y = rho * math.sin(theta)
                     marker.points.append(p)
 
-                markers.markers.append(marker)
+                markers.markers.append(copy.deepcopy(marker))
 
+                # Draw extrema points
+                marker.ns = str(collection_key) + '-' + str(sensor_key)
+                marker.type = Marker.SPHERE_LIST
+                marker.id = 1
+                marker.scale.x = 0.1
+                marker.scale.y = 0.1
+                marker.scale.z = 0.1
+                marker.color.a = 0.5
+                marker.points = [marker.points[0], marker.points[-1]]
+
+                markers.markers.append(copy.deepcopy(marker))
 
     dataset_graphics['ros']['MarkersLaserScans'] = markers
     dataset_graphics['ros']['PubLaserScans'] = rospy.Publisher('LaserScans', MarkerArray, queue_size=0, latch=True)
@@ -147,6 +159,8 @@ def setupVisualization(dataset_sensors, args):
     pts = dataset_sensors['chessboards']['evaluation_points']
     num_x = dataset_sensors['chessboards']['chess_num_x']
     num_y = dataset_sensors['chessboards']['chess_num_y']
+    print(dataset_sensors['chessboards'])
+    square_size = dataset_sensors['chessboards']['square_size']
 
     for row_idx in range(0, num_y):  # visit all rows and draw an horizontal line for each
         p = Point()
@@ -167,10 +181,59 @@ def setupVisualization(dataset_sensors, args):
         p.z = pts[2, col_idx]
         marker.points.append(p)
         p = Point()
-        p.x = pts[0, col_idx + (num_y-1) * num_x]
-        p.y = pts[1, col_idx + (num_y-1) * num_x]
-        p.z = pts[2, col_idx + (num_y-1) * num_x]
+        p.x = pts[0, col_idx + (num_y - 1) * num_x]
+        p.y = pts[1, col_idx + (num_y - 1) * num_x]
+        p.z = pts[2, col_idx + (num_y - 1) * num_x]
         marker.points.append(p)
+
+    # Draw physical limit of the pattern
+    # Top Line ---------------
+    p = Point()
+    p.x = -1 * square_size
+    p.y = -1 * square_size
+    p.z = 0
+    marker.points.append(p)
+    p = Point()
+    p.x = (num_x) * square_size
+    p.y = -1 * square_size
+    p.z = 0
+    marker.points.append(p)
+
+    # Bottom Line ---------------
+    p = Point()
+    p.x = -1 * square_size
+    p.y = (num_y) * square_size
+    p.z = 0
+    marker.points.append(p)
+    p = Point()
+    p.x = (num_x) * square_size
+    p.y = (num_y) * square_size
+    p.z = 0
+    marker.points.append(p)
+
+    # Left Line ---------------
+    p = Point()
+    p.x = -1 * square_size
+    p.y = -1 * square_size
+    p.z = 0
+    marker.points.append(p)
+    p = Point()
+    p.x = -1 * square_size
+    p.y = (num_y) * square_size
+    p.z = 0
+    marker.points.append(p)
+
+    # Right Line ---------------
+    p = Point()
+    p.x = (num_x) * square_size
+    p.y = -1 * square_size
+    p.z = 0
+    marker.points.append(p)
+    p = Point()
+    p.x = (num_x) * square_size
+    p.y = (num_y) * square_size
+    p.z = 0
+    marker.points.append(p)
 
     # Create a marker array for drawing a chessboard for each collection
     markers = MarkerArray()

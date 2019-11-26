@@ -189,6 +189,7 @@ def createChessBoardData(args, dataset_sensors):
                     # print(corners2.shape)
                     # Find the rotation and translation vectors.
                     ret, rvecs, tvecs = cv2.solvePnP(objp, corners2, mtx, dist)
+                    # tvecs[2] = tvecs[2]*2
                     # print("First guess is:\n" + str(rvecs) + "\n" + str(tvecs))
 
                     # project 3D points to image plane

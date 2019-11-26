@@ -77,25 +77,25 @@ def objectiveFunction(data):
                 idx = 0
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                # e1 = e1 / 100
+                e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['chess_num_x'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                # e1 = e1 / 100
+                e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['number_corners'] - dataset_chessboards['chess_num_x']
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                # e1 = e1 / 100
+                e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['number_corners'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                # e1 = e1 / 100
+                e1 = e1 / 100
                 error_vector.append(e1)
 
                 # error = error_sum / (args['chess_num_x'] * args['chess_num_y'])
@@ -164,6 +164,7 @@ def objectiveFunction(data):
                 oe = np.zeros((1, 2), np.float)
                 counter = 0
 
+                # TODO verify if the extrema points are not outliers ...
                 for idx in [0, -1]:
                     pt_chessboard = pts_chessboard[:, idx]
                     planar_pt_chessboard = pt_chessboard[0:2]
@@ -178,8 +179,8 @@ def objectiveFunction(data):
                         if vals[0, i] == minimum:
                             idxs_min[0, counter] = i
 
-                    oe[0, counter] = np.absolute(
-                        pt_chessboard[2])  # orthogonal distance to the chessboard limit points in z coordinate
+                    oe[0, counter] = np.absolute(pt_chessboard[2])  # orthogonal distance to the chessboard limit points in z coordinate
+                    # oe[0, counter] = pt_chessboard[2]  # orthogonal distance to the chessboard limit points in z coordinate
 
                     counter += 1
 
