@@ -260,10 +260,28 @@ class Optimizer:
         if self.always_visualize and self.vis_counter >= self.vis_niterations:
             self.vis_counter = 0  # reset counter
             self.vis_function_handle(self.data_models)  # call visualization function
-            self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
+
+            # redraw residuals plot
+            self.plot_handle.set_data(range(0, len(errors)), errors)
             self.ax.relim()  # recompute new limits
             self.ax.autoscale_view()  # re-enable auto scale
             self.wm.waitForKey(time_to_wait=0.01, verbose=True)  # wait a bit
+
+
+            # redraw error evolution plot
+            self.total_error.append(np.sum(np.abs(errors)))
+            x = range(0, len(self.total_error))
+            print("total errors=" + str(self.total_error))
+            self.error_plot_handle, = self.error_ax.plot(x, self.total_error,
+                                                         color='blue',
+                                                         linestyle='solid', linewidth=2, markersize=6)
+
+            # reset x limits if needed
+            _, xmax = self.error_ax.get_xlim()
+            if x[-1] > xmax:
+                self.error_ax.set_xlim(0, x[-1]+100)
+
+            self.error_ax.set_ylim(0, np.max(self.total_error))
 
             # Printing information
             self.printParameters(flg_simple=True)
@@ -297,6 +315,9 @@ class Optimizer:
 
         if self.always_visualize:
             self.drawResidualsFigure()  # First draw of residuals figure
+            self.drawErrorEvolutionFigure()  # First draw of error evolution figure
+            self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figures)
+            self.wm.waitForKey(time_to_wait=0.01, verbose=True)
             self.vis_counter = 0  # reset counter
             self.vis_function_handle(self.data_models)  # call visualization function
             self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
@@ -495,7 +516,7 @@ class Optimizer:
 
     def printSparseMatrix(self):
         """ Print to stdout the sparse matrix"""
-        data_frame = pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, self.getParameters() )
+        data_frame = pandas.DataFrame(self.sparse_matrix.toarray(), self.residuals, self.getParameters())
         print('Sparsity matrix:')
         print(data_frame)
         data_frame.to_csv('sparse_matrix.csv')
@@ -508,7 +529,6 @@ class Optimizer:
         # Prepare residuals figure
         self.figure_residuals = matplotlib.pyplot.figure()
         self.figures.append(self.figure_residuals)
-        self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figures)
         self.ax = self.figure_residuals.add_subplot(1, 1, 1)
         x = range(0, len(self.errors0))
         self.initial_residuals_handle, = self.ax.plot(x, self.errors0, color='green', marker='o',
@@ -524,11 +544,45 @@ class Optimizer:
         for tick in self.ax.get_xticklabels():
             tick.set_rotation(90)
 
-        self.wm.waitForKey(time_to_wait=0.01, verbose=True)
+        # self.wm.waitForKey(time_to_wait=0.01, verbose=True)
 
         self.plot_handle, = self.ax.plot(range(0, len(self.errors0)), self.errors0, color='blue', marker='s',
                                          linestyle='solid', linewidth=2, markersize=6)
         matplotlib.pyplot.legend((self.initial_residuals_handle, self.plot_handle), ('Initial', 'Current'))
         self.ax.relim()
         self.ax.autoscale_view()
-        self.wm.waitForKey(time_to_wait=0.01, verbose=True)
+        # self.wm.waitForKey(time_to_wait=0.01, verbose=True)
+
+        self.figure_residuals.canvas.draw()
+        matplotlib.pyplot.waitforbuttonpress(0.01)
+
+    def drawErrorEvolutionFigure(self):
+
+
+        # Prepare residuals figure
+        self.figure_error_evolution = matplotlib.pyplot.figure()
+        self.figures.append(self.figure_error_evolution)
+        self.error_ax = self.figure_error_evolution.add_subplot(1, 1, 1)
+
+        # x = range(0, len(self.errors0))
+        # self.error_handle, = self.ax.plot(0, np.sum(self.errors0), color='green', marker='o',
+        #                                               linestyle='solid', linewidth=2, markersize=6)
+        # self.error_ax.plot(0, np.sum(self.errors0), color='black', linestyle='dashed', linewidth=2, markersize=6)
+        # self.error_ax.set_xticks(x, minor=False)
+        # self.ax.set_xticks([], minor=True)
+        # self.ax.set_xticklabels(list(self.residuals.keys()))
+
+        matplotlib.pyplot.title('Total Error vs iterations')
+        matplotlib.pyplot.xlabel('Iteration')
+        matplotlib.pyplot.ylabel('Total error')
+
+        # self.wm.waitForKey(time_to_wait=0.01, verbose=True)
+
+        self.total_error = [np.sum(self.errors0)]
+        self.error_plot_handle, = self.error_ax.plot(range(0,len(self.total_error)), self.total_error, color='blue',
+                                                     linestyle='solid', linewidth=2, markersize=1)
+        self.error_ax.relim()
+        self.error_ax.autoscale_view()
+
+        self.figure_error_evolution.canvas.draw()
+        matplotlib.pyplot.waitforbuttonpress(0.01)
