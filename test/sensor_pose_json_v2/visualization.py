@@ -263,6 +263,9 @@ def setupVisualization(dataset_sensors, args):
         p.z = limit_pts[2, idx]
         marker_limit_pts.points.append(p)
 
+    # Draw inner points ...
+    # TODO afonso put the stuff here
+
     # Create a marker array for drawing a chessboard for each collection
     markers = MarkerArray()
     now = rospy.Time.now()
