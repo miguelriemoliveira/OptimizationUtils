@@ -40,7 +40,7 @@ def createChessBoardData(args, dataset_sensors):
                            'square_size': args['chess_size'], 'collections': {}}
 
     # TODO limit points number should be a parsed argument
-    n = 5
+    n = 10
     factor = round(1.)
     num_pts = int((args['chess_num_x'] * factor) * (args['chess_num_y'] * factor))
     num_l_pts = int((args['chess_num_x'] * factor) * 2 * n) + int((args['chess_num_y'] * factor) * 2 * n) + (4 * n)

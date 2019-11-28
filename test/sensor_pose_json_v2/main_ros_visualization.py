@@ -189,6 +189,8 @@ def main():
 
     # Add parameters related to the sensors
     # translation_delta = 0.3
+
+    #TODO the definition of the anchored sensor should be done in the calibration config. #60.
     anchored_sensor = 'top_left_camera'
     # anchored_sensor = 'left_laser'
     for _sensor_key, sensor in dataset_sensors['sensors'].items():
@@ -229,11 +231,11 @@ def main():
                             suffix=['1', '2', '3'],
                             bound_max=bound_max, bound_min=bound_min)
 
-        # if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
-        #     opt.pushParamVector(group_name='S_' + _sensor_key + '_I_', data_key='dataset_sensors',
-        #                         getter=partial(getterCameraIntrinsics, sensor_key=_sensor_key),
-        #                         setter=partial(setterCameraIntrinsics, sensor_key=_sensor_key),
-        #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
+        if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
+            opt.pushParamVector(group_name='S_' + _sensor_key + '_I_', data_key='dataset_sensors',
+                                getter=partial(getterCameraIntrinsics, sensor_key=_sensor_key),
+                                setter=partial(setterCameraIntrinsics, sensor_key=_sensor_key),
+                                suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
@@ -289,9 +291,14 @@ def main():
                 for idx in range(0, 4):
                     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
 
+            # elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
+            #     # for idx in range(0, 2):
+            #     for idx in range(0, 4):
+            #         opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
+
             elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
-                # for idx in range(0, 2):
-                for idx in range(0, 4):
+                num_pts_in_cluster = len(collection['labels'][_sensor_key]['idxs'])
+                for idx in range(0, 2 + num_pts_in_cluster):
                     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
 
     # print('residuals = ' + str(opt.residuals))

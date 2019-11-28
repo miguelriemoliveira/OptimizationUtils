@@ -154,12 +154,11 @@ def setupVisualization(dataset_sensors, args):
     marker.pose.orientation.y = 0
     marker.pose.orientation.z = 0
     marker.pose.orientation.w = 1.0
-    marker.scale.x = 0.01
+    marker.scale.x = 0.005
 
     pts = dataset_sensors['chessboards']['evaluation_points']
     num_x = dataset_sensors['chessboards']['chess_num_x']
     num_y = dataset_sensors['chessboards']['chess_num_y']
-    print(dataset_sensors['chessboards'])
     square_size = dataset_sensors['chessboards']['square_size']
 
     for row_idx in range(0, num_y):  # visit all rows and draw an horizontal line for each
@@ -235,11 +234,41 @@ def setupVisualization(dataset_sensors, args):
     p.z = 0
     marker.points.append(p)
 
+    # Draw limit points used to compute the longitudinal distance
+    limit_pts = dataset_sensors['chessboards']['limit_points']
+
+    marker_limit_pts = Marker()
+    marker_limit_pts.id = 0
+    marker_limit_pts.frame_locked = True
+    marker_limit_pts.type = Marker.SPHERE_LIST
+    marker_limit_pts.action = Marker.ADD
+    marker_limit_pts.lifetime = rospy.Duration(0)
+    marker_limit_pts.pose.position.x = 0
+    marker_limit_pts.pose.position.y = 0
+    marker_limit_pts.pose.position.z = 0
+    marker_limit_pts.pose.orientation.x = 0
+    marker_limit_pts.pose.orientation.y = 0
+    marker_limit_pts.pose.orientation.z = 0
+    marker_limit_pts.pose.orientation.w = 1.0
+    marker_limit_pts.scale.x = 0.015
+    marker_limit_pts.scale.y = 0.015
+    marker_limit_pts.scale.z = 0.015
+
+    # print(limit_pts)
+    # print(limit_pts.shape)
+    for idx in range(0, limit_pts.shape[1]):
+        p = Point()
+        p.x = limit_pts[0, idx]
+        p.y = limit_pts[1, idx]
+        p.z = limit_pts[2, idx]
+        marker_limit_pts.points.append(p)
+
     # Create a marker array for drawing a chessboard for each collection
     markers = MarkerArray()
     now = rospy.Time.now()
     for collection_chess_key, collection_chess in dataset_sensors['chessboards']['collections'].items():
         marker.header.frame_id = 'chessboard_' + collection_chess_key
+        marker.id = 0
         marker.header.stamp = now
         marker.ns = str(collection_chess_key)
         marker.color.r = dataset_graphics['collections'][collection_chess_key]['color'][0]
@@ -247,6 +276,16 @@ def setupVisualization(dataset_sensors, args):
         marker.color.b = dataset_graphics['collections'][collection_chess_key]['color'][2]
         marker.color.a = 1.0
         markers.markers.append(copy.deepcopy(marker))
+
+        marker_limit_pts.header.frame_id = 'chessboard_' + collection_chess_key
+        marker_limit_pts.id = 1
+        marker_limit_pts.header.stamp = now
+        marker_limit_pts.ns = str(collection_chess_key)
+        marker_limit_pts.color.r = dataset_graphics['collections'][collection_chess_key]['color'][0]
+        marker_limit_pts.color.g = dataset_graphics['collections'][collection_chess_key]['color'][1]
+        marker_limit_pts.color.b = dataset_graphics['collections'][collection_chess_key]['color'][2]
+        marker_limit_pts.color.a = 1.0
+        markers.markers.append(copy.deepcopy(marker_limit_pts))
 
     dataset_graphics['ros']['MarkersChessboards'] = markers
     dataset_graphics['ros']['PubChessboards'] = rospy.Publisher('Chessboards', MarkerArray, queue_size=0, latch=True)

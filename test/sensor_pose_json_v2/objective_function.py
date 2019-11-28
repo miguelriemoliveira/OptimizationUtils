@@ -161,10 +161,11 @@ def objectiveFunction(data):
 
                 dists = np.zeros((1, 2), np.float)
                 idxs_min = np.zeros((1, 2), np.int)
-                oe = np.zeros((1, 2), np.float)
-                counter = 0
 
                 # TODO verify if the extrema points are not outliers ...
+
+                # Compute longitudinal error for extremas
+                counter = 0
                 for idx in [0, -1]:
                     pt_chessboard = pts_chessboard[:, idx]
                     planar_pt_chessboard = pt_chessboard[0:2]
@@ -179,21 +180,32 @@ def objectiveFunction(data):
                         if vals[0, i] == minimum:
                             idxs_min[0, counter] = i
 
-                    oe[0, counter] = np.absolute(pt_chessboard[2])  # orthogonal distance to the chessboard limit points in z coordinate
-                    # oe[0, counter] = pt_chessboard[2]  # orthogonal distance to the chessboard limit points in z coordinate
-
                     counter += 1
-
-                num_detections += 1
-
-                # TODO error in meters? Seems small when compared with pixels ...
 
                 errors.append(dists[0, 0])
                 errors.append(dists[0, 1])
-                errors.append(oe[0, 0])
-                errors.append(oe[0, 1])
-                c_error = (dists[0, 0] + dists[0, 1] + oe[0, 0] + oe[0, 1]) / 4
 
+                # Compute orthogonal error (for extremas only)
+                # oe = np.zeros((1, 2), np.float)
+                # counter = 0
+                # for idx in [0, -1]: # for extremas only
+                #     pt_chessboard = pts_chessboard[:, idx]
+                #     oe[0, counter] = np.absolute( pt_chessboard[2])  # orthogonal distance to the chessboard limit points
+                #     errors.append(oe[0, counter])
+                #     counter += 1
+
+                # Compute orthogonal error (all the points)
+                oe = np.zeros((1, pts_chessboard.shape[1]), np.float)
+                counter = 0
+                for idx in range(0, pts_chessboard.shape[1]):  # for all points
+                    pt_chessboard = pts_chessboard[:, idx]
+                    oe[0, counter] = np.absolute(pt_chessboard[2])  # orthogonal distance to the chessboard limit points
+                    errors.append(oe[0, counter])
+                    counter += 1
+
+                # Compute average for printing
+                num_detections += 1
+                c_error = (dists[0, 0] + dists[0, 1] + oe[0, 0] + oe[0, 1]) / 4
                 sum_error += c_error
 
                 # Store for visualization
