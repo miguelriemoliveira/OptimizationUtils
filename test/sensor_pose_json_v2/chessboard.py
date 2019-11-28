@@ -46,8 +46,8 @@ def createChessBoardData(args, dataset_sensors):
     num_l_pts = int((args['chess_num_x'] * factor) * 2 * n) + int((args['chess_num_y'] * factor) * 2 * n) + (4 * n)
     num_i_pts = int(((args['chess_num_x'] * factor) - 1) * (n-1)) * (args['chess_num_y'] * factor) + int(((args['chess_num_y'] * factor) - 1) * (n-1)) * (args['chess_num_x'] * factor) + num_pts
     chessboard_evaluation_points = np.zeros((4, num_pts), np.float32)
-    chessboard_limit_points = np.zeros((4, num_l_pts), np.float32)
-    chessboard_inner_points = np.zeros((4, num_i_pts), np.float32)
+    chessboard_limit_points = np.zeros((4, int(num_l_pts)), np.float32)
+    chessboard_inner_points = np.zeros((4, int(num_i_pts)), np.float32)
     step_x = (args['chess_num_x']) * args['chess_size'] / (args['chess_num_x'] * factor)
     step_y = (args['chess_num_y']) * args['chess_size'] / (args['chess_num_y'] * factor)
 

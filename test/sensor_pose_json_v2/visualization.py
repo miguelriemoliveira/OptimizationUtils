@@ -134,6 +134,47 @@ def setupVisualization(dataset_sensors, args):
 
                 markers.markers.append(copy.deepcopy(marker))
 
+                # Draw detected edges
+                # marker.ns = str(collection_key) + '-' + str(sensor_key)
+                # marker.type = Marker.CUBE_LIST
+                # marker.id = 2
+                # marker.scale.x = 0.1
+                # marker.scale.y = 0.1
+                # marker.scale.z = 0.1
+                # marker.color.a = 0.5
+                #
+                # print('rhos = ' + str(rhos))
+                # print('thetas = ' + str(thetas))
+                #
+                # first_iteration = True
+                # for row_idx, (rho, theta) in enumerate(zip(rhos, thetas)[:-1]):
+                #
+                #     x1 = rho * math.cos(theta)
+                #     y1 = rho * math.sin(theta)
+                #
+                #     if first_iteration:
+                #         x0 = x1
+                #         y0 = y1
+                #         continue
+                #
+                #     d = math.sqrt((x1-x0)**2 + (y1-y0)**2)
+                #
+                #     d_threshold = 0.05
+                #     if d < d_threshold:
+                #
+                #
+                #     # p = Point()
+                #     # p.z = 0
+                #     # p.x = rho * math.cos(theta)
+                #     # p.y = rho * math.sin(theta)
+                #     # marker.points.append(p)
+                #
+                #
+                # # exit(0)
+                # # marker.points = [marker.points[0], marker.points[-1]]
+                #
+                # markers.markers.append(copy.deepcopy(marker))
+
     dataset_graphics['ros']['MarkersLaserScans'] = markers
     dataset_graphics['ros']['PubLaserScans'] = rospy.Publisher('LaserScans', MarkerArray, queue_size=0, latch=True)
 
@@ -267,7 +308,6 @@ def setupVisualization(dataset_sensors, args):
     inner_pts = dataset_sensors['chessboards']['inner_points']
 
     marker_inner_pts = Marker()
-    marker_inner_pts.id = 0
     marker_inner_pts.frame_locked = True
     marker_inner_pts.type = Marker.SPHERE_LIST
     marker_inner_pts.action = Marker.ADD
@@ -313,6 +353,16 @@ def setupVisualization(dataset_sensors, args):
         marker_limit_pts.color.b = dataset_graphics['collections'][collection_chess_key]['color'][2]
         marker_limit_pts.color.a = 1.0
         markers.markers.append(copy.deepcopy(marker_limit_pts))
+
+        marker_inner_pts.header.frame_id = 'chessboard_' + collection_chess_key
+        marker_inner_pts.id = 2
+        marker_inner_pts.header.stamp = now
+        marker_inner_pts.ns = str(collection_chess_key)
+        marker_inner_pts.color.r = dataset_graphics['collections'][collection_chess_key]['color'][0]
+        marker_inner_pts.color.g = dataset_graphics['collections'][collection_chess_key]['color'][1]
+        marker_inner_pts.color.b = dataset_graphics['collections'][collection_chess_key]['color'][2]
+        marker_inner_pts.color.a = 1.0
+        markers.markers.append(copy.deepcopy(marker_inner_pts))
 
     dataset_graphics['ros']['MarkersChessboards'] = markers
     dataset_graphics['ros']['PubChessboards'] = rospy.Publisher('Chessboards', MarkerArray, queue_size=0, latch=True)
