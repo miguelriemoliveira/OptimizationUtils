@@ -23,7 +23,7 @@ from OptimizationUtils import utilities
 def createChessBoardData(args, dataset_sensors):
     """
     Creates the necessary data related to the chessboard calibration pattern
-    :return: a dataset_chessboard dictionary
+    :return: a dataset_chessboard dictionaryint((((args['chess_num_y'] * factor) - 1) * n) + 1) * (args['chess_num_x'] * factor)
     """
 
     # objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
@@ -44,14 +44,17 @@ def createChessBoardData(args, dataset_sensors):
     factor = round(1.)
     num_pts = int((args['chess_num_x'] * factor) * (args['chess_num_y'] * factor))
     num_l_pts = int((args['chess_num_x'] * factor) * 2 * n) + int((args['chess_num_y'] * factor) * 2 * n) + (4 * n)
+    num_i_pts = int(((args['chess_num_x'] * factor) - 1) * (n-1)) * (args['chess_num_y'] * factor) + int(((args['chess_num_y'] * factor) - 1) * (n-1)) * (args['chess_num_x'] * factor) + num_pts
     chessboard_evaluation_points = np.zeros((4, num_pts), np.float32)
     chessboard_limit_points = np.zeros((4, num_l_pts), np.float32)
+    chessboard_inner_points = np.zeros((4, num_i_pts), np.float32)
     step_x = (args['chess_num_x']) * args['chess_size'] / (args['chess_num_x'] * factor)
     step_y = (args['chess_num_y']) * args['chess_size'] / (args['chess_num_y'] * factor)
 
     counter = 0
     l_counter = 0
-
+    i_counter = 0
+    # TODO afonso should put this more sintetic
     for idx_y in range(0, int(args['chess_num_y'] * factor)):
         y = idx_y * step_y
         for idx_x in range(0, int(args['chess_num_x'] * factor)):
@@ -61,6 +64,28 @@ def createChessBoardData(args, dataset_sensors):
             chessboard_evaluation_points[2, counter] = 0
             chessboard_evaluation_points[3, counter] = 1
             counter += 1
+            if idx_x != (int(args['chess_num_x'] * factor) - 1):
+                for i in range(0, n):
+                    chessboard_inner_points[0, i_counter] = x + (i * (step_x / n))
+                    chessboard_inner_points[1, i_counter] = y
+                    chessboard_inner_points[2, i_counter] = 0
+                    chessboard_inner_points[3, i_counter] = 1
+                    i_counter += 1
+            else:
+                chessboard_inner_points[0, i_counter] = x
+                chessboard_inner_points[1, i_counter] = y
+                chessboard_inner_points[2, i_counter] = 0
+                chessboard_inner_points[3, i_counter] = 1
+                i_counter += 1
+
+            if idx_y != (int(args['chess_num_y'] * factor) - 1):
+                for i in range(1, n):
+                    chessboard_inner_points[0, i_counter] = x
+                    chessboard_inner_points[1, i_counter] = y + (i * (step_y / n))
+                    chessboard_inner_points[2, i_counter] = 0
+                    chessboard_inner_points[3, i_counter] = 1
+                    i_counter += 1
+
             if idx_y == 0:
                 for i in range(0, n):
                     chessboard_limit_points[0, l_counter] = x - ((n - i) * (step_x / n))
@@ -135,6 +160,7 @@ def createChessBoardData(args, dataset_sensors):
 
     dataset_chessboards['evaluation_points'] = chessboard_evaluation_points
     dataset_chessboards['limit_points'] = chessboard_limit_points
+    dataset_chessboards['inner_points'] = chessboard_inner_points
 
     objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
     objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1, 2)
@@ -151,10 +177,15 @@ def createChessBoardData(args, dataset_sensors):
         pts_l_chess[0, i] = chessboard_limit_points[0, i]
         pts_l_chess[1, i] = chessboard_limit_points[1, i]
 
+    pts_i_chess = np.zeros((3, i_counter), np.float32)
+    for i in range(0, i_counter):
+        pts_i_chess[0, i] = chessboard_inner_points[0, i]
+        pts_i_chess[1, i] = chessboard_inner_points[1, i]
+
     # homogenize points
     pts_l_chess = np.vstack((pts_l_chess, np.ones((1, pts_l_chess.shape[1]), dtype=np.float)))
 
-    dataset_chessboard_points = {'points': chessboard_points, 'l_points': pts_l_chess}
+    dataset_chessboard_points = {'points': chessboard_points, 'l_points': pts_l_chess, 'i_points': pts_i_chess}
 
     for collection_key, collection in dataset_sensors['collections'].items():
         print('Visiting collection ' + collection_key)

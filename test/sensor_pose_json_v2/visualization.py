@@ -263,8 +263,32 @@ def setupVisualization(dataset_sensors, args):
         p.z = limit_pts[2, idx]
         marker_limit_pts.points.append(p)
 
-    # Draw inner points ...
-    # TODO afonso put the stuff here
+    # Draw inner points used to compute the longitudinal distance
+    inner_pts = dataset_sensors['chessboards']['inner_points']
+
+    marker_inner_pts = Marker()
+    marker_inner_pts.id = 0
+    marker_inner_pts.frame_locked = True
+    marker_inner_pts.type = Marker.SPHERE_LIST
+    marker_inner_pts.action = Marker.ADD
+    marker_inner_pts.lifetime = rospy.Duration(0)
+    marker_inner_pts.pose.position.x = 0
+    marker_inner_pts.pose.position.y = 0
+    marker_inner_pts.pose.position.z = 0
+    marker_inner_pts.pose.orientation.x = 0
+    marker_inner_pts.pose.orientation.y = 0
+    marker_inner_pts.pose.orientation.z = 0
+    marker_inner_pts.pose.orientation.w = 1.0
+    marker_inner_pts.scale.x = 0.025
+    marker_inner_pts.scale.y = 0.025
+    marker_inner_pts.scale.z = 0.025
+
+    for idx in range(0, inner_pts.shape[1]):
+        p = Point()
+        p.x = inner_pts[0, idx]
+        p.y = inner_pts[1, idx]
+        p.z = inner_pts[2, idx]
+        marker_inner_pts.points.append(p)
 
     # Create a marker array for drawing a chessboard for each collection
     markers = MarkerArray()
