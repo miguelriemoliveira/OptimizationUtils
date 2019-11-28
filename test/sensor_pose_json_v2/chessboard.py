@@ -39,9 +39,11 @@ def createChessBoardData(args, dataset_sensors):
                            'number_corners': int(args['chess_num_x'] * args['chess_num_y']),
                            'square_size': args['chess_size'], 'collections': {}}
 
+    # TODO limit points number should be a parsed argument
+    n = 5
     factor = round(1.)
     num_pts = int((args['chess_num_x'] * factor) * (args['chess_num_y'] * factor))
-    num_l_pts = int((args['chess_num_x'] * factor) * 2) + int((args['chess_num_y'] * factor) * 2) + 4
+    num_l_pts = int((args['chess_num_x'] * factor) * 2 * n) + int((args['chess_num_y'] * factor) * 2 * n) + (4 * n)
     chessboard_evaluation_points = np.zeros((4, num_pts), np.float32)
     chessboard_limit_points = np.zeros((4, num_l_pts), np.float32)
     step_x = (args['chess_num_x']) * args['chess_size'] / (args['chess_num_x'] * factor)
@@ -49,10 +51,10 @@ def createChessBoardData(args, dataset_sensors):
 
     counter = 0
     l_counter = 0
-    n = 5
+
     for idx_y in range(0, int(args['chess_num_y'] * factor)):
         y = idx_y * step_y
-        for idx_x in range(0, int(args['chess_num_x'] * factor )):
+        for idx_x in range(0, int(args['chess_num_x'] * factor)):
             x = idx_x * step_x
             chessboard_evaluation_points[0, counter] = x
             chessboard_evaluation_points[1, counter] = y
