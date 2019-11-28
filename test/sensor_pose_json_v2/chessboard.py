@@ -49,10 +49,10 @@ def createChessBoardData(args, dataset_sensors):
 
     counter = 0
     l_counter = 0
-
+    n = 5
     for idx_y in range(0, int(args['chess_num_y'] * factor)):
         y = idx_y * step_y
-        for idx_x in range(0, int(args['chess_num_x'] * factor)):
+        for idx_x in range(0, int(args['chess_num_x'] * factor )):
             x = idx_x * step_x
             chessboard_evaluation_points[0, counter] = x
             chessboard_evaluation_points[1, counter] = y
@@ -60,32 +60,36 @@ def createChessBoardData(args, dataset_sensors):
             chessboard_evaluation_points[3, counter] = 1
             counter += 1
             if idx_y == 0:
-                chessboard_limit_points[0, l_counter] = x - step_x
-                chessboard_limit_points[1, l_counter] = y - step_y
-                chessboard_limit_points[2, l_counter] = 0
-                chessboard_limit_points[3, l_counter] = 1
-                l_counter += 1
-
-                if idx_x == (int(args['chess_num_x'] * factor) - 1):
-                    chessboard_limit_points[0, l_counter] = x
+                for i in range(0, n):
+                    chessboard_limit_points[0, l_counter] = x - ((n - i) * (step_x / n))
                     chessboard_limit_points[1, l_counter] = y - step_y
                     chessboard_limit_points[2, l_counter] = 0
                     chessboard_limit_points[3, l_counter] = 1
                     l_counter += 1
 
-            if idx_x == (int(args['chess_num_x'] * factor) - 1):
-                chessboard_limit_points[0, l_counter] = x + step_x
-                chessboard_limit_points[1, l_counter] = y - step_y
-                chessboard_limit_points[2, l_counter] = 0
-                chessboard_limit_points[3, l_counter] = 1
-                l_counter += 1
+                if idx_x == (int(args['chess_num_x'] * factor) - 1):
+                    for i in range(n, 0, -1):
+                        chessboard_limit_points[0, l_counter] = x + ((n - i) * (step_x / n))
+                        chessboard_limit_points[1, l_counter] = y - step_y
+                        chessboard_limit_points[2, l_counter] = 0
+                        chessboard_limit_points[3, l_counter] = 1
+                        l_counter += 1
 
-                if idx_y == (int(args['chess_num_y'] * factor) - 1):
+            if idx_x == (int(args['chess_num_x'] * factor) - 1):
+                for i in range(0, n):
                     chessboard_limit_points[0, l_counter] = x + step_x
-                    chessboard_limit_points[1, l_counter] = y
+                    chessboard_limit_points[1, l_counter] = y - ((n - i) * (step_y / n))
                     chessboard_limit_points[2, l_counter] = 0
                     chessboard_limit_points[3, l_counter] = 1
                     l_counter += 1
+
+                if idx_y == (int(args['chess_num_y'] * factor) - 1):
+                    for i in range(n, 0, -1):
+                        chessboard_limit_points[0, l_counter] = x + step_x
+                        chessboard_limit_points[1, l_counter] = y + ((n - i) * (step_y / n))
+                        chessboard_limit_points[2, l_counter] = 0
+                        chessboard_limit_points[3, l_counter] = 1
+                        l_counter += 1
 
     for idx_y in range(0, int(args['chess_num_y'] * factor)):
         idx_y = abs(idx_y - (int(args['chess_num_y'] * factor) - 1))
@@ -96,31 +100,36 @@ def createChessBoardData(args, dataset_sensors):
             x = idx_x * step_x
 
             if idx_y == (int(args['chess_num_y'] * factor) - 1):
-                chessboard_limit_points[0, l_counter] = x + step_x
-                chessboard_limit_points[1, l_counter] = y + step_y
-                chessboard_limit_points[2, l_counter] = 0
-                chessboard_limit_points[3, l_counter] = 1
-                l_counter += 1
-
-                if idx_x == 0:
-                    chessboard_limit_points[0, l_counter] = x
+                for i in range(0, n):
+                    chessboard_limit_points[0, l_counter] = x + ((n - i) * (step_x / n))
                     chessboard_limit_points[1, l_counter] = y + step_y
                     chessboard_limit_points[2, l_counter] = 0
                     chessboard_limit_points[3, l_counter] = 1
                     l_counter += 1
 
-            if idx_x == 0:
-                chessboard_limit_points[0, l_counter] = x - step_x
-                chessboard_limit_points[1, l_counter] = y + step_y
-                chessboard_limit_points[2, l_counter] = 0
-                chessboard_limit_points[3, l_counter] = 1
-                l_counter += 1
+                if idx_x == 0:
+                    for i in range(n, 0, -1):
+                        chessboard_limit_points[0, l_counter] = x - ((n - i) * (step_x / n))
+                        chessboard_limit_points[1, l_counter] = y + step_y
+                        chessboard_limit_points[2, l_counter] = 0
+                        chessboard_limit_points[3, l_counter] = 1
+                        l_counter += 1
 
-                if idx_y == 0:
+            if idx_x == 0:
+                for i in range(0, n):
                     chessboard_limit_points[0, l_counter] = x - step_x
-                    chessboard_limit_points[1, l_counter] = y
+                    chessboard_limit_points[1, l_counter] = y + ((n - i) * (step_y / n))
                     chessboard_limit_points[2, l_counter] = 0
                     chessboard_limit_points[3, l_counter] = 1
+                    l_counter += 1
+
+                if idx_y == 0:
+                    for i in range(n, 0, -1):
+                        chessboard_limit_points[0, l_counter] = x - step_x
+                        chessboard_limit_points[1, l_counter] = y - ((n - i) * (step_y / n))
+                        chessboard_limit_points[2, l_counter] = 0
+                        chessboard_limit_points[3, l_counter] = 1
+                        l_counter += 1
 
     dataset_chessboards['evaluation_points'] = chessboard_evaluation_points
     dataset_chessboards['limit_points'] = chessboard_limit_points
