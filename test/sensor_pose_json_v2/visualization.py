@@ -135,17 +135,17 @@ def setupVisualization(dataset_sensors, args):
                 markers.markers.append(copy.deepcopy(marker))
 
                 # Draw detected edges
-                # marker.ns = str(collection_key) + '-' + str(sensor_key)
-                # marker.type = Marker.CUBE_LIST
-                # marker.id = 2
-                # marker.scale.x = 0.1
-                # marker.scale.y = 0.1
-                # marker.scale.z = 0.1
-                # marker.color.a = 0.5
-                #
-                # print('rhos = ' + str(rhos))
-                # print('thetas = ' + str(thetas))
-                #
+                marker.ns = str(collection_key) + '-' + str(sensor_key)
+                marker.type = Marker.CUBE_LIST
+                marker.id = 2
+                marker.scale.x = 0.1
+                marker.scale.y = 0.1
+                marker.scale.z = 0.1
+                marker.color.a = 0.5
+
+                print('rhos = ' + str(rhos))
+                print('thetas = ' + str(thetas))
+
                 # first_iteration = True
                 # for row_idx, (rho, theta) in enumerate(zip(rhos, thetas)[:-1]):
                 #
@@ -161,19 +161,23 @@ def setupVisualization(dataset_sensors, args):
                 #
                 #     d_threshold = 0.05
                 #     if d < d_threshold:
-                #
-                #
-                #     # p = Point()
-                #     # p.z = 0
-                #     # p.x = rho * math.cos(theta)
-                #     # p.y = rho * math.sin(theta)
-                #     # marker.points.append(p)
-                #
-                #
-                # # exit(0)
-                # # marker.points = [marker.points[0], marker.points[-1]]
-                #
-                # markers.markers.append(copy.deepcopy(marker))
+
+                marker.points = []  # Reset the list of marker points
+                for i in range(0, len(idxs) - 1):
+                    if (idxs[i + 1] - idxs[i]) != 1:
+                        p = Point()
+                        p.x = rhos[i] * math.cos(thetas[i])
+                        p.y = rhos[i] * math.sin(thetas[i])
+                        p.z = 0
+                        marker.points.append(p)
+
+                        p = Point()
+                        p.x = rhos[i + 1] * math.cos(thetas[i + 1])
+                        p.y = rhos[i + 1] * math.sin(thetas[i + 1])
+                        p.z = 0
+                        marker.points.append(p)
+
+                markers.markers.append(copy.deepcopy(marker))
 
     dataset_graphics['ros']['MarkersLaserScans'] = markers
     dataset_graphics['ros']['PubLaserScans'] = rospy.Publisher('LaserScans', MarkerArray, queue_size=0, latch=True)
