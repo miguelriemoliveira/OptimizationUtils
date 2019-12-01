@@ -303,6 +303,11 @@ class Optimizer:
         self.x0 = deepcopy(self.x)  # store current x as initial parameter values
         self.fromXToData()  # copy from x to data models
         self.errors0 = self.objective_function(self.data_models)  # call obj. func. (once) to get initial residuals
+        if not len(self.residuals.keys()) == len(self.errors0): # check if residuals are properly configured
+            raise ValueError(
+                'Number of residuals returned by the objective function (' + str(len(self.errors0)) +
+                ') is not consistent with the number of residuals configured (' + str(len(self.residuals.keys())) + ')')
+
         errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
 
         # Setup boundaries for parameters 0.7042666256867649,2
