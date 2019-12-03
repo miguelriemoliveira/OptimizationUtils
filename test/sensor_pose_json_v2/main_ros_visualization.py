@@ -143,7 +143,6 @@ def main():
         print("Deleted collections: " + str(deleted))
 
     # DELETING COLLECTIONS WHERE THE CHESSBOARD WAS NOT FOUND BY BOTH CAMERAS:
-
     for _collection_key, collection in dataset_sensors['collections'].items():
         for _sensor_key, sensor in dataset_sensors['sensors'].items():
             if not collection['labels'][_sensor_key]['detected']:
