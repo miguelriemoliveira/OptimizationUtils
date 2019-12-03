@@ -44,7 +44,8 @@ def createChessBoardData(args, dataset_sensors):
     factor = round(1.)
     num_pts = int((args['chess_num_x'] * factor) * (args['chess_num_y'] * factor))
     num_l_pts = int((args['chess_num_x'] * factor) * 2 * n) + int((args['chess_num_y'] * factor) * 2 * n) + (4 * n)
-    num_i_pts = int(((args['chess_num_x'] * factor) - 1) * (n-1)) * (args['chess_num_y'] * factor) + int(((args['chess_num_y'] * factor) - 1) * (n-1)) * (args['chess_num_x'] * factor) + num_pts
+    num_i_pts = int(((args['chess_num_x'] * factor) - 1) * (n - 1)) * (args['chess_num_y'] * factor) + int(
+        ((args['chess_num_y'] * factor) - 1) * (n - 1)) * (args['chess_num_x'] * factor) + num_pts
     chessboard_evaluation_points = np.zeros((4, num_pts), np.float32)
     chessboard_limit_points = np.zeros((4, int(num_l_pts)), np.float32)
     chessboard_inner_points = np.zeros((4, int(num_i_pts)), np.float32)
@@ -54,7 +55,7 @@ def createChessBoardData(args, dataset_sensors):
     counter = 0
     l_counter = 0
     i_counter = 0
-    # TODO afonso should put this more sintetic
+    # TODO afonso should put this more synthesized
     for idx_y in range(0, int(args['chess_num_y'] * factor)):
         y = idx_y * step_y
         for idx_x in range(0, int(args['chess_num_x'] * factor)):
@@ -167,10 +168,6 @@ def createChessBoardData(args, dataset_sensors):
     chessboard_points = np.transpose(objp)
     chessboard_points = np.vstack(
         (chessboard_points, np.ones((1, args['chess_num_x'] * args['chess_num_y']), dtype=np.float)))
-    # print("chessboard_points")
-    # print(chessboard_points)
-    # print("objp")
-    # print(objp)
 
     pts_l_chess = np.zeros((3, l_counter), np.float32)
     for i in range(0, l_counter):
@@ -200,68 +197,36 @@ def createChessBoardData(args, dataset_sensors):
 
             if sensor['msg_type'] == 'Image':
 
-                image_rgb = copy.deepcopy(collection['data'][sensor_key]['data'])
+                K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(sensor['camera_info']['K']))
+                D = np.ndarray((5, 1), dtype=np.float, buffer=np.array(sensor['camera_info']['D']))
 
-                mtx = np.ndarray((3, 3), dtype=np.float,
-                                 buffer=np.array(sensor['camera_info']['K']))
-
-                dist = np.ndarray((5, 1), dtype=np.float,
-                                  buffer=np.array(sensor['camera_info']['D']))
-
-                def draw(img, _corners, imgpts):
-                    corner = tuple(_corners[0].ravel())
-                    img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (0, 0, 255), 5)
-                    img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0, 255, 0), 5)
-                    img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (255, 0, 0), 5)
-                    return img
-
-                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+                # TODO should we not read these from the dictionary?
                 objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
                 objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1,
                                                                                                                     2)
-                axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, 3]]).reshape(-1, 3)
+                # Build a numpy array with the chessboard corners
+                corners = np.zeros((len(collection['labels'][sensor_key]['idxs']),1,2), dtype=np.float)
+                for idx, point in enumerate(collection['labels'][sensor_key]['idxs']):
+                    corners[idx,0,0] = point['x']
+                    corners[idx,0,1] = point['y']
 
-                gray = cv2.cvtColor(image_rgb, cv2.COLOR_BGR2GRAY)
-                # corners = np.zeros((2,48), dtype = np.int)
-                ret, corners = cv2.findChessboardCorners(gray, (args['chess_num_x'], args['chess_num_y']))
-                # TODO use the corners already in the json
-                if ret == True:
-                    corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-                    # print("corners2.shape()")
-                    # print(corners2.shape)
-                    # Find the rotation and translation vectors.
-                    ret, rvecs, tvecs = cv2.solvePnP(objp, corners2, mtx, dist)
-                    # tvecs[2] = tvecs[2]*2
-                    # print("First guess is:\n" + str(rvecs) + "\n" + str(tvecs))
+                # Find pose of the camera w.r.t the chessboard
+                ret, rvecs, tvecs = cv2.solvePnP(objp, corners, K, D)
 
-                    # project 3D points to image plane
-                    imgpts, jac = cv2.projectPoints(axis, rvecs, tvecs, mtx, dist)
-                    image_rgb = draw(image_rgb, corners2, imgpts)
-                    # cv2.imshow('img', image_rgb)
+                # Compute the pose of he chessboard w.r.t the base_link
+                root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                sensor_T_chessboard = utilities.traslationRodriguesToTransform(tvecs, rvecs)
+                root_T_chessboard = np.dot(root_T_sensor, sensor_T_chessboard)
+                T = deepcopy(root_T_chessboard)
+                T[0:3, 3] = 0  # remove translation component from 4x4 matrix
 
-                    root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
-                    # print('root_T_sensor=\n' + str(root_T_sensor) + '\n\n')
+                print('Creating first guess for collection ' + collection_key + ' using sensor ' + sensor_key)
+                dataset_chessboards['collections'][str(collection_key)] = {
+                    'trans': list(root_T_chessboard[0:3, 3]),
+                    'quat': list(transformations.quaternion_from_matrix(T))}
 
-                    sensor_T_chessboard = utilities.traslationRodriguesToTransform(tvecs, rvecs)
-                    # sensor_T_chessboard = np.linalg.inv(utilities.traslationRodriguesToTransform(tvecs, rvecs))
-                    # print('sensor_T_chessboard =\n ' + str(sensor_T_chessboard))
-
-                    root_T_chessboard = np.dot(root_T_sensor, sensor_T_chessboard)
-                    # root_T_chessboard = np.dot(sensor_T_chessboard, root_T_sensor)
-                    # print('root_T_chessboard =\n ' + str(root_T_chessboard))
-
-                    d = {}
-                    d['trans'] = list(root_T_chessboard[0:3, 3])
-
-                    T = deepcopy(root_T_chessboard)
-                    T[0:3, 3] = 0  # remove translation component from 4x4 matrix
-                    d['quat'] = list(transformations.quaternion_from_matrix(T))
-
-                    print('Creating first guess for collection ' + collection_key + ' using sensor ' + sensor_key)
-                    dataset_chessboards['collections'][str(collection_key)] = d
-
-                    flg_detected_chessboard = True
-                    break  # don't search for this collection's chessboard on anymore sensors
+                flg_detected_chessboard = True
+                break  # don't search for this collection's chessboard on anymore sensors
 
         if not flg_detected_chessboard:  # Abort when the chessboard is not detected by any camera on this collection
             raise ValueError('Collection ' + collection_key + ' could not find chessboard.')
