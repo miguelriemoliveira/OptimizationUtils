@@ -143,9 +143,6 @@ def setupVisualization(dataset_sensors, args):
                 marker.scale.z = 0.1
                 marker.color.a = 0.5
 
-                print('rhos = ' + str(rhos))
-                print('thetas = ' + str(thetas))
-
                 # first_iteration = True
                 # for row_idx, (rho, theta) in enumerate(zip(rhos, thetas)[:-1]):
                 #
@@ -459,7 +456,6 @@ def visualizationFunction(data):
 
                     msg = CvBridge().cv2_to_imgmsg(image, "bgr8")
                     dataset_graphics['collections'][collection_key][sensor_key]['publisher'].publish(msg)
-                    print("publish image ...")
 
             elif sensor['msg_type'] == 'LaserScan':
                 pass

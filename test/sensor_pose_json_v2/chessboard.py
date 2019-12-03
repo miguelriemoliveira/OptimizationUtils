@@ -185,11 +185,8 @@ def createChessBoardData(args, dataset_sensors):
     dataset_chessboard_points = {'points': chessboard_points, 'l_points': pts_l_chess, 'i_points': pts_i_chess}
 
     for collection_key, collection in dataset_sensors['collections'].items():
-        print('Visiting collection ' + collection_key)
         flg_detected_chessboard = False
-
         for sensor_key, sensor in dataset_sensors['sensors'].items():
-            print('Visiting sensor ' + sensor_key)
 
             if not collection['labels'][sensor_key]['detected']:  # if chessboard not detected by sensor in collection
                 print('Collection ' + str(collection_key) + ': Chessboard not detected by sensor ' + str(sensor_key))

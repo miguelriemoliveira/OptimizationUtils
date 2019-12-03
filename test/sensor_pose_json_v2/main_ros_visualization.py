@@ -177,7 +177,6 @@ def main():
 
     opt = OptimizationUtils.Optimizer()
     opt.addModelData('dataset_sensors', dataset_sensors)
-    # opt.addModelData('dataset_chessboards', dataset_chessboards)
     opt.addModelData('dataset_chessboard_points', dataset_chessboard_points)
 
     # For the getters we only need to get one collection. Lets take the first key on the dictionary and always get that
@@ -190,7 +189,7 @@ def main():
     # Add parameters related to the sensors
     # translation_delta = 0.3
 
-    #TODO the definition of the anchored sensor should be done in the calibration config. #60.
+    # TODO the definition of the anchored sensor should be done in the calibration config. #60.
     anchored_sensor = 'top_left_camera'
     # anchored_sensor = 'left_laser'
     for _sensor_key, sensor in dataset_sensors['sensors'].items():
@@ -256,17 +255,6 @@ def main():
                             setter=partial(setterChessBoardRotation, collection_key=_collection_key),
                             suffix=['1', '2', '3'])
 
-    # opt.printParameters()
-
-    # Create a 3D plot in which the sensor poses and chessboards are drawn
-    # fig = plt.figure()
-    # ax = fig.gca(projection='3d')
-    # ax.set_xlabel('X'), ax.set_ylabel('Y'), ax.set_zlabel('Z')
-    # ax.set_xticklabels([]), ax.set_yticklabels([]), ax.set_zticklabels([])
-    # # limit = 1.5
-    # ax.set_xlim3d(-1.5, 1.5), ax.set_ylim3d(-4, 1.5), ax.set_zlim3d(-.5, 1.5)
-    # ax.view_init(elev=27, azim=46)
-
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
     # ---------------------------------------
@@ -302,45 +290,29 @@ def main():
                     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
 
     # print('residuals = ' + str(opt.residuals))
-    opt.printResiduals()
 
     # ---------------------------------------
     # --- Compute the SPARSE MATRIX
     # ---------------------------------------
     opt.computeSparseMatrix()
     # opt.printSparseMatrix()
-    # exit(0)
 
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
     if args['view_optimization']:
         dataset_graphics = setupVisualization(dataset_sensors, args)
-        pp = pprint.PrettyPrinter(indent=4)
-        pp.pprint(dataset_graphics)
+        # pp = pprint.PrettyPrinter(indent=4)
+        # pp.pprint(dataset_graphics)
         opt.addModelData('dataset_graphics', dataset_graphics)
 
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[])
 
     # ---------------------------------------
-    # --- Create X0 (First Guess)
-    # ---------------------------------------
-    # Already created when pushing the parameters
-
-    # opt.x = opt.addNoiseToX(noise=0.1)
-    # opt.fromXToData()
-    # opt.callObjectiveFunction()
-    # exit(0)
-
-    # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
-
-    # opt.startOptimization(
-    #     optimization_options={'ftol': 1e-4, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4, 'x_scale': 'jac', 'loss': 'soft_l1'})
-
     opt.startOptimization(
-        optimization_options = {'ftol': 1e-4, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4, 'x_scale': 'jac'})
+        optimization_options={'ftol': 1e-4, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4, 'x_scale': 'jac'})
 
     print('\n-----------------')
     opt.printParameters(opt.x0, text='Initial parameters')
