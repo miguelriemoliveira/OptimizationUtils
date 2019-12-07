@@ -15,6 +15,7 @@ import KeyPressManager
 import numpy as np
 import cv2
 from matplotlib import cm
+import networkx as nx
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
@@ -79,7 +80,7 @@ def drawSquare2D(image, x, y, size, color=(0, 0, 255), thickness=1):
 
 
 def drawPoints3D(ax, transform, pts, color=[0, 0, 0], marker_size=1.0, line_width=1.0, marker='.', mfc=None,
-                 text=None, text_color=[0, 0, 0], sensor_color = [0,0,0], handles=None):
+                 text=None, text_color=[0, 0, 0], sensor_color=[0, 0, 0], handles=None):
     """
     Draws (or replots) a 3D reference system
     :param handles:
@@ -100,7 +101,7 @@ def drawPoints3D(ax, transform, pts, color=[0, 0, 0], marker_size=1.0, line_widt
         pts = np.dot(transform, pts)
 
     center_pt = np.average(pts, axis=1)
-    limit_pts = pts[:, [0, pts.shape[1]-1]]
+    limit_pts = pts[:, [0, pts.shape[1] - 1]]
     # limit_pts = pts[:, [-1]]
 
     if handles is None:
@@ -108,8 +109,9 @@ def drawPoints3D(ax, transform, pts, color=[0, 0, 0], marker_size=1.0, line_widt
         handles_out['pts'] = ax.plot(pts[0, :], pts[1, :], pts[2, :], marker, color=color, markersize=marker_size,
                                      linewidth=line_width)[0]
 
-        handles_out['pts_limits'] = ax.plot(limit_pts[0, :], limit_pts[1, :], limit_pts[2, :], 'o', color=sensor_color, markersize=5,
-                                     linewidth=line_width*2, mfc='none')[0]
+        handles_out['pts_limits'] = \
+            ax.plot(limit_pts[0, :], limit_pts[1, :], limit_pts[2, :], 'o', color=sensor_color, markersize=5,
+                    linewidth=line_width * 2, mfc='none')[0]
         if not text is None:
             handles_out['text'] = ax.text(center_pt[0], center_pt[1], center_pt[2], text, color=text_color)
         return handles_out
@@ -158,13 +160,13 @@ def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='bl
         for idx_y in range(0, chess_num_y):
             idxs_x = [idx_y * chess_num_x, idx_y * chess_num_x + chess_num_x - 1]
             handles_out['chessboard_pts_' + str(counter)] = \
-            ax.plot(pts[0, idxs_x], pts[1, idxs_x], pts[2, idxs_x], '-', linewidth=1.0, color=color)[0]
+                ax.plot(pts[0, idxs_x], pts[1, idxs_x], pts[2, idxs_x], '-', linewidth=1.0, color=color)[0]
             counter += 1
 
         for idx_x in range(0, chess_num_x):
             idxs_y = [idx_x, chess_num_x * chess_num_y - chess_num_x + idx_x]
             handles_out['chessboard_pts_' + str(counter)] = \
-            ax.plot(pts[0, idxs_y], pts[1, idxs_y], pts[2, idxs_y], '-', linewidth=1.0, color=color)[0]
+                ax.plot(pts[0, idxs_y], pts[1, idxs_y], pts[2, idxs_y], '-', linewidth=1.0, color=color)[0]
             counter += 1
 
         handles_out['x'] = ax.plot(x_axis[0, :], x_axis[1, :], x_axis[2, :], 'r-', linewidth=line_width)[0]
@@ -213,7 +215,7 @@ def drawChessBoard(ax, transform, pts, text, chess_num_x, chess_num_y, color='bl
         handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
 
 
-def drawAxis3D_plotly(ax, transform, text, text_color = [0,0,0], axis_scale=0.1, line_width=1.0, handles=None):
+def drawAxis3D_plotly(ax, transform, text, text_color=[0, 0, 0], axis_scale=0.1, line_width=1.0, handles=None):
     """
     Draws (or replots) a 3D reference system
     :param text_color:
@@ -239,7 +241,8 @@ def drawAxis3D_plotly(ax, transform, text, text_color = [0,0,0], axis_scale=0.1,
         handles_out['x'] = ax.plot(x_axis[0, :], x_axis[1, :], x_axis[2, :], 'r-', linewidth=line_width)[0]
         handles_out['y'] = ax.plot(y_axis[0, :], y_axis[1, :], y_axis[2, :], 'g-', linewidth=line_width)[0]
         handles_out['z'] = ax.plot(z_axis[0, :], z_axis[1, :], z_axis[2, :], 'b-', linewidth=line_width)[0]
-        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color=text_color, fontsize=10)
+        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color=text_color,
+                                      fontsize=10)
         return handles_out
     else:
         handles['x'].set_xdata(x_axis[0, :])
@@ -257,7 +260,8 @@ def drawAxis3D_plotly(ax, transform, text, text_color = [0,0,0], axis_scale=0.1,
         handles['text'].set_position((pt_origin[0, 0], pt_origin[1, 0]))
         handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='y')
 
-def drawAxis3D(ax, transform, text, text_color = [0,0,0], axis_scale=0.1, line_width=1.0, handles=None):
+
+def drawAxis3D(ax, transform, text, text_color=[0, 0, 0], axis_scale=0.1, line_width=1.0, handles=None):
     """
     Draws (or replots) a 3D reference system
     :param text_color:
@@ -283,7 +287,8 @@ def drawAxis3D(ax, transform, text, text_color = [0,0,0], axis_scale=0.1, line_w
         handles_out['x'] = ax.plot(x_axis[0, :], x_axis[1, :], x_axis[2, :], 'r-', linewidth=line_width)[0]
         handles_out['y'] = ax.plot(y_axis[0, :], y_axis[1, :], y_axis[2, :], 'g-', linewidth=line_width)[0]
         handles_out['z'] = ax.plot(z_axis[0, :], z_axis[1, :], z_axis[2, :], 'b-', linewidth=line_width)[0]
-        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color=text_color, fontsize=10)
+        handles_out['text'] = ax.text(pt_origin[0, 0], pt_origin[1, 0], pt_origin[2, 0], text, color=text_color,
+                                      fontsize=10)
         return handles_out
     else:
         handles['x'].set_xdata(x_axis[0, :])
@@ -368,33 +373,82 @@ def translationQuaternionToTransform(trans, quat):
     return matrix
 
 
-def getAggregateTransform(chain, transforms, mode=0):
-    AT = np.eye(4, dtype=np.float)
+def generateKey(parent, child, suffix=''):
+    return parent + '-' + child + suffix
 
-    if mode == 0:
-        for link in chain:
-            parent = link['parent']
-            child = link['child']
-            trans = transforms[link['key']]['trans']
-            quat = transforms[link['key']]['quat']
+
+def getChain(from_frame, to_frame, transform_pool):
+    """ Gets a chain of transforms given two reference frames and a se of transformations. Computes a graph from the
+    set of transforms, and then finds a path in the graph betweem the two given links.
+
+    @param from_frame: initial frame
+    @param to_frame: final frame
+    @param transform_pool: a dictionary containing several transforms
+    @return:  a chain of transforms The standard we have is to use a list of dictionaries, each containing
+    # information about the transform: [{'parent': parent, 'child': child, 'key': 'parent-child'}, {...}]
+    """
+    chain = []  # initialized to empty list. The standard we have is to use a list of dictionaries, each containing
+    # information about the transform: [{'parent': parent, 'child': child, 'key': 'parent-child'}, {...}]
+
+    graph = nx.Graph()  # build a graph of transforms and then use it to find the path
+    for transform_key, transform in transform_pool.items():  # create the graph from the transform_pool
+        graph.add_edge(transform['parent'], transform['child'])
+
+    # Debug stuff, just for drawing
+    # nx.draw(graph, with_labels=True)
+    # import matplotlib.pyplot as plt
+    # plt.show()
+
+    path = nx.shortest_path(graph, from_frame, to_frame)  # compute the path between given reference frames
+    for idx in range(0, len(path) - 1):  # get the chain as a list of dictionaries from the path
+        parent = path[idx]
+        child = path[idx + 1]
+        chain.append({'parent': parent, 'child': child, 'key': generateKey(parent, child)})
+
+    return chain
+
+
+def getAggregateTransform(chain, transforms):
+    """ Multiplies local transforms in a chain to get the global transform of the chain
+
+    @param chain: a list of transforms
+    @param transforms: a pool of transformations
+    @return: the global transformation (4x4 homogeneous)
+    """
+    transform = np.eye(4, dtype=np.float)
+
+    for link in chain:
+
+        key = generateKey(link['parent'], link['child'])
+        inverse_key = generateKey(link['child'], link['parent'])
+        if key in transforms.keys():  # check if link exists in transforms
+            trans = transforms[key]['trans']
+            quat = transforms[key]['quat']
             parent_T_child = translationQuaternionToTransform(trans, quat)
             # print(parent + '_T_' + child + ' =\n' + str(parent_T_child))
-            AT = np.dot(AT, parent_T_child)
-        # print(parent + '_T_' + child + ' =\n' + str(AT))
-    else:
-        for link in chain[::-1]:
-            parent = link['parent']
-            child = link['child']
-            trans = transforms[link['key']]['trans']
-            quat = transforms[link['key']]['quat']
-            parent_T_child = translationQuaternionToTransform(trans, quat)
+        elif inverse_key in transforms.keys(): # the reverse transform may exist
+            trans = transforms[inverse_key]['trans']
+            quat = transforms[inverse_key]['quat']
+            parent_T_child = np.linalg.inv(translationQuaternionToTransform(trans, quat))
+        else:
+            raise ValueError('Transform from ' + link['parent'] + ' to ' + link['child'] + ' does not exist.')
 
-            # print(parent + '_T_' + child + ' =\n' + str(parent_T_child))
-            # AT = np.dot(AT, parent_T_child)
-            AT = np.dot(parent_T_child, AT)
-            # AT = np.dot(AT, parent_T_child)
+        transform = np.dot(transform, parent_T_child)
+    # print(parent + '_T_' + child + ' =\n' + str(AT))
 
-    return AT
+    return transform
+
+
+def getTransform(from_frame, to_frame, transforms):
+    """ Gets a transformation between any two frames
+
+    @param from_frame: Starting frame
+    @param to_frame: Ending frame
+    @param transforms: dictionary of several transforms
+    @return: the global transformation (4x4 homogeneous)
+    """
+    chain = getChain(from_frame, to_frame, transforms)
+    return getAggregateTransform(chain, transforms)
 
 
 # ---------------------------------------

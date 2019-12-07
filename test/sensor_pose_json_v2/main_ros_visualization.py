@@ -170,9 +170,16 @@ def main():
     print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
         len(dataset_sensors['collections'].keys())) + ' collections.')
 
+
+    # transform_pool = dataset_sensors['collections']['0']['transforms']
+    # print(utilities.getTransform('base_footprint', 'top_center_rgbd_camera_depth_optical_frame', transform_pool))
+    # exit(0)
+
     # ---------------------------------------
     # --- SETUP OPTIMIZER
     # ---------------------------------------
+
+
 
     opt = OptimizationUtils.Optimizer()
     opt.addModelData('dataset_sensors', dataset_sensors)
