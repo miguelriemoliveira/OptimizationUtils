@@ -531,7 +531,7 @@ def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
     :param distortion: should be as follows: (k_1, k_2, p_1, p_2[, k_3[, k_4, k_5, k_6]])
     :param width: the image width
     :param height: the image height
-    :param pts: a list of point coordinates (in the camera frame) with the following format
+    :param pts: a list of point coordinates (in the camera frame) with the following format: np array 4xn or 3xn
     :return: a list of pixel coordinates with the same lenght as pts
     """
 

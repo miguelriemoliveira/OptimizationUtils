@@ -392,9 +392,10 @@ def visualizationFunction(data):
 
     # Publishes only the tfs which are being calibrated. Better than above, but requires a state_publisher to be
     # launched in parallel Draw sensor poses (use sensor pose from collection '0' since they are all the same)
+    selected_collection_key = dataset_sensors['collections'].keys()[0]
     for sensor_key, sensor in dataset_sensors['sensors'].items():
         transform_key = sensor['calibration_parent'] + '-' + sensor['calibration_child']
-        transform = dataset_sensors['collections']['0']['transforms'][transform_key]
+        transform = dataset_sensors['collections'][selected_collection_key]['transforms'][transform_key]
         dataset_graphics['ros']['tf_broadcaster'].sendTransform(transform['trans'], transform['quat'],
                                                                 now, sensor['calibration_child'],
                                                                 sensor['calibration_parent'])

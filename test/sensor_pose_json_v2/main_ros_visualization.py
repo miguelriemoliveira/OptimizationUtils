@@ -307,12 +307,12 @@ def main():
         # pp.pprint(dataset_graphics)
         opt.addModelData('dataset_graphics', dataset_graphics)
 
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[])
+    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=50, figures=[])
 
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
-    opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-8,'gtol': 1e-5, 'diff_step': 1e-4,
+    opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-4,'gtol': 1e-5, 'diff_step': 1e-4,
                                                 'x_scale': 'jac'})
 
     print('\n-----------------')
