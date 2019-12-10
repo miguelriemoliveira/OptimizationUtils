@@ -65,6 +65,7 @@ class Optimizer:
         self.vis_function_handle = None  # to contain a handle to the visualization function
         self.vis_niterations = 0
         self.vis_counter = 0
+        self.always_visualize = False
 
         print('\nInitializing optimizer...')
 

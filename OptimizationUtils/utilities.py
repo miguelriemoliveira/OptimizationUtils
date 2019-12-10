@@ -9,7 +9,7 @@ A set of utilities to be used in the optimization algorithms
 from copy import deepcopy
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from tf import transformations
+from . import transformations
 
 import KeyPressManager
 import numpy as np
