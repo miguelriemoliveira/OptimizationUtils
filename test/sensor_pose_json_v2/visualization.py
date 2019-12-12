@@ -138,9 +138,9 @@ def setupVisualization(dataset_sensors, args):
                 marker.ns = str(collection_key) + '-' + str(sensor_key)
                 marker.type = Marker.CUBE_LIST
                 marker.id = 2
-                marker.scale.x = 0.1
-                marker.scale.y = 0.1
-                marker.scale.z = 0.1
+                marker.scale.x = 0.05
+                marker.scale.y = 0.05
+                marker.scale.z = 0.05
                 marker.color.a = 0.5
 
                 # first_iteration = True

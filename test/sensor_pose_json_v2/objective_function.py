@@ -185,6 +185,51 @@ def objectiveFunction(data):
                 errors.append(dists[0, 0])
                 errors.append(dists[0, 1])
 
+                # ---------------------------------LONGITUDINAL DISTANCE FOR INNER POINTS -------------------------
+                edges = 0
+                for i in range(0, len(idxs) - 1):
+                    if (idxs[i + 1] - idxs[i]) != 1:
+                        edges += 1
+
+                dists_inner_1 = np.zeros((1, edges), np.float)
+                dists_inner_2 = np.zeros((1, edges), np.float)
+                idxs_min_1 = np.zeros((1, edges), np.int)
+                idxs_min_2 = np.zeros((1, edges), np.int)
+                counter = 0
+
+                for i in range(0, len(idxs) - 1):
+                    if (idxs[i + 1] - idxs[i]) != 1:
+                        # Compute longitudinal error for inner
+                        pt_chessboard_1 = pts_chessboard[:, i]
+                        pt_chessboard_2 = pts_chessboard[:, i + 1]
+                        planar_pt_chessboard_1 = pt_chessboard_1[0:2]
+                        planar_pt_chessboard_2 = pt_chessboard_2[0:2]
+                        pt_1 = np.zeros((2, 1), dtype=np.float)
+                        pt_1[0, 0] = planar_pt_chessboard_1[0]
+                        pt_1[1, 0] = planar_pt_chessboard_1[1]
+                        pt_2 = np.zeros((2, 1), dtype=np.float)
+                        pt_2[0, 0] = planar_pt_chessboard_2[0]
+                        pt_2[1, 0] = planar_pt_chessboard_2[1]
+                        planar_i_chess_pts = dataset_chessboards['inner_points'][0:2, :]
+                        vals_1 = distance.cdist(pt_1.transpose(), planar_i_chess_pts.transpose(), 'euclidean')
+                        vals_2 = distance.cdist(pt_2.transpose(), planar_i_chess_pts.transpose(), 'euclidean')
+                        minimum_1 = np.amin(vals_1)
+                        minimum_2 = np.amin(vals_2)
+                        dists_inner_1[0, counter] = minimum_1
+                        dists_inner_2[0, counter] = minimum_2
+                        for ii in range(0, len(planar_i_chess_pts[0])):
+                            if vals_1[0, ii] == minimum_1:
+                                idxs_min_1[0, counter] = ii
+                            if vals_2[0, ii] == minimum_2:
+                                idxs_min_2[0, counter] = ii
+
+                        counter += 1
+                for c in range(0, counter):
+                    errors.append(dists_inner_1[0, c])
+                    errors.append(dists_inner_2[0, c])
+
+                # --------------------------------------------------------------------
+
                 # Compute orthogonal error (for extremas only)
                 # oe = np.zeros((1, 2), np.float)
                 # counter = 0

@@ -300,12 +300,9 @@ def main():
     d1['quat'] = transformations.quaternion_from_matrix(T1).tolist()
 
     for collection_key, collection in dataset_sensors['collections'].items():
-        collection['transforms'][str(s1) + '-' + str(s2)] = d1
+        collection['transforms'][str(s2) + '-' + str(s1)] = d1
 
-
-
-
-    # ---------------------------------------
+    # ---------------   ------------------------
     # --- Save Results
     # ---------------------------------------
     # Write json file with updated dataset_sensors

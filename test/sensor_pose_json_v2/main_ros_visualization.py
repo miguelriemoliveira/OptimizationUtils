@@ -287,7 +287,13 @@ def main():
 
             elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
                 num_pts_in_cluster = len(collection['labels'][_sensor_key]['idxs'])
-                for idx in range(0, 2 + num_pts_in_cluster):
+                idxs = collection['labels'][_sensor_key]['idxs']
+                edges = 0
+                for i in range(0, len(idxs) - 1):
+                    if (idxs[i + 1] - idxs[i]) != 1:
+                        edges += 1
+                laser_residuals_number = 2 + num_pts_in_cluster + (2 * edges)
+                for idx in range(0, laser_residuals_number):
                     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
 
     # print('residuals = ' + str(opt.residuals))
