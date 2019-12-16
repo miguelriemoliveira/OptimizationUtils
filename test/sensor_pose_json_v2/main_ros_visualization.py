@@ -190,16 +190,16 @@ def main():
     # Add parameters related to the sensors
     # translation_delta = 0.3
 
-    # TODO the definition of the anchored sensor should be done in the calibration config. #60.
-    anchored_sensor = 'top_left_camera'
-    # anchored_sensor = 'left_laser'
+    # for collection_key, collection in dataset_sensors['collections'].items():
+    #     collection['transforms']['base_link-top_left_camera']['trans'] = [-1.48, 0.22, 1.35]
+
     for _sensor_key, sensor in dataset_sensors['sensors'].items():
 
         # Translation -------------------------------------
         initial_translation = getterSensorTranslation(dataset_sensors, sensor_key=_sensor_key,
                                                       collection_key=selected_collection_key)
 
-        if _sensor_key == anchored_sensor:
+        if _sensor_key == dataset_sensors['calibration_config']['anchored_sensor']:
             bound_max = [x + sys.float_info.epsilon for x in initial_translation]
             bound_min = [x - sys.float_info.epsilon for x in initial_translation]
         else:
@@ -217,7 +217,7 @@ def main():
         initial_rotation = getterSensorRotation(dataset_sensors, sensor_key=_sensor_key,
                                                 collection_key=selected_collection_key)
 
-        if _sensor_key == anchored_sensor:
+        if _sensor_key == dataset_sensors['calibration_config']['anchored_sensor']:
             bound_max = [x + sys.float_info.epsilon for x in initial_rotation]
             bound_min = [x - sys.float_info.epsilon for x in initial_rotation]
         else:
@@ -318,7 +318,7 @@ def main():
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
-    opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-4,'gtol': 1e-5, 'diff_step': 1e-4,
+    opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-5, 'diff_step': 1e-4,
                                                 'x_scale': 'jac'})
 
     print('\n-----------------')
