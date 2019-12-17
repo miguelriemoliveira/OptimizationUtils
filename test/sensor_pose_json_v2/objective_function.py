@@ -22,7 +22,7 @@ def objectiveFunction(data):
         - (...)
         :return: a vector of residuals
     """
-    print('Calling objective function.')
+    # print('Calling objective function.')
 
     # Get the data from the model
     dataset_sensors = data['dataset_sensors']
@@ -30,13 +30,17 @@ def objectiveFunction(data):
     dataset_chessboard_points = data['dataset_chessboard_points']
     errors = []
 
-    for sensor_key, sensor in dataset_sensors['sensors'].items():
-        sum_error = 0
-        num_detections = 0
-        for collection_key, collection in dataset_sensors['collections'].items():
-            c_error = 0
+    for collection_key, collection in dataset_sensors['collections'].items():
+        c_error = 0
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            sum_error = 0
+            num_detections = 0
+
             if not collection['labels'][sensor_key]['detected']:  # chess not detected by sensor in collection
                 continue
+
+
+            # print("Computing residuals for collection " + collection_key + ", sensor " + sensor_key)
 
             if sensor['msg_type'] == 'Image':
 
@@ -77,25 +81,25 @@ def objectiveFunction(data):
                 idx = 0
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                e1 = e1 / 100
+                # e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['chess_num_x'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                e1 = e1 / 100
+                # e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['number_corners'] - dataset_chessboards['chess_num_x']
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                e1 = e1 / 100
+                # e1 = e1 / 100
                 error_vector.append(e1)
 
                 idx = dataset_chessboards['number_corners'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                e1 = e1 / 100
+                # e1 = e1 / 100
                 error_vector.append(e1)
 
                 # error = error_sum / (args['chess_num_x'] * args['chess_num_y'])
@@ -296,10 +300,10 @@ def objectiveFunction(data):
             #
             # print('\n\nerror for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(errors))
 
-        if num_detections == 0:
-            continue
-        else:
-            print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error / num_detections))
+        # if num_detections == 0:
+        #     continue
+        # else:
+        #     print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error / num_detections))
 
     # Return the errors
     # createJSONFile('/tmp/data_collected_results.json', dataset_sensors)

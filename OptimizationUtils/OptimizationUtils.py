@@ -173,8 +173,8 @@ class Optimizer:
 
         if number_of_params is None:  # infer the number of params in this group from the size ofthe return vector
             number_of_params = len(getter(self.data_models[data_key]))
-            print('Param vector ' + group_name + ': estimated number of params ' + str(
-                number_of_params) + ' from getter.')
+            # print('Param vector ' + group_name + ': estimated number of params ' + str(
+            #     number_of_params) + ' from getter.')
 
         if bound_max is None:
             bound_max = number_of_params * [+inf]
@@ -343,19 +343,19 @@ class Optimizer:
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
 
         self.xf = deepcopy(list(self.result.x))  # Store final x values
+        self.fromXToData(self.xf)
+
         self.finalOptimizationReport()  # print an informative report
 
     def finalOptimizationReport(self):
         """Just print some info and show the images"""
-        print('\n-------------\nOptimization finished')
-        print(self.result)
+        print('\n-------------\nOptimization finished: ' + self.result['message'])
         # self.printX(preamble_text='\nInitial value of parameters', x=self.x0)
         # self.printX(preamble_text='\nFinal value of parameters', x=self.xf)
 
-        self.fromXToData(self.xf)
-
         if self.always_visualize:
             self.vis_function_handle(self.data_models)
+            print('Press c to continue ...')
             self.wm.waitForKey(time_to_wait=None, verbose=False)
 
     # ---------------------------

@@ -8,10 +8,14 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # -------------------------------------------------------------------------------
 import json
 import pprint
+import rospkg
 import sys
+from colorama import Fore, Style
 from numpy import inf
 
 import rospy
+from urdf_parser_py.urdf import URDF
+
 import tf
 import visualization_msgs
 from cv_bridge import CvBridge
@@ -53,12 +57,11 @@ def walk(node):
         if isinstance(item, dict):
             walk(item)
         else:
-            if isinstance(item, np.ndarray) and key == 'data':  # to avoid saning images in the json
+            if isinstance(item, np.ndarray) and key == 'data':  # to avoid saving images in the json
                 del node[key]
 
             elif isinstance(item, np.ndarray):
                 node[key] = item.tolist()
-                print('Converted to list')
             pass
 
 
@@ -116,6 +119,12 @@ def main():
 
     args = vars(ap.parse_args())
     print("\nArgument list=" + str(args) + '\n')
+
+    # ---------------------------------------
+    # --- Reading robot description file from param /robot_description
+    # ---------------------------------------
+    rospy.loginfo('Reading /robot_description ros param')
+    xml_robot = URDF.from_parameter_server()  # needed to create the optimized xacro at the end of the optimization
 
     # ---------------------------------------
     # --- INITIALIZATION Read data from file
@@ -188,11 +197,16 @@ def main():
     # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
 
     # Add parameters related to the sensors
-    # translation_delta = 0.3
+    translation_delta = 0.01
 
+    # TODO temporary placement of top_left_camera
     # for collection_key, collection in dataset_sensors['collections'].items():
     #     collection['transforms']['base_link-top_left_camera']['trans'] = [-1.48, 0.22, 1.35]
 
+    print('Anchored sensor is ' + Fore.GREEN + dataset_sensors['calibration_config'][
+        'anchored_sensor'] + Style.RESET_ALL)
+
+    print('Creating parameters ...')
     for _sensor_key, sensor in dataset_sensors['sensors'].items():
 
         # Translation -------------------------------------
@@ -203,8 +217,13 @@ def main():
             bound_max = [x + sys.float_info.epsilon for x in initial_translation]
             bound_min = [x - sys.float_info.epsilon for x in initial_translation]
         else:
+            # bound_max = [x + translation_delta for x in initial_translation]
+            # bound_min = [x - translation_delta for x in initial_translation]
             bound_max = [+inf for x in initial_translation]
             bound_min = [-inf for x in initial_translation]
+            if 'laser' in _sensor_key:
+                bound_max[2] = initial_translation[2] + translation_delta
+                bound_min[2] = initial_translation[2] - translation_delta
 
         opt.pushParamVector(group_name='S_' + _sensor_key + '_t', data_key='dataset_sensors',
                             getter=partial(getterSensorTranslation, sensor_key=_sensor_key,
@@ -267,13 +286,16 @@ def main():
     # Each error is computed after the sensor and the chessboard of a collection. Thus, each error will be affected
     # by the parameters tx,ty,tz,r1,r2,r3 of the sensor and the chessboard
 
-    for _sensor_key, sensor in dataset_sensors['sensors'].items():
-        for _collection_key, collection in dataset_sensors['collections'].items():
+    print("Creating residuals ... ")
+    for _collection_key, collection in dataset_sensors['collections'].items():
+        for _sensor_key, sensor in dataset_sensors['sensors'].items():
             if not collection['labels'][_sensor_key]['detected']:  # if chessboard not detected by sensor in collection
                 continue
 
             params = opt.getParamsContainingPattern('S_' + _sensor_key)  # sensor related params
             params.extend(opt.getParamsContainingPattern('C_' + _collection_key + '_'))  # chessboard related params
+
+            # print("Residuals for collection " + _collection_key + ", sensor " + _sensor_key + ", contains params:\n" + str(params))
 
             if sensor['msg_type'] == 'Image':  # if sensor is a camera use four residuals
                 # for idx in range(0, dataset_chessboards['number_corners']):
@@ -301,6 +323,7 @@ def main():
     # ---------------------------------------
     # --- Compute the SPARSE MATRIX
     # ---------------------------------------
+    print("Computing sparse matrix ... ")
     opt.computeSparseMatrix()
     # opt.printSparseMatrix()
 
@@ -308,6 +331,7 @@ def main():
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
     if args['view_optimization']:
+        print("Configuring visualization ... ")
         dataset_graphics = setupVisualization(dataset_sensors, args)
         # pp = pprint.PrettyPrinter(indent=4)
         # pp.pprint(dataset_graphics)
@@ -318,19 +342,52 @@ def main():
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
-    opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-5, 'diff_step': 1e-4,
-                                                'x_scale': 'jac'})
+    print('Starting optimization ...')
+    opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-5,
+                                                'diff_step': 1e-4, 'x_scale': 'jac'})
 
-    print('\n-----------------')
-    opt.printParameters(opt.x0, text='Initial parameters')
-    print('\n')
-    opt.printParameters(opt.xf, text='Final parameters')
+    # print('\n-----------------')
+    # opt.printParameters(opt.x0, text='Initial parameters')
+    # print('\n')
+    # opt.printParameters(opt.xf, text='Final parameters')
 
     # ---------------------------------------
-    # --- Save Results
+    # --- Save JSON file
     # ---------------------------------------
     # Write json file with updated dataset_sensors
     createJSONFile('test/sensor_pose_json_v2/results/dataset_sensors_results.json', dataset_sensors)
+
+    # Cycle all sensors in calibration config, and for each replace the optimized transform in the original xacro
+    for sensor_key in dataset_sensors['calibration_config']['sensors']:
+        child = dataset_sensors['calibration_config']['sensors'][sensor_key]['child_link']
+        parent = dataset_sensors['calibration_config']['sensors'][sensor_key]['parent_link']
+        transform_key = parent + '-' + child
+
+        trans = list(dataset_sensors['collections'][selected_collection_key]['transforms'][transform_key]['trans'])
+        quat = list(dataset_sensors['collections'][selected_collection_key]['transforms'][transform_key]['quat'])
+        found = False
+
+        for joint in xml_robot.joints:
+            if joint.parent == parent and joint.child == child:
+                found = True
+                print('Found joint: ' + str(joint.name))
+
+                print('Replacing xyz = ' + str(joint.origin.xyz) + ' by ' + str(trans))
+                joint.origin.xyz = trans
+
+                rpy = list(tf.transformations.euler_from_quaternion(quat, axes='rxyz'))
+                print('Replacing rpy = ' + str(joint.origin.rpy) + ' by ' + str(rpy))
+                joint.origin.rpy = rpy
+                break
+
+        if not found:
+            raise ValueError('Could not find transform ' + str(transform_key) + ' in /robot_description')
+
+    # TODO remove hardcoded xacro name
+    outfile = rospkg.RosPack().get_path('interactive_calibration') + '/calibrations/atlascar2/optimized.urdf.xacro'
+    with open(outfile, 'w') as out:
+        print("Writing optimized urdf to " + str(outfile))
+        out.write(URDF.to_xml_string(xml_robot))
 
 
 if __name__ == "__main__":
