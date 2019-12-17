@@ -13,6 +13,79 @@ import OptimizationUtils.utilities as utilities
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
 
+def distance_two_3D_points(p0, p1):
+    distance = math.sqrt(((p0[0] - p1[0]) ** 2) + ((p0[1] - p1[1]) ** 2) + ((p0[2] - p1[2]) ** 2))
+    return distance
+
+# intersection function
+def isect_line_plane_v3(p0, p1, p_co, p_no, epsilon=1e-6):
+    """
+    p0, p1: Define the line.
+    p_co, p_no: define the plane:
+        p_co Is a point on the plane (plane coordinate).
+        p_no Is a normal vector defining the plane direction;
+             (does not need to be normalized).
+
+    Return a Vector or None (when the intersection can't be found).
+    """
+
+    u = sub_v3v3(p1, p0)
+    dot = dot_v3v3(p_no, u)
+
+    if abs(dot) > epsilon:
+        # The factor of the point between p0 -> p1 (0 - 1)
+        # if 'fac' is between (0 - 1) the point intersects with the segment.
+        # Otherwise:
+        #  < 0.0: behind p0.
+        #  > 1.0: infront of p1.
+        w = sub_v3v3(p0, p_co)
+        fac = -dot_v3v3(p_no, w) / dot
+        u = mul_v3_fl(u, fac)
+        return add_v3v3(p0, u)
+    else:
+        # The segment is parallel to plane.
+        return None
+
+# ----------------------
+# generic math functions
+
+
+def add_v3v3(v0, v1):
+    return (
+        v0[0] + v1[0],
+        v0[1] + v1[1],
+        v0[2] + v1[2],
+        )
+
+
+def sub_v3v3(v0, v1):
+    return (
+        v0[0] - v1[0],
+        v0[1] - v1[1],
+        v0[2] - v1[2],
+        )
+
+
+def dot_v3v3(v0, v1):
+    return (
+        (v0[0] * v1[0]) +
+        (v0[1] * v1[1]) +
+        (v0[2] * v1[2])
+        )
+
+
+def len_squared_v3(v0):
+    return dot_v3v3(v0, v0)
+
+
+def mul_v3_fl(v0, f):
+    return (
+        v0[0] * f,
+        v0[1] * f,
+        v0[2] * f,
+        )
+
+
 def objectiveFunction(data):
     """
     Computes the vector of errors. There should be an error for each stamp, sensor and chessboard tuple.
@@ -234,6 +307,42 @@ def objectiveFunction(data):
 
                 # --------------------------------------------------------------------
 
+                # --------------------------------- BEAM DIRECTION DISTANCE FROM POINT TO CHESSBOARD PLAN  ------------
+                # Compute chessboard points in local sensor reference frame
+                trans = dataset_chessboards['collections'][collection_key]['trans']
+                quat = dataset_chessboards['collections'][collection_key]['quat']
+                root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
+                origin = np.zeros((3, 1), np.int)
+                origin = np.vstack((origin, np.ones((1, origin.shape[1]), dtype=np.float)))
+                laser_origin = np.dot(root_T_sensor, origin)
+                beam_distance_error = np.zeros((1, pts_chessboard.shape[1]), np.float)
+                num_x = dataset_chessboards['chess_num_x']
+                num_y = dataset_chessboards['chess_num_y']
+                point_chessboard = np.zeros((3, 1), np.float32)
+                point_chessboard[0] = dataset_chessboard_points['points'][0][num_x + 3]
+                point_chessboard[1] = dataset_chessboard_points['points'][1][num_x + 3]
+                point_chessboard = np.vstack((point_chessboard, np.ones((1, point_chessboard.shape[1]), dtype=np.float)))
+                point_chessboard_root = np.dot(root_T_sensor, point_chessboard)
+                normal_vector = np.zeros((3, 1), np.float32)
+                normal_vector[0] = root_T_chessboard[0][2]
+                normal_vector[1] = root_T_chessboard[1][2]
+                normal_vector[2] = root_T_chessboard[2][2]
+                counter = 0
+                for idx in range(0, pts_chessboard.shape[1]):  # for all points
+                    pt_root = pts_root[:, idx]
+                    interseption_point = isect_line_plane_v3(laser_origin, pt_root, point_chessboard_root, normal_vector)
+                    if interseption_point == None:
+                        print("Error: chessboard is almost parallel to the laser beam! Please delete the collections"
+                              " in question.")
+                        exit(0)
+                    else:
+                        beam_distance_error[0, counter] = distance_two_3D_points(pt_root, interseption_point)
+                        errors.append(beam_distance_error[0, counter])
+                    counter += 1
+                # print("beam distance error vector:\n")
+                # print(beam_distance_error)
+                # --------------------------------------------------------------------
+
                 # Compute orthogonal error (for extremas only)
                 # oe = np.zeros((1, 2), np.float)
                 # counter = 0
@@ -244,17 +353,18 @@ def objectiveFunction(data):
                 #     counter += 1
 
                 # Compute orthogonal error (all the points)
-                oe = np.zeros((1, pts_chessboard.shape[1]), np.float)
-                counter = 0
-                for idx in range(0, pts_chessboard.shape[1]):  # for all points
-                    pt_chessboard = pts_chessboard[:, idx]
-                    oe[0, counter] = np.absolute(pt_chessboard[2])  # orthogonal distance to the chessboard limit points
-                    errors.append(oe[0, counter])
-                    counter += 1
+                # oe = np.zeros((1, pts_chessboard.shape[1]), np.float)
+                # counter = 0
+                # for idx in range(0, pts_chessboard.shape[1]):  # for all points
+                #     pt_chessboard = pts_chessboard[:, idx]
+                #     oe[0, counter] = np.absolute(pt_chessboard[2])  # orthogonal distance to the chessboard limit points
+                #     errors.append(oe[0, counter])
+                #     counter += 1
 
                 # Compute average for printing
                 num_detections += 1
-                c_error = (dists[0, 0] + dists[0, 1] + oe[0, 0] + oe[0, 1]) / 4
+                # c_error = (dists[0, 0] + dists[0, 1] + oe[0, 0] + oe[0, 1]) / 4
+                c_error = (dists[0, 0] + dists[0, 1]) / 2
                 sum_error += c_error
 
                 # Store for visualization
