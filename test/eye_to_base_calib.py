@@ -185,10 +185,10 @@ def main():
     parameters = {}
 
     # should the models be unified? (eurico)
-    opt.addModelData('parameters', parameters)
-    opt.addModelData('collections', collections)
-    opt.addModelData('sensors', sensors)
-    opt.addModelData('config', config)
+    opt.addDataModel('parameters', parameters)
+    opt.addDataModel('collections', collections)
+    opt.addDataModel('sensors', sensors)
+    opt.addDataModel('config', config)
 
     # The pose of several sensors are explicit optimization parameters.
     # These poses are the the same for all collections.
@@ -215,7 +215,7 @@ def main():
     pattern['grid'] = grid
     pattern['hgrid'] = [x + [1] for x in grid.tolist()]  # homogeneous coordinates
 
-    opt.addModelData('pattern', pattern)
+    opt.addDataModel('pattern', pattern)
 
     # Pattern pose, for now we assume fixed pose
     parameters['pattern'] = Transform.from_position_euler(*pattern['origin']).position_quaternion
