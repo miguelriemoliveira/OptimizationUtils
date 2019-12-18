@@ -102,7 +102,7 @@ roslaunch interactive_calibration atlascar2_view_optimization.launch
 ```
 
 ```bash
-test/sensor_pose_json_v2/main_ros_visualization.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -vo -si
+test/sensor_pose_json_v2/main.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -vo -si
 ```
 
 

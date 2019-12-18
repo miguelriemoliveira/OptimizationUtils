@@ -4,45 +4,27 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 """
 
 # -------------------------------------------------------------------------------
-# --- IMPORTS (standard, then third party, then my own modules)
+# --- IMPORTS (standard, then third party, then own modules)
 # -------------------------------------------------------------------------------
-import json
-import pprint
-import rospkg
-import sys
-from colorama import Fore, Style
 from numpy import inf
+from functools import partial
+import json
+import sys
+import argparse
+from colorama import Fore, Style
 
-import rospy
+import rospkg
 from urdf_parser_py.urdf import URDF
 
-import tf
-import visualization_msgs
-from cv_bridge import CvBridge
-from sensor_msgs.msg import Image, sensor_msgs
-from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point
-
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
-import KeyPressManager.KeyPressManager as KeyPressManager
-import matplotlib.pyplot as plt
-import cv2
-import argparse
-import os
-from functools import partial
-from matplotlib import cm
-from open3d import *
-
 from getter_and_setters import *
 from objective_function import *
 from test.sensor_pose_json_v2.chessboard import createChessBoardData
 from test.sensor_pose_json_v2.visualization import *
 
-
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
-
 
 def is_jsonable(x):
     try:
@@ -50,7 +32,6 @@ def is_jsonable(x):
         return True
     except (TypeError, OverflowError):
         return False
-
 
 def walk(node):
     for key, item in node.items():
@@ -342,7 +323,7 @@ def main():
     # ---------------------------------------
     # --- Start Optimization
     # ---------------------------------------
-    print('Starting optimization ...')
+    print('Initializing optimization ...')
     opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-5,
                                                 'diff_step': 1e-4, 'x_scale': 'jac'})
 

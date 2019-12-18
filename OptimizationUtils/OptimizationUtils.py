@@ -247,7 +247,6 @@ class Optimizer:
         return self.internalObjectiveFunction(self.x)
 
     def internalObjectiveFunction(self, x):
-        # type: (list) -> list
         """ A wrapper around the custom given objective function which maps the x vector to the model before calling the
         objective function and after the call
 
@@ -268,11 +267,10 @@ class Optimizer:
             self.ax.autoscale_view()  # re-enable auto scale
             self.wm.waitForKey(time_to_wait=0.01, verbose=True)  # wait a bit
 
-
             # redraw error evolution plot
             self.total_error.append(np.sum(np.abs(errors)))
             x = range(0, len(self.total_error))
-            print("total errors=" + str(self.total_error))
+            # print("total errors=" + str(self.total_error))
             self.error_plot_handle, = self.error_ax.plot(x, self.total_error,
                                                          color='blue',
                                                          linestyle='solid', linewidth=2, markersize=6)
@@ -280,14 +278,14 @@ class Optimizer:
             # reset x limits if needed
             _, xmax = self.error_ax.get_xlim()
             if x[-1] > xmax:
-                self.error_ax.set_xlim(0, x[-1]+100)
+                self.error_ax.set_xlim(0, x[-1] + 100)
 
             self.error_ax.set_ylim(0, np.max(self.total_error))
 
             # Printing information
-            self.printParameters(flg_simple=True)
-            self.printResiduals(errors)
-            print('\nAverage error = ' + str(np.average(errors)) + '\n')
+            # self.printParameters(flg_simple=True)
+            # self.printResiduals(errors)
+            # print('\nAverage error = ' + str(np.average(errors)) + '\n')
 
         else:
             self.vis_counter += 1
@@ -304,7 +302,7 @@ class Optimizer:
         self.x0 = deepcopy(self.x)  # store current x as initial parameter values
         self.fromXToData()  # copy from x to data models
         self.errors0 = self.objective_function(self.data_models)  # call obj. func. (once) to get initial residuals
-        if not len(self.residuals.keys()) == len(self.errors0): # check if residuals are properly configured
+        if not len(self.residuals.keys()) == len(self.errors0):  # check if residuals are properly configured
             raise ValueError(
                 'Number of residuals returned by the objective function (' + str(len(self.errors0)) +
                 ') is not consistent with the number of residuals configured (' + str(len(self.residuals.keys())) + ')')
@@ -323,22 +321,22 @@ class Optimizer:
             self.drawResidualsFigure()  # First draw of residuals figure
             self.drawErrorEvolutionFigure()  # First draw of error evolution figure
             self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figures)
-            self.wm.waitForKey(time_to_wait=0.01, verbose=True)
             self.vis_counter = 0  # reset counter
             self.vis_function_handle(self.data_models)  # call visualization function
             self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
             self.ax.relim()  # recompute new limits
             self.ax.autoscale_view()  # re-enable auto scale
-            self.wm.waitForKey(time_to_wait=0.01, verbose=True)  # wait a bit
+            self.wm.waitForKey(time_to_wait=0.01, verbose=False)  # wait a bit
 
             # Printing information
-            self.printParameters(flg_simple=True)
-            self.printResiduals(errors)
-            print('\nAverage error = ' + str(np.average(errors)) + '\n')
-            self.wm.waitForKey(time_to_wait=None, verbose=True)  # wait a bit
+            # self.printParameters(flg_simple=True)
+            # self.printResiduals(errors)
+            # print('\nAverage error = ' + str(np.average(errors)) + '\n')
+            self.wm.waitForKey(time_to_wait=None, verbose=True,
+                               message="Ready to start optimization: press 'c' to continue.")  # wait a bit
 
         # Call optimization function (finally!)
-        print("\n\nStarting optimization")
+        print("Starting optimization ...")
         self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
 
@@ -368,7 +366,6 @@ class Optimizer:
         :param x: parameter vector. If None the currently stored in the class is used.
         :return: new parameter vector with noise.
         """
-        # type: (float, list) -> list
         if x is None:
             x = self.x
 
@@ -564,7 +561,6 @@ class Optimizer:
 
     def drawErrorEvolutionFigure(self):
 
-
         # Prepare residuals figure
         self.figure_error_evolution = matplotlib.pyplot.figure()
         self.figures.append(self.figure_error_evolution)
@@ -585,7 +581,7 @@ class Optimizer:
         # self.wm.waitForKey(time_to_wait=0.01, verbose=True)
 
         self.total_error = [np.sum(self.errors0)]
-        self.error_plot_handle, = self.error_ax.plot(range(0,len(self.total_error)), self.total_error, color='blue',
+        self.error_plot_handle, = self.error_ax.plot(range(0, len(self.total_error)), self.total_error, color='blue',
                                                      linestyle='solid', linewidth=2, markersize=1)
         self.error_ax.relim()
         self.error_ax.autoscale_view()
