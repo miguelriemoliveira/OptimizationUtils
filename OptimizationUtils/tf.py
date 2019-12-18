@@ -221,6 +221,14 @@ class Transform(object):
         return tft.euler_from_quaternion(self.quaternion)
 
     @property
+    def position_euler(self):
+        return list(self.position) + self.euler
+
+    @property
+    def position_quaternion(self):
+        return list(self.position) + list(self.quaternion)
+
+    @property
     def roll(self):
         return self.euler[0]
 

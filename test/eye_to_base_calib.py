@@ -4,25 +4,38 @@ import sys
 import os.path
 import argparse
 import json
-import copy
 import numpy as np
 import cv2
+
+from functools import partial
 
 from OptimizationUtils import utilities
 from OptimizationUtils.OptimizationUtils import Optimizer
 
 from OptimizationUtils.tf import TFTree, Transform
 
-# build the chessboard corners
-objp = np.zeros((9*7, 3), np.float32)
-objp[:, :2] = 0.019 * np.mgrid[0:9, 0:7].T.reshape(-1,2)
 
-# Homegeneous chess points
-hcp = [x + [1] for x in objp.tolist()]
+def getPose(model, name):
+    # A pose is represented by a translation vector and a quaternion.
+    # However, the rotation's optimization is done on a rotation vector (see Rodrigues).
+    xform = Transform(*model[name])
+    return model[name][0:3] + utilities.matrixToRodrigues(xform.rotation_matrix).tolist()
 
 
-def setter(obj, name, value):
-    obj[name] = value
+def setPose(model, pose, name):
+    # A pose is represented by a translation vector and a quaternion.
+    # However, the optimization of the rotation is done on a rotation vector (see Rodrigues).
+    mat = utilities.traslationRodriguesToTransform(pose[0:3], pose[3:])
+    xform = Transform.from_matrix(mat)
+    model[name] = xform.position_quaternion
+
+
+def printOriginTag(name, pose):
+    xform = Transform(*pose)
+    t = [str(x) for x in list(xform.position)]
+    r = [str(x) for x in list(xform.euler)]
+    print('<!-- {} -->'.format(name))
+    print('<origin xyz="{}" rpy="{}" />'.format(" ".join(t), " ".join(r)))
 
 
 def objectiveFunction(models):
@@ -30,30 +43,27 @@ def objectiveFunction(models):
     parameters = models['parameters']
     collections = models['collections']
     sensors = models['sensors']
+    pattern = models['pattern']
+    config = models['config']
 
     residual = []
 
-    for name, sensor in sensors.items():
-        for idx, collection in enumerate(collections):
-            if sensor['msg_type'] == 'Image':
-                if not collection['labels'][name]['detected']:
-                    continue
+    for idx, collection in enumerate(collections):
 
-                tree = collection['tf_tree']
+        tree = collection['tf_tree']
 
-                param = copy.deepcopy(parameters[name]['trans'])
-                param.extend(parameters[name]['rot'])
-                tree.add_transform(sensor['calibration_parent'], sensor['calibration_child'], Transform.from_position_euler(*param))
+        # chessboard to root transformation
+        tree.add_transform(pattern['parent_link'], pattern['link'], Transform(*parameters['pattern']))
+        rTc = tree.lookup_transform(pattern['link'], config['world_link']).matrix
 
-                param = copy.deepcopy(parameters['ee_link-chessboard_link']['trans'])
-                param.extend(parameters['ee_link-chessboard_link']['rot'])
-                tree.add_transform('ee_link', 'chessboard_link', Transform.from_position_euler(*param))
+        for sensor_name, labels in collection['labels'].items():
+            if not labels['detected']:
+                continue
 
-                # sensor to root transformation
-                rTs = tree.lookup_transform(sensor['camera_info']['header']['frame_id'], 'base_link').matrix
-                # chessboard to root transformation
-                rTc = tree.lookup_transform('chessboard_link', 'base_link').matrix
+            xform = Transform(*parameters[sensor_name])
+            tree.add_transform(sensors[sensor_name]['calibration_parent'], sensors[sensor_name]['calibration_child'], xform)
 
+<<<<<<< HEAD
 
                 # TEST MIGUEL - ALTERNATIVE to tf
                 rTs_miguel = utilities.getTransform(sensor['camera_info']['header']['frame_id'], 'base_link', collection['transforms'])
@@ -64,22 +74,35 @@ def objectiveFunction(models):
                 # convert chessboard corners from pixels to sensor coordinates.
                 K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(sensor['camera_info']['K']))
                 D = np.ndarray((5, 1), dtype=np.float, buffer=np.array(sensor['camera_info']['D']))
+=======
+            # sensor to root transformation
+            rTs = tree.lookup_transform(sensors[sensor_name]['camera_info']['header']['frame_id'], config['world_link']).matrix
+>>>>>>> Use Rodrigues in optimization. Code refactoring.
 
-                corners = np.zeros((len(collection['labels'][name]['idxs']),1,2), dtype=np.float)
-                for idx, point in enumerate(collection['labels'][name]['idxs']):
-                    corners[idx,0,0] = point['x']
-                    corners[idx,0,1] = point['y']
+            # convert chessboard corners from pixels to sensor coordinates.
+            K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(sensors[sensor_name]['camera_info']['K']))
+            D = np.ndarray((5, 1), dtype=np.float, buffer=np.array(sensors[sensor_name]['camera_info']['D']))
 
-                ret, rvecs, tvecs = cv2.solvePnP(objp, corners, K, D)
-                sTc = utilities.traslationRodriguesToTransform(tvecs, rvecs)
+            corners = np.zeros((len(labels['idxs']), 1, 2), dtype=np.float)
+            for idx, point in enumerate(labels['idxs']):
+                corners[idx, 0, 0] = point['x']
+                corners[idx, 0, 1] = point['y']
 
-                rTs = np.dot(rTs, sTc)
+            ret, rvecs, tvecs = cv2.solvePnP(pattern['grid'], corners, K, D)
+            sTc = utilities.traslationRodriguesToTransform(tvecs, rvecs)
 
-                p = np.stack((hcp[0], hcp[9], hcp[6*9], hcp[6*9+8])).T
-                error = np.apply_along_axis(np.linalg.norm, 0,
-                                            np.dot(rTs, p) - np.dot(rTc, p))
+            rTs = np.dot(rTs, sTc)
 
-                residual.extend( error.tolist() )
+            w = pattern['dimension'][0]
+            h = pattern['dimension'][1] - 1
+
+            hcp = pattern['hgrid']
+            p = np.stack((hcp[0], hcp[w-1], hcp[w*h], hcp[h*w + w - 1])).T
+
+            error = np.apply_along_axis(np.linalg.norm, 0,
+                                        np.dot(rTs, p) - np.dot(rTc, p))
+
+            residual.extend(error.tolist())
 
     return residual
 
@@ -107,6 +130,8 @@ def load_data(jsonfile, sensor_filter=None, collection_filter=None):
         Sensors metadata.
     collections: list of dicts
         List of collections ordered by index.
+    config: dict
+        Calibration configuration.
     """
 
     try:
@@ -120,8 +145,7 @@ def load_data(jsonfile, sensor_filter=None, collection_filter=None):
     # Contains information such as their links, topics, intrinsics (if camera), etc..
     sensors = dataset['sensors']
 
-    # A collection is a list of data.
-    # The capture order is maintained in the list.
+    # A collection is a list of data. The capture order is maintained in the list.
     collections = [x for _, x in sorted(dataset['collections'].items())]
 
     # Filter the sensors and collection by sensor name
@@ -134,28 +158,17 @@ def load_data(jsonfile, sensor_filter=None, collection_filter=None):
     if collection_filter is not None:
         collections = [x for idx, x in enumerate(collections) if not collection_filter(idx)]
 
+    # Image data is not stored in the JSON file for practical reasons. Mainly, too much data.
+    # Instead, the image is stored in a compressed format and its name is in the collection.
     for collection in collections:
-
-        # Build a transformation tree for this collection
-        tree = TFTree()
-        for _, tf in collection['transforms'].items():
-            param = copy.deepcopy(tf['trans'])
-            param.extend(tf['quat'])
-            tree.add_transform(tf['parent'], tf['child'], Transform(*param))
-
-        collection['tf_tree'] = tree
-
-        # Handle chessboard data
         for sensor_name in collection['data'].keys():
             if sensors[sensor_name]['msg_type'] != 'Image':
                 continue  # we are only interested in images, remember?
 
-            # Image data is not stored in the JSON file for practical reasons. Mainly, too much data.
-            # Instead, the image is stored in a compressed format and its name is part of the collection.
             filename = os.path.dirname(jsonfile) + '/' + collection['data'][sensor_name]['data_file']
             collection['data'][sensor_name]['data'] = cv2.imread(filename)
 
-    return sensors, collections
+    return sensors, collections, dataset['calibration_config']
 
 
 def main():
@@ -166,75 +179,92 @@ def main():
     args = vars(ap.parse_args())
 
     # Sensor information and calibration data is saved in a json file.
-    # The data is organized as a collection of data.
-    sensors, collections = load_data(args['json_file'])
+    # The dataset is organized as a collection of data.
+    sensors, collections, config = load_data(args['json_file'])
+
+    # The best way to keep track of all transformation pairs is to a have a
+    # transformation tree similar to what ROS offers (github.com/safijari/tiny_tf).
+    for collection in collections:
+        tree = TFTree()
+        for _, tf in collection['transforms'].items():
+            param = tf['trans'] + tf['quat']
+            tree.add_transform(tf['parent'], tf['child'], Transform(*param))
+
+        collection['tf_tree'] = tree
 
     # Setup optimizer
     opt = Optimizer()
 
     parameters = {}
+<<<<<<< HEAD
     opt.addDataModel('parameters', parameters)
     opt.addDataModel('collections', collections)
     opt.addDataModel('sensors', sensors)
+=======
 
-    # In this scenario we want to optimize the pose of the camera(s) and the link
-    # that joins the end-effector to the chessboard.
+    # should the models be unified? (eurico)
+    opt.addModelData('parameters', parameters)
+    opt.addModelData('collections', collections)
+    opt.addModelData('sensors', sensors)
+    opt.addModelData('config', config)
+>>>>>>> Use Rodrigues in optimization. Code refactoring.
+
+    # The pose of several sensors are explicit optimization parameters.
+    # These poses are the the same for all collections.
+    # We will save these parameters in a global model.
     for name, sensor in sensors.items():
-        t = collections[0]['transforms']['base_link-camera_link']['trans']
-        r = collections[0]['transforms']['base_link-camera_link']['quat']
+        # All collections have the same pose for the given sensor.
+        key = utilities.generateKey(sensor['calibration_parent'], sensor['calibration_child'])
+        t = collections[0]['transforms'][key]['trans']
+        r = collections[0]['transforms'][key]['quat']
+        parameters[name] = t + r
 
-        xform = Transform(t[0], t[1], t[2], r[0], r[1], r[2], r[3])
-        r = xform.euler
+        opt.pushParamVector(group_name='S_' + name, data_key='parameters',
+                            getter=partial(getPose, name=name),
+                            setter=partial(setPose, name=name),
+                            suffix=['x', 'y', 'z', 'rx', 'ry', 'rz'])
 
-        parameters[name] = {'trans': t, 'rot': r}
-        opt.pushParamVector(group_name='S_' + name + '_trans', data_key='parameters',
-                            getter=lambda m: m[name]['trans'],
-                            setter=lambda m,v: setter(m[name], 'trans', v),
-                            suffix=['x', 'y', 'z'])
-        opt.pushParamVector(group_name='S_' + name + '_rot', data_key='parameters',
-                            getter=lambda m: m[name]['rot'],
-                            setter=lambda m,v: setter(m[name],'rot', v),
-                            suffix=['1', '2', '3'])
+    pattern = config['calibration_pattern']
+    # cache the chessboard grid
+    size = (pattern['dimension'][0], pattern['dimension'][1])
 
+    grid = np.zeros((size[0]*size[1], 3), np.float32)
+    grid[:, :2] = pattern['size'] * np.mgrid[0:size[0], 0:size[1]].T.reshape(-1, 2)
 
-    # end-effector to chessboard first guess.
-    t = collections[0]['transforms']['ee_link-chessboard_link']['trans']
-    r = collections[0]['transforms']['ee_link-chessboard_link']['quat']
+    pattern['grid'] = grid
+    pattern['hgrid'] = [x + [1] for x in grid.tolist()]  # homogeneous coordinates
 
-    xform = Transform(t[0], t[1], t[2], r[0], r[1], r[2], r[3])
-    r = xform.euler
+    opt.addModelData('pattern', pattern)
 
-    ee_name = 'ee_link-chessboard_link'
-    parameters[ee_name] = {'trans': t, 'rot': r}
-    opt.pushParamVector(group_name='L_' + ee_name + '_trans', data_key='parameters',
-                            getter=lambda m: m[ee_name]['trans'],
-                            setter=lambda m,v: setter(m[ee_name],'trans', v),
-                            suffix=['x', 'y', 'z'])
-
-    opt.pushParamVector(group_name='L_' + name + '_rot', data_key='parameters',
-                            getter=lambda m: m[ee_name]['rot'],
-                            setter=lambda m,v: setter(m[ee_name],'rot' , v),
-                            suffix=['1', '2', '3'])
+    # Pattern pose, for now we assume fixed pose
+    parameters['pattern'] = Transform.from_position_euler(*pattern['origin']).position_quaternion
+    opt.pushParamVector(group_name='L_pattern', data_key='parameters',
+                        getter=partial(getPose, name='pattern'),
+                        setter=partial(setPose, name='pattern'),
+                        suffix=['x', 'y', 'z', 'rx', 'ry', 'rz'])
 
     # Declare residuals
-    for name, sensor in sensors.items():
-        for idx, collection in enumerate(collections):
-            if sensor['msg_type'] == 'Image':
-                if not collection['labels'][name]['detected']:
-                    continue
+    for idx, collection in enumerate(collections):
+        for key, labels in collection['labels'].items():
+            if not labels['detected']:
+                continue
 
-                params = opt.getParamsContainingPattern('S_' + name)
-                params.extend(opt.getParamsContainingPattern('L_'))
-                for i in range(0, 4):
-                    opt.pushResidual(name=str(idx) + '_' + name + '_' + str(i), params=params)
+            params = opt.getParamsContainingPattern('S_' + name)
+            params.extend(opt.getParamsContainingPattern('L_'))
+            for i in range(0, 4):
+                opt.pushResidual(name=str(idx) + '_' + name + '_' + str(i), params=params)
 
     opt.computeSparseMatrix()
     opt.setObjectiveFunction(objectiveFunction)
 
-    options = {'ftol': 1e-4, 'xtol': 1e-8, 'gtol': 1e-5, 'diff_step': 1e-4, 'x_scale': 'jac'}
+    options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': 1e-4, 'x_scale': 'jac'}
     opt.startOptimization(options)
 
-    print parameters
+    print('')
+    for name in sensors.keys():
+        printOriginTag(name, parameters[name])
+
+    printOriginTag('pattern', parameters['pattern'])
 
 
 if __name__ == '__main__':
