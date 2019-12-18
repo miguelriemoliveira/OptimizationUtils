@@ -6,11 +6,10 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # -------------------------------------------------------------------------------
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
-import copy
 import numpy as np
-import cv2
 from copy import deepcopy
 
+import cv2
 from tf import transformations
 
 from OptimizationUtils import utilities
@@ -35,10 +34,14 @@ def createChessBoardData(args, dataset_sensors):
     #
     # print(chessboard_evaluation_points.shape)
 
-    dataset_chessboards = {'chess_num_x': args['chess_num_x'], 'chess_num_y': args['chess_num_y'],
+    print()
+
+    dataset_chessboards = {'chess_num_x': dataset_sensors['calibration_config']['calibration_pattern']['dimension'][0],
+                           'chess_num_y': dataset_sensors['calibration_config']['calibration_pattern']['dimension'][1],
                            'number_corners': int(args['chess_num_x'] * args['chess_num_y']),
                            'square_size': args['chess_size'], 'collections': {}}
 
+    exit(0)
     # TODO limit points number should be a parsed argument
     n = 10
     factor = round(1.)
