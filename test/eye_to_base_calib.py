@@ -63,21 +63,8 @@ def objectiveFunction(models):
             xform = Transform(*parameters[sensor_name])
             tree.add_transform(sensors[sensor_name]['calibration_parent'], sensors[sensor_name]['calibration_child'], xform)
 
-<<<<<<< HEAD
-
-                # TEST MIGUEL - ALTERNATIVE to tf
-                rTs_miguel = utilities.getTransform(sensor['camera_info']['header']['frame_id'], 'base_link', collection['transforms'])
-                print('rts = ' + str(rTs))
-                print('rts_miguel = ' + str(rTs_miguel))
-
-
-                # convert chessboard corners from pixels to sensor coordinates.
-                K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(sensor['camera_info']['K']))
-                D = np.ndarray((5, 1), dtype=np.float, buffer=np.array(sensor['camera_info']['D']))
-=======
             # sensor to root transformation
             rTs = tree.lookup_transform(sensors[sensor_name]['camera_info']['header']['frame_id'], config['world_link']).matrix
->>>>>>> Use Rodrigues in optimization. Code refactoring.
 
             # convert chessboard corners from pixels to sensor coordinates.
             K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(sensors[sensor_name]['camera_info']['K']))
@@ -196,18 +183,12 @@ def main():
     opt = Optimizer()
 
     parameters = {}
-<<<<<<< HEAD
-    opt.addDataModel('parameters', parameters)
-    opt.addDataModel('collections', collections)
-    opt.addDataModel('sensors', sensors)
-=======
 
     # should the models be unified? (eurico)
     opt.addModelData('parameters', parameters)
     opt.addModelData('collections', collections)
     opt.addModelData('sensors', sensors)
     opt.addModelData('config', config)
->>>>>>> Use Rodrigues in optimization. Code refactoring.
 
     # The pose of several sensors are explicit optimization parameters.
     # These poses are the the same for all collections.
