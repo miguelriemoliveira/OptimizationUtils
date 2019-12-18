@@ -62,8 +62,8 @@ if __name__ == "__main__":
     # ---------------------------------------
     print('Initializing optimizer')
     opt = OptimizationUtils.Optimizer()
-    opt.addModelData('dataset', dataset)
-    opt.addModelData('another_thing', [])
+    opt.addDataModel('dataset', dataset)
+    opt.addDataModel('another_thing', [])
 
     def setter(dataset, value, i):
         dataset.cameras[i].rgb.bias = value

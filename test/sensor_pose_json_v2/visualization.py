@@ -47,7 +47,9 @@ def setupVisualization(dataset_sensors, args):
     dataset_graphics['ros']['tf_broadcaster'] = tf.TransformBroadcaster()
 
     # Create colormaps to be used for colloring the elements. Each collection contains a color, each sensor likewise.
-    dataset_graphics['chessboard']['colormap'] = cm.plasma(np.linspace(0, 1, args['chess_num_x'] * args['chess_num_y']))
+    dataset_graphics['chessboard']['colormap'] = cm.plasma(np.linspace(0, 1,
+            dataset_sensors['calibration_config']['calibration_pattern']['dimension']['x'] *
+            dataset_sensors['calibration_config']['calibration_pattern']['dimension']['y']))
 
     dataset_graphics['collections']['colormap'] = cm.tab20(
         np.linspace(0, 1, len(dataset_sensors['collections'].keys())))

@@ -54,6 +54,13 @@ def objectiveFunction(models):
                 # chessboard to root transformation
                 rTc = tree.lookup_transform('chessboard_link', 'base_link').matrix
 
+
+                # TEST MIGUEL - ALTERNATIVE to tf
+                rTs_miguel = utilities.getTransform(sensor['camera_info']['header']['frame_id'], 'base_link', collection['transforms'])
+                print('rts = ' + str(rTs))
+                print('rts_miguel = ' + str(rTs_miguel))
+
+
                 # convert chessboard corners from pixels to sensor coordinates.
                 K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(sensor['camera_info']['K']))
                 D = np.ndarray((5, 1), dtype=np.float, buffer=np.array(sensor['camera_info']['D']))
@@ -166,9 +173,9 @@ def main():
     opt = Optimizer()
 
     parameters = {}
-    opt.addModelData('parameters', parameters)
-    opt.addModelData('collections', collections)
-    opt.addModelData('sensors', sensors)
+    opt.addDataModel('parameters', parameters)
+    opt.addDataModel('collections', collections)
+    opt.addDataModel('sensors', sensors)
 
     # In this scenario we want to optimize the pose of the camera(s) and the link
     # that joins the end-effector to the chessboard.

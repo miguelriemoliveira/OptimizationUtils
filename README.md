@@ -82,13 +82,13 @@ and copy the contents of the ~/datasets/calib_complete_fg_v2/data_collected.json
 
 
 ```bash
-test/sensor_pose_json_v2/main.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -vo
+test/sensor_pose_json_v2/main.py -json ~/datasets/calibration_test2/data_collected.json -vo
 ```
 
 If you want to filter out some sensors or collections you may use the sensor selection function (ssf) or collection selection function (csf) as follows:
 
 ```bash
-test/sensor_pose_json_v2/main.py -json ~/datasets/calib_complete_fg_v2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -ssf "lambda name: name in ['top_left_camera', 'top_right_camera']"
+test/sensor_pose_json_v2/main.py -json ~/datasets/calib_complete_fg_v2/data_collected.json -ssf "lambda name: name in ['top_left_camera', 'top_right_camera']"
 ```
 
 
@@ -102,7 +102,7 @@ roslaunch interactive_calibration atlascar2_view_optimization.launch
 ```
 
 ```bash
-test/sensor_pose_json_v2/main.py -json ~/datasets/calibration_test2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -vo -si
+test/sensor_pose_json_v2/main.py -json ~/datasets/calibration_test2/data_collected.json -vo -si
 ```
 
 

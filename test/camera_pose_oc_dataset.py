@@ -124,8 +124,8 @@ if __name__ == "__main__":
     # ---------------------------------------
     print('\nInitializing optimizer...')
     opt = OptimizationUtils.Optimizer()
-    opt.addModelData('data_cameras', dataset_cameras)
-    opt.addModelData('data_arucos', dataset_arucos)
+    opt.addDataModel('data_cameras', dataset_cameras)
+    opt.addDataModel('data_arucos', dataset_arucos)
 
 
     # ------------  Cameras -----------------

@@ -62,7 +62,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     print('Initializing optimizer')
     opt = OptimizationUtils.Optimizer()
-    opt.addModelData('polynomial', polynomial)
+    opt.addDataModel('polynomial', polynomial)
 
 
     # Create specialized getter and setter functions

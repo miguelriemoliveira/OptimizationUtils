@@ -34,41 +34,40 @@ def createChessBoardData(args, dataset_sensors):
     #
     # print(chessboard_evaluation_points.shape)
 
-    print()
+    num_x = dataset_sensors['calibration_config']['calibration_pattern']['dimension']['x']
+    num_y = dataset_sensors['calibration_config']['calibration_pattern']['dimension']['y']
+    size = dataset_sensors['calibration_config']['calibration_pattern']['size']
+    dataset_chessboards = {'chess_num_x': num_x, 'chess_num_y': num_y, 'number_corners': int(num_x)*int(num_y),
+                           'square_size': size,
+                           'collections': {}}
 
-    dataset_chessboards = {'chess_num_x': dataset_sensors['calibration_config']['calibration_pattern']['dimension'][0],
-                           'chess_num_y': dataset_sensors['calibration_config']['calibration_pattern']['dimension'][1],
-                           'number_corners': int(args['chess_num_x'] * args['chess_num_y']),
-                           'square_size': args['chess_size'], 'collections': {}}
-
-    exit(0)
     # TODO limit points number should be a parsed argument
     n = 10
     factor = round(1.)
-    num_pts = int((args['chess_num_x'] * factor) * (args['chess_num_y'] * factor))
-    num_l_pts = int((args['chess_num_x'] * factor) * 2 * n) + int((args['chess_num_y'] * factor) * 2 * n) + (4 * n)
-    num_i_pts = int(((args['chess_num_x'] * factor) - 1) * (n - 1)) * (args['chess_num_y'] * factor) + int(
-        ((args['chess_num_y'] * factor) - 1) * (n - 1)) * (args['chess_num_x'] * factor) + num_pts
+    num_pts = int((num_x * factor) * (num_y * factor))
+    num_l_pts = int((num_x * factor) * 2 * n) + int((num_y * factor) * 2 * n) + (4 * n)
+    num_i_pts = int(((num_x * factor) - 1) * (n - 1)) * (num_y * factor) + int(
+        ((num_y * factor) - 1) * (n - 1)) * (num_x * factor) + num_pts
     chessboard_evaluation_points = np.zeros((4, num_pts), np.float32)
     chessboard_limit_points = np.zeros((4, int(num_l_pts)), np.float32)
     chessboard_inner_points = np.zeros((4, int(num_i_pts)), np.float32)
-    step_x = (args['chess_num_x']) * args['chess_size'] / (args['chess_num_x'] * factor)
-    step_y = (args['chess_num_y']) * args['chess_size'] / (args['chess_num_y'] * factor)
+    step_x = (num_x) * size / (num_x * factor)
+    step_y = (num_y) * size / (num_y * factor)
 
     counter = 0
     l_counter = 0
     i_counter = 0
     # TODO afonso should put this more synthesized
-    for idx_y in range(0, int(args['chess_num_y'] * factor)):
+    for idx_y in range(0, int(num_y * factor)):
         y = idx_y * step_y
-        for idx_x in range(0, int(args['chess_num_x'] * factor)):
+        for idx_x in range(0, int(num_x * factor)):
             x = idx_x * step_x
             chessboard_evaluation_points[0, counter] = x
             chessboard_evaluation_points[1, counter] = y
             chessboard_evaluation_points[2, counter] = 0
             chessboard_evaluation_points[3, counter] = 1
             counter += 1
-            if idx_x != (int(args['chess_num_x'] * factor) - 1):
+            if idx_x != (int(num_x * factor) - 1):
                 for i in range(0, n):
                     chessboard_inner_points[0, i_counter] = x + (i * (step_x / n))
                     chessboard_inner_points[1, i_counter] = y
@@ -82,7 +81,7 @@ def createChessBoardData(args, dataset_sensors):
                 chessboard_inner_points[3, i_counter] = 1
                 i_counter += 1
 
-            if idx_y != (int(args['chess_num_y'] * factor) - 1):
+            if idx_y != (int(num_y * factor) - 1):
                 for i in range(1, n):
                     chessboard_inner_points[0, i_counter] = x
                     chessboard_inner_points[1, i_counter] = y + (i * (step_y / n))
@@ -98,7 +97,7 @@ def createChessBoardData(args, dataset_sensors):
                     chessboard_limit_points[3, l_counter] = 1
                     l_counter += 1
 
-                if idx_x == (int(args['chess_num_x'] * factor) - 1):
+                if idx_x == (int(num_x * factor) - 1):
                     for i in range(n, 0, -1):
                         chessboard_limit_points[0, l_counter] = x + ((n - i) * (step_x / n))
                         chessboard_limit_points[1, l_counter] = y - step_y
@@ -106,7 +105,7 @@ def createChessBoardData(args, dataset_sensors):
                         chessboard_limit_points[3, l_counter] = 1
                         l_counter += 1
 
-            if idx_x == (int(args['chess_num_x'] * factor) - 1):
+            if idx_x == (int(num_x * factor) - 1):
                 for i in range(0, n):
                     chessboard_limit_points[0, l_counter] = x + step_x
                     chessboard_limit_points[1, l_counter] = y - ((n - i) * (step_y / n))
@@ -114,7 +113,7 @@ def createChessBoardData(args, dataset_sensors):
                     chessboard_limit_points[3, l_counter] = 1
                     l_counter += 1
 
-                if idx_y == (int(args['chess_num_y'] * factor) - 1):
+                if idx_y == (int(num_y * factor) - 1):
                     for i in range(n, 0, -1):
                         chessboard_limit_points[0, l_counter] = x + step_x
                         chessboard_limit_points[1, l_counter] = y + ((n - i) * (step_y / n))
@@ -122,15 +121,15 @@ def createChessBoardData(args, dataset_sensors):
                         chessboard_limit_points[3, l_counter] = 1
                         l_counter += 1
 
-    for idx_y in range(0, int(args['chess_num_y'] * factor)):
-        idx_y = abs(idx_y - (int(args['chess_num_y'] * factor) - 1))
+    for idx_y in range(0, int(num_y * factor)):
+        idx_y = abs(idx_y - (int(num_y * factor) - 1))
         y = idx_y * step_y
 
-        for idx_x in range(0, int(args['chess_num_x'] * factor)):
-            idx_x = abs(idx_x - (int(args['chess_num_x'] * factor) - 1))
+        for idx_x in range(0, int(num_x * factor)):
+            idx_x = abs(idx_x - (int(num_x * factor) - 1))
             x = idx_x * step_x
 
-            if idx_y == (int(args['chess_num_y'] * factor) - 1):
+            if idx_y == (int(num_y * factor) - 1):
                 for i in range(0, n):
                     chessboard_limit_points[0, l_counter] = x + ((n - i) * (step_x / n))
                     chessboard_limit_points[1, l_counter] = y + step_y
@@ -166,11 +165,11 @@ def createChessBoardData(args, dataset_sensors):
     dataset_chessboards['limit_points'] = chessboard_limit_points
     dataset_chessboards['inner_points'] = chessboard_inner_points
 
-    objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
-    objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1, 2)
+    objp = np.zeros((num_x * num_y, 3), np.float32)
+    objp[:, :2] = size * np.mgrid[0:num_x, 0:num_y].T.reshape(-1, 2)
     chessboard_points = np.transpose(objp)
     chessboard_points = np.vstack(
-        (chessboard_points, np.ones((1, args['chess_num_x'] * args['chess_num_y']), dtype=np.float)))
+        (chessboard_points, np.ones((1, num_x * num_y), dtype=np.float)))
 
     pts_l_chess = np.zeros((3, l_counter), np.float32)
     for i in range(0, l_counter):
@@ -201,8 +200,8 @@ def createChessBoardData(args, dataset_sensors):
                 D = np.ndarray((5, 1), dtype=np.float, buffer=np.array(sensor['camera_info']['D']))
 
                 # TODO should we not read these from the dictionary?
-                objp = np.zeros((args['chess_num_x'] * args['chess_num_y'], 3), np.float32)
-                objp[:, :2] = args['chess_size'] * np.mgrid[0:args['chess_num_x'], 0:args['chess_num_y']].T.reshape(-1,
+                objp = np.zeros((num_x * num_y, 3), np.float32)
+                objp[:, :2] = size * np.mgrid[0:num_x, 0:num_y].T.reshape(-1,
                                                                                                                     2)
                 # Build a numpy array with the chessboard corners
                 corners = np.zeros((len(collection['labels'][sensor_key]['idxs']),1,2), dtype=np.float)

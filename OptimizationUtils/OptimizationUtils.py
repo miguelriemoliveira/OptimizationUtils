@@ -72,7 +72,7 @@ class Optimizer:
     # ---------------------------
     # Optimizer configuration
     # ---------------------------
-    def addModelData(self, name, data):
+    def addDataModel(self, name, data):
         """ Should be a dictionary containing every static data to be used by the cost function
         :param name: string containing the name of the data
         :param data: object containing the data

@@ -55,7 +55,7 @@ def createJSONFile(output_file, input):
 
     print("Saving the json output file to " + str(output_file) + ", please wait, it could take a while ...")
     f = open(output_file, 'w')
-    json.encoder.FLOAT_REPR = lambda f: ("%.4f" % f)  # to get only four decimal places on the json file
+    json.encoder.FLOAT_REPR = lambda f: ("%.6f" % f)  # to get only four decimal places on the json file
     print >> f, json.dumps(D, indent=2, sort_keys=True)
     f.close()
     print("Completed.")
@@ -71,15 +71,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap = OptimizationUtils.addArguments(ap)  # OptimizationUtils arguments
     ap.add_argument("-json", "--json_file", help="Json file containing input dataset.", type=str, required=True)
-    ap.add_argument("-csize", "--chess_size", help="Size in meters of the side of the chessboard's squares.",
-                    type=float, required=True)
-    ap.add_argument("-cradius", "--chess_radius",
-                    help="Radius in meters of the maximum side of the chessboard calibration pattern.",
-                    type=float, required=True)
-    ap.add_argument("-cnumx", "--chess_num_x", help="Chessboard's number of corners in horizontal dimension.",
-                    type=int, required=True)
-    ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of corners in vertical dimension.",
-                    type=int, required=True)
     ap.add_argument("-si", "--show_images", help="shows images for each camera", action='store_true', default=False)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
@@ -167,8 +158,8 @@ def main():
     # --- SETUP OPTIMIZER
     # ---------------------------------------
     opt = OptimizationUtils.Optimizer()
-    opt.addModelData('dataset_sensors', dataset_sensors)
-    opt.addModelData('dataset_chessboard_points', dataset_chessboard_points)
+    opt.addDataModel('dataset_sensors', dataset_sensors)
+    opt.addDataModel('dataset_chessboard_points', dataset_chessboard_points)
 
     # For the getters we only need to get one collection. Lets take the first key on the dictionary and always get that
     # transformation.
@@ -316,7 +307,7 @@ def main():
         dataset_graphics = setupVisualization(dataset_sensors, args)
         # pp = pprint.PrettyPrinter(indent=4)
         # pp.pprint(dataset_graphics)
-        opt.addModelData('dataset_graphics', dataset_graphics)
+        opt.addDataModel('dataset_graphics', dataset_graphics)
 
     opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=50, figures=[])
 
