@@ -39,7 +39,6 @@ def printOriginTag(name, pose):
 
 
 def objectiveFunction(models):
-
     parameters = models['parameters']
     collections = models['collections']
     sensors = models['sensors']
@@ -56,15 +55,45 @@ def objectiveFunction(models):
         tree.add_transform(pattern['parent_link'], pattern['link'], Transform(*parameters['pattern']))
         rTc = tree.lookup_transform(pattern['link'], config['world_link']).matrix
 
+        # TODO MIGUEL's tests. To delete after solving the problem
+
+        # lets print the transform pool
+        print("all the transforms:\n'" + str(collection['transforms'].keys()))
+
+        parent = 'ee_link'
+        child = 'chessboard_link'
+
+        # Eurico's approach (first the child, then the parent) TODO Eurico, please confirm
+        T1a = tree.lookup_transform(child, parent).matrix
+        # T1a = tree.lookup_transform(parent, child).matrix
+        print('\nT1a (using Euricos approach) =\n' + str(T1a))
+
+        # Miguel's approach (first the parent, then the child)
+        T1b = utilities.getTransform(parent, child, collection['transforms'])
+        print('\nT1b (using Miguels approach)=\n' + str(T1b))
+
+        tranform_key = parent + '-' + child
+        print("\nFrom collection['transforms'] =\n" + str(collection['transforms'][tranform_key]))
+        trans = collection['transforms'][tranform_key]['trans']
+        quat = collection['transforms'][tranform_key]['quat']
+
+        T1c = utilities.translationQuaternionToTransform(trans, quat)
+        print('\nT1c (extracted directly from dictionary)=\n' + str(T1c))
+
+        exit(0)
+        # --------------------------------------------------------
+
         for sensor_name, labels in collection['labels'].items():
             if not labels['detected']:
                 continue
 
             xform = Transform(*parameters[sensor_name])
-            tree.add_transform(sensors[sensor_name]['calibration_parent'], sensors[sensor_name]['calibration_child'], xform)
+            tree.add_transform(sensors[sensor_name]['calibration_parent'], sensors[sensor_name]['calibration_child'],
+                               xform)
 
             # sensor to root transformation
-            rTs = tree.lookup_transform(sensors[sensor_name]['camera_info']['header']['frame_id'], config['world_link']).matrix
+            rTs = tree.lookup_transform(sensors[sensor_name]['camera_info']['header']['frame_id'],
+                                        config['world_link']).matrix
 
             # convert chessboard corners from pixels to sensor coordinates.
             K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(sensors[sensor_name]['camera_info']['K']))
@@ -84,7 +113,7 @@ def objectiveFunction(models):
             h = pattern['dimension'][1] - 1
 
             hcp = pattern['hgrid']
-            p = np.stack((hcp[0], hcp[w-1], hcp[w*h], hcp[h*w + w - 1])).T
+            p = np.stack((hcp[0], hcp[w - 1], hcp[w * h], hcp[h * w + w - 1])).T
 
             error = np.apply_along_axis(np.linalg.norm, 0,
                                         np.dot(rTs, p) - np.dot(rTc, p))
@@ -159,7 +188,6 @@ def load_data(jsonfile, sensor_filter=None, collection_filter=None):
 
 
 def main():
-
     ap = argparse.ArgumentParser()
     ap.add_argument("-json", "--json_file", help="JSON file containing input dataset.", type=str, required=True)
 
@@ -209,7 +237,7 @@ def main():
     # cache the chessboard grid
     size = (pattern['dimension'][0], pattern['dimension'][1])
 
-    grid = np.zeros((size[0]*size[1], 3), np.float32)
+    grid = np.zeros((size[0] * size[1], 3), np.float32)
     grid[:, :2] = pattern['size'] * np.mgrid[0:size[0], 0:size[1]].T.reshape(-1, 2)
 
     pattern['grid'] = grid
