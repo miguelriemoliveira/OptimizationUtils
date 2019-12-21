@@ -213,6 +213,7 @@ def main():
     parameters = {}
 
     # should the models be unified? (eurico)
+    # Miguel: I vote yes, definitely, the work of maintaining this is daunting
     opt.addDataModel('parameters', parameters)
     opt.addDataModel('collections', collections)
     opt.addDataModel('sensors', sensors)
