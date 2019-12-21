@@ -85,34 +85,6 @@ def objectiveFunction(models):
             tree.add_transform(pattern['parent_link'], pattern['link'] + str(idx), Transform(*parameters['pattern'][idx]))
             rTc = tree.lookup_transform(pattern['link'] + str(idx), config['world_link']).matrix
 
-        # TODO MIGUEL's tests. To delete after solving the problem
-
-        # lets print the transform pool
-        print("all the transforms:\n'" + str(collection['transforms'].keys()))
-
-        parent = 'ee_link'
-        child = 'chessboard_link'
-
-        # Eurico's approach (first the child, then the parent) TODO Eurico, please confirm
-        T1a = tree.lookup_transform(child, parent).matrix
-        # T1a = tree.lookup_transform(parent, child).matrix
-        print('\nT1a (using Euricos approach) =\n' + str(T1a))
-
-        # Miguel's approach (first the parent, then the child)
-        T1b = utilities.getTransform(parent, child, collection['transforms'])
-        print('\nT1b (using Miguels approach)=\n' + str(T1b))
-
-        tranform_key = parent + '-' + child
-        print("\nFrom collection['transforms'] =\n" + str(collection['transforms'][tranform_key]))
-        trans = collection['transforms'][tranform_key]['trans']
-        quat = collection['transforms'][tranform_key]['quat']
-
-        T1c = utilities.translationQuaternionToTransform(trans, quat)
-        print('\nT1c (extracted directly from dictionary)=\n' + str(T1c))
-
-        exit(0)
-        # --------------------------------------------------------
-
         for sensor_name, labels in collection['labels'].items():
             if not labels['detected']:
                 continue
