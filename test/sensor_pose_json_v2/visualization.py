@@ -48,8 +48,10 @@ def setupVisualization(dataset_sensors, args):
 
     # Create colormaps to be used for colloring the elements. Each collection contains a color, each sensor likewise.
     dataset_graphics['chessboard']['colormap'] = cm.plasma(np.linspace(0, 1,
-            dataset_sensors['calibration_config']['calibration_pattern']['dimension']['x'] *
-            dataset_sensors['calibration_config']['calibration_pattern']['dimension']['y']))
+                                                                       dataset_sensors['calibration_config'][
+                                                                           'calibration_pattern']['dimension']['x'] *
+                                                                       dataset_sensors['calibration_config'][
+                                                                           'calibration_pattern']['dimension']['y']))
 
     dataset_graphics['collections']['colormap'] = cm.tab20(
         np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
@@ -369,6 +371,34 @@ def setupVisualization(dataset_sensors, args):
 
     dataset_graphics['ros']['MarkersChessboards'] = markers
     dataset_graphics['ros']['PubChessboards'] = rospy.Publisher('Chessboards', MarkerArray, queue_size=0, latch=True)
+
+    # Create Miscelaneous MarkerArray -----------------------------------------------------------
+    markers = MarkerArray()
+
+    # Text signaling the anchored sensor
+    for _sensor_key, sensor in dataset_sensors['sensors'].items():
+        if _sensor_key == dataset_sensors['calibration_config']['anchored_sensor']:
+            marker = Marker()
+            marker.header.frame_id = _sensor_key
+            marker.id = 0
+            marker.header.stamp = now
+            marker.ns = _sensor_key
+            marker.type = Marker.TEXT_VIEW_FACING
+            marker.color.r = 0.6
+            marker.color.g = 0.6
+            marker.color.b = 0.6
+            marker.color.a = 1.0
+            marker.pose.orientation.w = 1
+            marker.pose.position.z = 0.2
+            marker.text = "Anchored"
+            marker.scale.z = 0.1
+            markers.markers.append(copy.deepcopy(marker))
+
+    dataset_graphics['ros']['MarkersMiscellaneous'] = markers
+    dataset_graphics['ros']['PubMiscellaneous'] = rospy.Publisher('Miscellaneous', MarkerArray, queue_size=0,
+                                                                  latch=True)
+    # Publish only once in latched mode
+    dataset_graphics['ros']['PubMiscellaneous'].publish(dataset_graphics['ros']['MarkersMiscellaneous'])
 
     return dataset_graphics
 
