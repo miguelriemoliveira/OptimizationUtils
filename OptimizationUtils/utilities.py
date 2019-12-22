@@ -570,7 +570,7 @@ def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
     return pixs, valid_pixs, dists
 
 
-def projectWithoutDistorcion(intrinsic_matrix, width, height, pts):
+def projectWithoutDistortion(intrinsic_matrix, width, height, pts):
     """
     Projects a list of points to the camera defined transform, intrinsics and distortion
     :param intrinsic_matrix: 3x3 intrinsic camera matrix

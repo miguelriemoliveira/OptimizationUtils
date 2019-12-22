@@ -452,6 +452,7 @@ def visualizationFunction(data):
 
     dataset_graphics['ros']['PubChessboards'].publish(dataset_graphics['ros']['MarkersChessboards'])
 
+    # Publish Annotated images
     for collection_key, collection in dataset_sensors['collections'].items():
         for sensor_key, sensor in dataset_sensors['sensors'].items():
 

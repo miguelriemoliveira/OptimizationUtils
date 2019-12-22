@@ -17,6 +17,7 @@ def distance_two_3D_points(p0, p1):
     distance = math.sqrt(((p0[0] - p1[0]) ** 2) + ((p0[1] - p1[1]) ** 2) + ((p0[2] - p1[2]) ** 2))
     return distance
 
+
 # intersection function
 def isect_line_plane_v3(p0, p1, p_co, p_no, epsilon=1e-6):
     """
@@ -46,6 +47,7 @@ def isect_line_plane_v3(p0, p1, p_co, p_no, epsilon=1e-6):
         # The segment is parallel to plane.
         return None
 
+
 # ----------------------
 # generic math functions
 
@@ -55,7 +57,7 @@ def add_v3v3(v0, v1):
         v0[0] + v1[0],
         v0[1] + v1[1],
         v0[2] + v1[2],
-        )
+    )
 
 
 def sub_v3v3(v0, v1):
@@ -63,15 +65,15 @@ def sub_v3v3(v0, v1):
         v0[0] - v1[0],
         v0[1] - v1[1],
         v0[2] - v1[2],
-        )
+    )
 
 
 def dot_v3v3(v0, v1):
     return (
-        (v0[0] * v1[0]) +
-        (v0[1] * v1[1]) +
-        (v0[2] * v1[2])
-        )
+            (v0[0] * v1[0]) +
+            (v0[1] * v1[1]) +
+            (v0[2] * v1[2])
+    )
 
 
 def len_squared_v3(v0):
@@ -83,12 +85,12 @@ def mul_v3_fl(v0, f):
         v0[0] * f,
         v0[1] * f,
         v0[2] * f,
-        )
+    )
 
 
 def objectiveFunction(data):
     """
-    Computes the vector of errors. There should be an error for each stamp, sensor and chessboard tuple.
+    Computes the vector of residuals. There should be an error for each stamp, sensor and chessboard tuple.
     The computation of the error varies according with the modality of the sensor:
         - Reprojection error for camera to chessboard
         - Point to plane distance for 2D laser scanners
@@ -101,17 +103,21 @@ def objectiveFunction(data):
     dataset_sensors = data['dataset_sensors']
     dataset_chessboards = data['dataset_sensors']['chessboards']
     dataset_chessboard_points = data['dataset_chessboard_points']
-    errors = []
+    residuals = []  # a list of errors returned
+    residuals_per_collections = {}
+    residuals_per_sensor = {}
 
     for collection_key, collection in dataset_sensors['collections'].items():
-        c_error = 0
+        residuals_per_collections[collection_key] = 0.0  # initialize error per collection
+
         for sensor_key, sensor in dataset_sensors['sensors'].items():
+            residuals_per_sensor[sensor_key] = 0.0  # initialize error per sensor
+            sensor_residuals = []  # reset sensor residuals
             sum_error = 0
             num_detections = 0
 
             if not collection['labels'][sensor_key]['detected']:  # chess not detected by sensor in collection
                 continue
-
 
             # print("Computing residuals for collection " + collection_key + ", sensor " + sensor_key)
 
@@ -120,12 +126,12 @@ def objectiveFunction(data):
                 # Compute chessboard points in local sensor reference frame
                 trans = dataset_chessboards['collections'][collection_key]['trans']
                 quat = dataset_chessboards['collections'][collection_key]['quat']
-                root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
-                pts_root = np.dot(root_T_chessboard, dataset_chessboard_points['points'])
+                root_to_chessboard = utilities.translationQuaternionToTransform(trans, quat)
+                pts_root = np.dot(root_to_chessboard, dataset_chessboard_points['points'])
 
-                sensor_T_root = np.linalg.inv(
-                    utilities.getAggregateTransform(sensor['chain'], collection['transforms']))
-                pts_sensor = np.dot(sensor_T_root, pts_root)
+                sensor_to_root = np.linalg.inv(utilities.getAggregateTransform(sensor['chain'],
+                                                                               collection['transforms']))
+                pts_sensor = np.dot(sensor_to_root, pts_root)
 
                 K = np.ndarray((3, 3), buffer=np.array(sensor['camera_info']['K']), dtype=np.float)
                 D = np.ndarray((5, 1), buffer=np.array(sensor['camera_info']['D']), dtype=np.float)
@@ -133,78 +139,58 @@ def objectiveFunction(data):
                 height = collection['data'][sensor_key]['height']
 
                 pixs, valid_pixs, dists = utilities.projectToCamera(K, D, width, height, pts_sensor[0:3, :])
-                # pixs, valid_pixs, dists = utilities.projectWithoutDistorcion(K, width, height, pts_sensor[0:3, :])
+                # pixs, valid_pixs, dists = utilities.projectWithoutDistortion(K, width, height, pts_sensor[0:3, :])
 
                 pixs_ground_truth = collection['labels'][sensor_key]['idxs']
                 array_gt = np.zeros(pixs.shape, dtype=np.float)  # transform to np array
                 for idx, pix_ground_truth in enumerate(pixs_ground_truth):
                     array_gt[0][idx] = pix_ground_truth['x']
                     array_gt[1][idx] = pix_ground_truth['y']
-                # print('pixs ground truth ' + str(array_gt.shape) + ' =' + str(array_gt))
 
-                # Compute the error as the average of the Euclidean distances between detected and projected
-                error_sum = 0
-                error_vector = []
+                # Compute the error as the average of the Euclidean distances between detected and projected pixels
                 # for idx in range(0, dataset_chessboards['number_corners']):
                 #     e1 = math.sqrt(
                 #         (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                #     error_vector.append(e1)
+                #     sensor_residuals.append(e1)
                 #     error_sum += e1
 
                 idx = 0
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
                 # e1 = e1 / 100
-                error_vector.append(e1)
+                sensor_residuals.append(e1)
 
                 idx = dataset_chessboards['chess_num_x'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
                 # e1 = e1 / 100
-                error_vector.append(e1)
+                sensor_residuals.append(e1)
 
                 idx = dataset_chessboards['number_corners'] - dataset_chessboards['chess_num_x']
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
                 # e1 = e1 / 100
-                error_vector.append(e1)
+                sensor_residuals.append(e1)
 
                 idx = dataset_chessboards['number_corners'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
                 # e1 = e1 / 100
-                error_vector.append(e1)
+                sensor_residuals.append(e1)
 
-                # error = error_sum / (args['chess_num_x'] * args['chess_num_y'])
-                # error = error_sum
-                # # error = max(e1, e2)
-                # print('e1 = ' + str(e1))
-                # print('e2 = ' + str(e2))
-                # print('error_sum = ' + str(error_sum))
-                # print('error = ' + str(error))
-                # errors.append(error)
-                errors.extend(error_vector)
+                # UPDATE GLOBAL RESIDUALS
+                residuals.extend(sensor_residuals)  # extend list of residuals
+                residuals_per_collections[collection_key] += sum(sensor_residuals)
+                residuals_per_sensor[sensor_key] += sum(sensor_residuals)
 
-                # For collecting individual distances and to store projected pixels into dataset_sensors dict for
-                # drawing in visualization function
-
-                # error_x = []
-                # error_y = []
-                # for idx in range(0, args['chess_num_x'] * args['chess_num_y']):
-                #     error_x.append(pixs[0, idx] - array_gt[0, idx])
-                #     error_y.append(pixs[1, idx] - array_gt[1, idx])
-                #
-                # sum_error += error
-                # num_detections += 1
-                # collection['labels'][sensor_key]['errors'] = {'x': error_x, 'y': error_y}
-
+                # Required by the visualization function to publish annotated images
                 idxs_projected = []
                 for idx, pix_ground_truth in enumerate(pixs_ground_truth):
                     idxs_projected.append({'x': pixs[0][idx], 'y': pixs[1][idx]})
 
                 collection['labels'][sensor_key]['idxs_projected'] = idxs_projected
 
-                if not 'idxs_initial' in collection['labels'][sensor_key]:  # store the first projections
+                if 'idxs_initial' not in collection['labels'][sensor_key]:  # store the first projections
                     collection['labels'][sensor_key]['idxs_initial'] = deepcopy(idxs_projected)
 
             elif sensor['msg_type'] == 'LaserScan':
@@ -259,8 +245,8 @@ def objectiveFunction(data):
 
                     counter += 1
 
-                errors.append(dists[0, 0])
-                errors.append(dists[0, 1])
+                sensor_residuals.append(dists[0, 0])
+                sensor_residuals.append(dists[0, 1])
 
                 # ---------------------------------LONGITUDINAL DISTANCE FOR INNER POINTS -------------------------
                 edges = 0
@@ -302,8 +288,8 @@ def objectiveFunction(data):
 
                         counter += 1
                 for c in range(0, counter):
-                    errors.append(dists_inner_1[0, c])
-                    errors.append(dists_inner_2[0, c])
+                    sensor_residuals.append(dists_inner_1[0, c])
+                    sensor_residuals.append(dists_inner_2[0, c])
 
                 # --------------------------------------------------------------------
 
@@ -311,7 +297,7 @@ def objectiveFunction(data):
                 # Compute chessboard points in local sensor reference frame
                 trans = dataset_chessboards['collections'][collection_key]['trans']
                 quat = dataset_chessboards['collections'][collection_key]['quat']
-                root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
+                root_to_chessboard = utilities.translationQuaternionToTransform(trans, quat)
                 origin = np.zeros((3, 1), np.int)
                 origin = np.vstack((origin, np.ones((1, origin.shape[1]), dtype=np.float)))
                 laser_origin = np.dot(root_T_sensor, origin)
@@ -321,23 +307,25 @@ def objectiveFunction(data):
                 point_chessboard = np.zeros((3, 1), np.float32)
                 point_chessboard[0] = dataset_chessboard_points['points'][0][num_x + 3]
                 point_chessboard[1] = dataset_chessboard_points['points'][1][num_x + 3]
-                point_chessboard = np.vstack((point_chessboard, np.ones((1, point_chessboard.shape[1]), dtype=np.float)))
+                point_chessboard = np.vstack(
+                    (point_chessboard, np.ones((1, point_chessboard.shape[1]), dtype=np.float)))
                 point_chessboard_root = np.dot(root_T_sensor, point_chessboard)
                 normal_vector = np.zeros((3, 1), np.float32)
-                normal_vector[0] = root_T_chessboard[0][2]
-                normal_vector[1] = root_T_chessboard[1][2]
-                normal_vector[2] = root_T_chessboard[2][2]
+                normal_vector[0] = root_to_chessboard[0][2]
+                normal_vector[1] = root_to_chessboard[1][2]
+                normal_vector[2] = root_to_chessboard[2][2]
                 counter = 0
                 for idx in range(0, pts_chessboard.shape[1]):  # for all points
                     pt_root = pts_root[:, idx]
-                    interseption_point = isect_line_plane_v3(laser_origin, pt_root, point_chessboard_root, normal_vector)
+                    interseption_point = isect_line_plane_v3(laser_origin, pt_root, point_chessboard_root,
+                                                             normal_vector)
                     if interseption_point == None:
                         print("Error: chessboard is almost parallel to the laser beam! Please delete the collections"
                               " in question.")
                         exit(0)
                     else:
                         beam_distance_error[0, counter] = distance_two_3D_points(pt_root, interseption_point)
-                        errors.append(beam_distance_error[0, counter])
+                        sensor_residuals.append(beam_distance_error[0, counter])
                     counter += 1
                 # print("beam distance error vector:\n")
                 # print(beam_distance_error)
@@ -349,7 +337,7 @@ def objectiveFunction(data):
                 # for idx in [0, -1]: # for extremas only
                 #     pt_chessboard = pts_chessboard[:, idx]
                 #     oe[0, counter] = np.absolute( pt_chessboard[2])  # orthogonal distance to the chessboard limit points
-                #     errors.append(oe[0, counter])
+                #     residuals.append(oe[0, counter])
                 #     counter += 1
 
                 # Compute orthogonal error (all the points)
@@ -358,8 +346,13 @@ def objectiveFunction(data):
                 # for idx in range(0, pts_chessboard.shape[1]):  # for all points
                 #     pt_chessboard = pts_chessboard[:, idx]
                 #     oe[0, counter] = np.absolute(pt_chessboard[2])  # orthogonal distance to the chessboard limit points
-                #     errors.append(oe[0, counter])
+                #     residuals.append(oe[0, counter])
                 #     counter += 1
+
+                # UPDATE GLOBAL RESIDUALS
+                residuals.extend(sensor_residuals)  # extend list of residuals
+                residuals_per_collections[collection_key] += sum(sensor_residuals)
+                residuals_per_sensor[sensor_key] += sum(sensor_residuals)
 
                 # Compute average for printing
                 num_detections += 1
@@ -370,10 +363,10 @@ def objectiveFunction(data):
                 # Store for visualization
                 collection['labels'][sensor_key]['pts_root'] = pts_root
 
-                # root_T_chessboard = utilities.translationQuaternionToTransform(trans, quat)
+                # root_to_chessboard = utilities.translationQuaternionToTransform(trans, quat)
                 # minimum_associations = chessboard_evaluation_points[:,idxs_min[0]]
                 # # print('chessboard_evaluation_points_in_root = ' + str(minimum_associations))
-                # minimum_associations_in_root = np.dot(root_T_chessboard, minimum_associations)
+                # minimum_associations_in_root = np.dot(root_to_chessboard, minimum_associations)
                 #
                 # if 'minimum_associations' in collection['labels'][sensor_key]:
                 #     utilities.drawPoints3D(ax, None, minimum_associations_in_root, color=[.8, .7, 0],
@@ -408,13 +401,13 @@ def objectiveFunction(data):
             else:
                 raise ValueError("Unknown sensor msg_type")
             #
-            # print('\n\nerror for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(errors))
+            # print('\n\nerror for sensor ' + sensor_key + ' in collection ' + collection_key + ' is ' + str(residuals))
 
         # if num_detections == 0:
         #     continue
         # else:
         #     print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error / num_detections))
 
-    # Return the errors
+    # Return the residuals
     # createJSONFile('/tmp/data_collected_results.json', dataset_sensors)
-    return errors
+    return residuals
