@@ -102,16 +102,19 @@ def objectiveFunction(data):
     # Get the data from the model
     dataset_sensors = data['dataset_sensors']
     dataset_chessboards = data['dataset_sensors']['chessboards']
-    dataset_chessboard_points = data['dataset_chessboard_points']
-    residuals = []  # a list of errors returned
-    residuals_per_collections = {}
-    residuals_per_sensor = {}
+    dataset_chessboard_points = data['dataset_chessboard_points']  # TODO should be integrated into chessboards
+
+    # Initialize residuals. Also create dictionaries of partial residuals for better debugging.
+    # , collection_key + '_count': 0
+    # for collection_key in dataset_sensors['collections']
+    residuals = []
+    residuals_per_collection = {collection_key: {'total': 0.0, 'count': 0}
+                                for collection_key in dataset_sensors['collections']}
+    residuals_per_sensor = {sensor_key: {'total': 0.0, 'count': 0} for sensor_key in dataset_sensors['sensors']}
+    residuals_per_msg_type = {'Image': {'total': 0.0, 'count': 0}, 'LaserScan': {'total': 0.0, 'count': 0}}
 
     for collection_key, collection in dataset_sensors['collections'].items():
-        residuals_per_collections[collection_key] = 0.0  # initialize error per collection
-
         for sensor_key, sensor in dataset_sensors['sensors'].items():
-            residuals_per_sensor[sensor_key] = 0.0  # initialize error per sensor
             sensor_residuals = []  # reset sensor residuals
             sum_error = 0
             num_detections = 0
@@ -159,29 +162,42 @@ def objectiveFunction(data):
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
                 # e1 = e1 / 100
                 sensor_residuals.append(e1)
+                residuals_per_collection[collection_key]['count'] += 1
+                residuals_per_sensor[sensor_key]['count'] += 1
+                residuals_per_msg_type['Image']['count'] += 1
 
                 idx = dataset_chessboards['chess_num_x'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
                 # e1 = e1 / 100
                 sensor_residuals.append(e1)
+                residuals_per_collection[collection_key]['count'] += 1
+                residuals_per_sensor[sensor_key]['count'] += 1
+                residuals_per_msg_type['Image']['count'] += 1
 
                 idx = dataset_chessboards['number_corners'] - dataset_chessboards['chess_num_x']
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
                 # e1 = e1 / 100
                 sensor_residuals.append(e1)
+                residuals_per_collection[collection_key]['count'] += 1
+                residuals_per_sensor[sensor_key]['count'] += 1
+                residuals_per_msg_type['Image']['count'] += 1
 
                 idx = dataset_chessboards['number_corners'] - 1
                 e1 = math.sqrt(
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
                 # e1 = e1 / 100
                 sensor_residuals.append(e1)
+                residuals_per_collection[collection_key]['count'] += 1
+                residuals_per_sensor[sensor_key]['count'] += 1
+                residuals_per_msg_type['Image']['count'] += 1
 
                 # UPDATE GLOBAL RESIDUALS
                 residuals.extend(sensor_residuals)  # extend list of residuals
-                residuals_per_collections[collection_key] += sum(sensor_residuals)
-                residuals_per_sensor[sensor_key] += sum(sensor_residuals)
+                residuals_per_collection[collection_key]['total'] += sum(sensor_residuals)
+                residuals_per_sensor[sensor_key]['total'] += sum(sensor_residuals)
+                residuals_per_msg_type['Image']['total'] += sum(sensor_residuals)
 
                 # Required by the visualization function to publish annotated images
                 idxs_projected = []
@@ -246,7 +262,13 @@ def objectiveFunction(data):
                     counter += 1
 
                 sensor_residuals.append(dists[0, 0])
+                residuals_per_collection[collection_key]['count'] += 1
+                residuals_per_sensor[sensor_key]['count'] += 1
+                residuals_per_msg_type['LaserScan']['count'] += 1
                 sensor_residuals.append(dists[0, 1])
+                residuals_per_collection[collection_key]['count'] += 1
+                residuals_per_sensor[sensor_key]['count'] += 1
+                residuals_per_msg_type['LaserScan']['count'] += 1
 
                 # ---------------------------------LONGITUDINAL DISTANCE FOR INNER POINTS -------------------------
                 edges = 0
@@ -289,7 +311,13 @@ def objectiveFunction(data):
                         counter += 1
                 for c in range(0, counter):
                     sensor_residuals.append(dists_inner_1[0, c])
+                    residuals_per_collection[collection_key]['count'] += 1
+                    residuals_per_sensor[sensor_key]['count'] += 1
+                    residuals_per_msg_type['LaserScan']['count'] += 1
                     sensor_residuals.append(dists_inner_2[0, c])
+                    residuals_per_collection[collection_key]['count'] += 1
+                    residuals_per_sensor[sensor_key]['count'] += 1
+                    residuals_per_msg_type['LaserScan']['count'] += 1
 
                 # --------------------------------------------------------------------
 
@@ -326,6 +354,9 @@ def objectiveFunction(data):
                     else:
                         beam_distance_error[0, counter] = distance_two_3D_points(pt_root, interseption_point)
                         sensor_residuals.append(beam_distance_error[0, counter])
+                        residuals_per_collection[collection_key]['count'] += 1
+                        residuals_per_sensor[sensor_key]['count'] += 1
+                        residuals_per_msg_type['LaserScan']['count'] += 1
                     counter += 1
                 # print("beam distance error vector:\n")
                 # print(beam_distance_error)
@@ -351,8 +382,9 @@ def objectiveFunction(data):
 
                 # UPDATE GLOBAL RESIDUALS
                 residuals.extend(sensor_residuals)  # extend list of residuals
-                residuals_per_collections[collection_key] += sum(sensor_residuals)
-                residuals_per_sensor[sensor_key] += sum(sensor_residuals)
+                residuals_per_collection[collection_key]['total'] += sum(sensor_residuals)
+                residuals_per_sensor[sensor_key]['total'] += sum(sensor_residuals)
+                residuals_per_msg_type['LaserScan']['total'] += sum(sensor_residuals)
 
                 # Compute average for printing
                 num_detections += 1
@@ -408,6 +440,21 @@ def objectiveFunction(data):
         # else:
         #     print('avg error for sensor ' + sensor_key + ' is ' + str(sum_error / num_detections))
 
-    # Return the residuals
+    # Compute normalized residuals
+    for _, r in residuals_per_collection.items():
+        r['average'] = r['total']/r['count']
+
+    for _, r in residuals_per_sensor.items():
+        r['average'] = r['total'] / r['count']
+
+    for _, r in residuals_per_msg_type.items():
+        r['average'] = r['total'] / r['count']
+
+    print('Objective function computed residuals:\n ' + str(residuals))
+    print('Residuals per collection:\n ' + str(residuals_per_collection))
+    print('Residuals per sensor:\n ' + str(residuals_per_sensor))
+    print('Residuals per msg_type:\n ' + str(residuals_per_msg_type))
+    print('Total error:\n ' + str(sum(residuals)))
+
     # createJSONFile('/tmp/data_collected_results.json', dataset_sensors)
-    return residuals
+    return residuals  # Return the residuals
