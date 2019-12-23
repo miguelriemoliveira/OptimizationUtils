@@ -183,6 +183,36 @@ def setupVisualization(dataset_sensors, args):
     dataset_graphics['ros']['MarkersLaserScans'] = markers
     dataset_graphics['ros']['PubLaserScans'] = rospy.Publisher('LaserScans', MarkerArray, queue_size=0, latch=True)
 
+    # Create LaserBeams Publisher -----------------------------------------------------------
+    # This one is recomputed every time in the objective function, so just create the generic properties.
+    markers = MarkerArray()
+
+    for collection_key, collection in dataset_sensors['collections'].items():
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            if not collection['labels'][sensor_key]['detected']:  # chess not detected by sensor in collection
+                continue
+            if sensor['msg_type'] == 'LaserScan':
+                marker = Marker()
+                marker.header.frame_id = sensor_key
+                marker.header.stamp = rospy.Time.now()
+                marker.ns = str(collection_key) + '-' + str(sensor_key)
+                marker.id = 0
+                marker.frame_locked = True
+                marker.type = Marker.LINE_LIST
+                marker.action = Marker.ADD
+                marker.lifetime = rospy.Duration(0)
+                marker.pose.orientation.w = 1.0
+                marker.scale.x = 0.003
+
+                marker.color.r = dataset_graphics['collections'][collection_key]['color'][0]
+                marker.color.g = dataset_graphics['collections'][collection_key]['color'][1]
+                marker.color.b = dataset_graphics['collections'][collection_key]['color'][2]
+                marker.color.a = 1.0
+                markers.markers.append(copy.deepcopy(marker))
+
+    dataset_graphics['ros']['MarkersLaserBeams'] = markers
+    dataset_graphics['ros']['PubLaserBeams'] = rospy.Publisher('LaserBeams', MarkerArray, queue_size=0, latch=True)
+
     # Create Chessboards MarkerArray -----------------------------------------------------------
 
     # a general drawing of a chessboard. Will be replicated for each collection based on each
@@ -372,7 +402,7 @@ def setupVisualization(dataset_sensors, args):
     dataset_graphics['ros']['MarkersChessboards'] = markers
     dataset_graphics['ros']['PubChessboards'] = rospy.Publisher('Chessboards', MarkerArray, queue_size=0, latch=True)
 
-    # Create Miscelaneous MarkerArray -----------------------------------------------------------
+    # Create Miscellaneous MarkerArray -----------------------------------------------------------
     markers = MarkerArray()
 
     # Text signaling the anchored sensor
@@ -444,6 +474,13 @@ def visualizationFunction(data):
     for marker in dataset_graphics['ros']['MarkersLaserScans'].markers:
         marker.header.stamp = now
     dataset_graphics['ros']['PubLaserScans'].publish(dataset_graphics['ros']['MarkersLaserScans'])
+    dataset_graphics['ros']['PubLaserScans'].publish(dataset_graphics['ros']['MarkersLaserScans'])
+
+    # Publish Laser Beams
+    now = rospy.Time.now()
+    for marker in dataset_graphics['ros']['MarkersLaserBeams'].markers:
+        marker.header.stamp = now
+    dataset_graphics['ros']['PubLaserBeams'].publish(dataset_graphics['ros']['MarkersLaserBeams'])
 
     # Publish Chessboards
     now = rospy.Time.now()

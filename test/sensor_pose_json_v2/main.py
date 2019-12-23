@@ -264,8 +264,6 @@ def main():
             params = opt.getParamsContainingPattern('S_' + _sensor_key)  # sensor related params
             params.extend(opt.getParamsContainingPattern('C_' + _collection_key + '_'))  # chessboard related params
 
-            # print("Residuals for collection " + _collection_key + ", sensor " + _sensor_key + ", contains params:\n" + str(params))
-
             if sensor['msg_type'] == 'Image':  # if sensor is a camera use four residuals
                 # for idx in range(0, dataset_chessboards['number_corners']):
                 for idx in range(0, 4):
@@ -286,6 +284,15 @@ def main():
                 laser_residuals_number = 2 + num_pts_in_cluster + (2 * edges)
                 for idx in range(0, laser_residuals_number):
                     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
+
+            # elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
+            #
+            #     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + 'extrema_left', params=params)
+            #     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + 'extrema_right', params=params)
+            #
+            #     num_pts_in_cluster = len(collection['labels'][_sensor_key]['idxs'])
+            #     for idx in range(0, num_pts_in_cluster):
+            #         opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
 
     # print('residuals = ' + str(opt.residuals))
 
@@ -312,7 +319,7 @@ def main():
     # --- Start Optimization
     # ---------------------------------------
     print('Initializing optimization ...')
-    opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-5,
+    opt.startOptimization(optimization_options={'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-5,
                                                 'diff_step': 1e-4, 'x_scale': 'jac'})
 
     # print('\n-----------------')
