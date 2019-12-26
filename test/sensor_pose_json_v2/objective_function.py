@@ -91,6 +91,14 @@ def mul_v3_fl(v0, f):
     )
 
 
+def computeResidualsAverage(residuals):
+    for _, r in residuals.items():
+        if not r['count'] == 0:
+            r['average'] = r['total'] / r['count']
+        else:
+            r['average'] = np.nan
+
+
 def objectiveFunction(data):
     """
     Computes the vector of residuals. There should be an error for each stamp, sensor and chessboard tuple.
@@ -106,7 +114,9 @@ def objectiveFunction(data):
     dataset_sensors = data['dataset_sensors']
     dataset_chessboards = data['dataset_sensors']['chessboards']
     dataset_chessboard_points = data['dataset_chessboard_points']  # TODO should be integrated into chessboards
-    dataset_graphics = data['dataset_graphics']
+    args = data['args']
+    if args['view_optimization']:
+        dataset_graphics = data['dataset_graphics']
 
     # Initialize residuals. Also create dictionaries of partial residuals for better debugging.
     # , collection_key + '_count': 0
@@ -196,9 +206,9 @@ def objectiveFunction(data):
 
                 # UPDATE GLOBAL RESIDUALS
                 residuals.extend(local_residuals)  # extend list of residuals
-                residuals_per_collection[collection_key]['total'] += sum(local_residuals)
-                residuals_per_sensor[sensor_key]['total'] += sum(local_residuals)
-                residuals_per_msg_type['Image']['total'] += sum(local_residuals)
+                residuals_per_collection[collection_key]['total'] += sum([abs(x) for x in local_residuals])
+                residuals_per_sensor[sensor_key]['total'] += sum([abs(x) for x in local_residuals])
+                residuals_per_msg_type['Image']['total'] += sum([abs(x) for x in local_residuals])
 
                 # Required by the visualization function to publish annotated images
                 idxs_projected = []
@@ -237,12 +247,12 @@ def objectiveFunction(data):
                 pts_in_chessboard = np.dot(chessboard_to_root, pts_in_root)
 
                 # Compute longitudinal and orthogonal error
+
+                # Compute longitudinal error for extremas
+                # TODO verify if the extrema points are not outliers ...
                 dists = np.zeros((1, 2), np.float)
                 idxs_min = np.zeros((1, 2), np.int)
 
-                # TODO verify if the extrema points are not outliers ...
-
-                # Compute longitudinal error for extremas
                 counter = 0
                 for idx in [0, -1]:
                     pt_chessboard = pts_in_chessboard[:, idx]
@@ -266,49 +276,49 @@ def objectiveFunction(data):
                 incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
                 # ---------------------------------LONGITUDINAL DISTANCE FOR INNER POINTS -------------------------
-                edges = 0
-                for i in range(0, len(idxs) - 1):
-                    if (idxs[i + 1] - idxs[i]) != 1:
-                        edges += 1
-
-                dists_inner_1 = np.zeros((1, edges), np.float)
-                dists_inner_2 = np.zeros((1, edges), np.float)
-                idxs_min_1 = np.zeros((1, edges), np.int)
-                idxs_min_2 = np.zeros((1, edges), np.int)
-                counter = 0
-
-                for i in range(0, len(idxs) - 1):
-                    if (idxs[i + 1] - idxs[i]) != 1:
-                        # Compute longitudinal error for inner
-                        pt_chessboard_1 = pts_in_chessboard[:, i]
-                        pt_chessboard_2 = pts_in_chessboard[:, i + 1]
-                        planar_pt_chessboard_1 = pt_chessboard_1[0:2]
-                        planar_pt_chessboard_2 = pt_chessboard_2[0:2]
-                        pt_1 = np.zeros((2, 1), dtype=np.float)
-                        pt_1[0, 0] = planar_pt_chessboard_1[0]
-                        pt_1[1, 0] = planar_pt_chessboard_1[1]
-                        pt_2 = np.zeros((2, 1), dtype=np.float)
-                        pt_2[0, 0] = planar_pt_chessboard_2[0]
-                        pt_2[1, 0] = planar_pt_chessboard_2[1]
-                        planar_i_chess_pts = dataset_chessboards['inner_points'][0:2, :]
-                        vals_1 = distance.cdist(pt_1.transpose(), planar_i_chess_pts.transpose(), 'euclidean')
-                        vals_2 = distance.cdist(pt_2.transpose(), planar_i_chess_pts.transpose(), 'euclidean')
-                        minimum_1 = np.amin(vals_1)
-                        minimum_2 = np.amin(vals_2)
-                        dists_inner_1[0, counter] = minimum_1
-                        dists_inner_2[0, counter] = minimum_2
-                        for ii in range(0, len(planar_i_chess_pts[0])):
-                            if vals_1[0, ii] == minimum_1:
-                                idxs_min_1[0, counter] = ii
-                            if vals_2[0, ii] == minimum_2:
-                                idxs_min_2[0, counter] = ii
-
-                        counter += 1
-                for c in range(0, counter):
-                    local_residuals.append(dists_inner_1[0, c])
-                    incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
-                    local_residuals.append(dists_inner_2[0, c])
-                    incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
+                # edges = 0
+                # for i in range(0, len(idxs) - 1):
+                #     if (idxs[i + 1] - idxs[i]) != 1:
+                #         edges += 1
+                #
+                # dists_inner_1 = np.zeros((1, edges), np.float)
+                # dists_inner_2 = np.zeros((1, edges), np.float)
+                # idxs_min_1 = np.zeros((1, edges), np.int)
+                # idxs_min_2 = np.zeros((1, edges), np.int)
+                # counter = 0
+                #
+                # for i in range(0, len(idxs) - 1):
+                #     if (idxs[i + 1] - idxs[i]) != 1:
+                #         # Compute longitudinal error for inner
+                #         pt_chessboard_1 = pts_in_chessboard[:, i]
+                #         pt_chessboard_2 = pts_in_chessboard[:, i + 1]
+                #         planar_pt_chessboard_1 = pt_chessboard_1[0:2]
+                #         planar_pt_chessboard_2 = pt_chessboard_2[0:2]
+                #         pt_1 = np.zeros((2, 1), dtype=np.float)
+                #         pt_1[0, 0] = planar_pt_chessboard_1[0]
+                #         pt_1[1, 0] = planar_pt_chessboard_1[1]
+                #         pt_2 = np.zeros((2, 1), dtype=np.float)
+                #         pt_2[0, 0] = planar_pt_chessboard_2[0]
+                #         pt_2[1, 0] = planar_pt_chessboard_2[1]
+                #         planar_i_chess_pts = dataset_chessboards['inner_points'][0:2, :]
+                #         vals_1 = distance.cdist(pt_1.transpose(), planar_i_chess_pts.transpose(), 'euclidean')
+                #         vals_2 = distance.cdist(pt_2.transpose(), planar_i_chess_pts.transpose(), 'euclidean')
+                #         minimum_1 = np.amin(vals_1)
+                #         minimum_2 = np.amin(vals_2)
+                #         dists_inner_1[0, counter] = minimum_1
+                #         dists_inner_2[0, counter] = minimum_2
+                #         for ii in range(0, len(planar_i_chess_pts[0])):
+                #             if vals_1[0, ii] == minimum_1:
+                #                 idxs_min_1[0, counter] = ii
+                #             if vals_2[0, ii] == minimum_2:
+                #                 idxs_min_2[0, counter] = ii
+                #
+                #         counter += 1
+                # for c in range(0, counter):
+                #     local_residuals.append(dists_inner_1[0, c])
+                #     incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
+                #     local_residuals.append(dists_inner_2[0, c])
+                #     incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
                 # --------------------------------- BEAM DIRECTION DISTANCE FROM POINT TO CHESSBOARD PLAN  ------------
                 # For computing the intersection we need:
@@ -341,11 +351,11 @@ def objectiveFunction(data):
                                           [p_caux_in_laser[2] - p_co_in_laser[2]],
                                           [1]], np.float)  # plane normal
 
-                # TODO Updating the visualization markers ... not needed if we are not drawing ...
-                marker = [x for x in dataset_graphics['ros']['MarkersLaserBeams'].markers if
+                if args['view_optimization']:
+                    marker = [x for x in dataset_graphics['ros']['MarkersLaserBeams'].markers if
                           x.ns == str(collection_key) + '-' + str(sensor_key)][0]
-                marker.points = []
-                rviz_p0_in_laser = Point(p0_in_laser[0], p0_in_laser[1], p0_in_laser[2])
+                    marker.points = []
+                    rviz_p0_in_laser = Point(p0_in_laser[0], p0_in_laser[1], p0_in_laser[2])
 
                 counter = 0
                 for idx in range(0, pts_in_laser.shape[1]):  # for all points
@@ -361,9 +371,9 @@ def objectiveFunction(data):
                     local_residuals.append(computed_rho - rho)
                     incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
-                    # TODO not needed if we are not drawing
-                    marker.points.append(deepcopy(rviz_p0_in_laser))
-                    marker.points.append(Point(pt_intersection[0], pt_intersection[1], pt_intersection[2]))
+                    if args['view_optimization']:
+                        marker.points.append(deepcopy(rviz_p0_in_laser))
+                        marker.points.append(Point(pt_intersection[0], pt_intersection[1], pt_intersection[2]))
 
                     counter += 1
 
@@ -390,10 +400,11 @@ def objectiveFunction(data):
                 #     counter += 1
 
                 # UPDATE GLOBAL RESIDUALS
+                local_residuals = [x * 10 for x in local_residuals]
                 residuals.extend(local_residuals)  # extend list of residuals
-                residuals_per_collection[collection_key]['total'] += sum(local_residuals)
-                residuals_per_sensor[sensor_key]['total'] += sum(local_residuals)
-                residuals_per_msg_type['LaserScan']['total'] += sum(local_residuals)
+                residuals_per_collection[collection_key]['total'] += sum([abs(x) for x in local_residuals])
+                residuals_per_sensor[sensor_key]['total'] += sum([abs(x) for x in local_residuals])
+                residuals_per_msg_type['LaserScan']['total'] += sum([abs(x) for x in local_residuals])
 
                 # Store for visualization
 
@@ -401,19 +412,16 @@ def objectiveFunction(data):
                 raise ValueError("Unknown sensor msg_type")
 
     # Compute average of residuals
-    for _, r in residuals_per_collection.items():
-        r['average'] = r['total'] / r['count']
-
-    for _, r in residuals_per_sensor.items():
-        r['average'] = r['total'] / r['count']
-
-    for _, r in residuals_per_msg_type.items():
-        r['average'] = r['total'] / r['count']
-
-    print('Objective function computed residuals:\n ' + str(residuals))
-    print('Residuals per collection:\n ' + str(residuals_per_collection))
-    print('Residuals per sensor:\n ' + str(residuals_per_sensor))
-    print('Residuals per msg_type:\n ' + str(residuals_per_msg_type))
+    # print('Residuals:\n ' + str(residuals))
+    computeResidualsAverage(residuals_per_sensor)
+    computeResidualsAverage(residuals_per_collection)
+    computeResidualsAverage(residuals_per_msg_type)
+    print('Avg residuals per collection:\n ' + str({key: residuals_per_collection[key]['average']
+                                                    for key in residuals_per_collection}))
+    print('Avg residuals per sensor:\n ' + str({key: residuals_per_sensor[key]['average']
+                                                for key in residuals_per_sensor}))
+    print('Avg residuals per msg_type:\n ' + str({key: residuals_per_msg_type[key]['average']
+                                                  for key in residuals_per_msg_type}))
     print('Total error:\n ' + str(sum(residuals)))
 
     # createJSONFile('/tmp/data_collected_results.json', dataset_sensors)

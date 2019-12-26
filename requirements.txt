@@ -1,3 +1,4 @@
+rospy_message_converter
 networkx
 pandas
 image_geometry

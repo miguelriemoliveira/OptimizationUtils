@@ -155,6 +155,7 @@ def main():
     # --- SETUP OPTIMIZER
     # ---------------------------------------
     opt = OptimizationUtils.Optimizer()
+    opt.addDataModel('args', args)
     opt.addDataModel('dataset_sensors', dataset_sensors)
     opt.addDataModel('dataset_chessboard_points', dataset_chessboard_points)
 
@@ -171,7 +172,7 @@ def main():
     # TODO temporary placement of top_left_camera
     # for collection_key, collection in dataset_sensors['collections'].items():
     #     collection['transforms']['base_link-top_left_camera']['trans'] = [-1.48, 0.22, 1.35]
-
+    # dataset_sensors['calibration_config']['anchored_sensor'] = 'right_laser'
     print('Anchored sensor is ' + Fore.GREEN + dataset_sensors['calibration_config'][
         'anchored_sensor'] + Style.RESET_ALL)
 
@@ -281,7 +282,8 @@ def main():
                 for i in range(0, len(idxs) - 1):
                     if (idxs[i + 1] - idxs[i]) != 1:
                         edges += 1
-                laser_residuals_number = 2 + num_pts_in_cluster + (2 * edges)
+                # laser_residuals_number = 2 + num_pts_in_cluster + (2 * edges)
+                laser_residuals_number = 2 + num_pts_in_cluster
                 for idx in range(0, laser_residuals_number):
                     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
 
@@ -319,7 +321,7 @@ def main():
     # --- Start Optimization
     # ---------------------------------------
     print('Initializing optimization ...')
-    opt.startOptimization(optimization_options={'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-5,
+    opt.startOptimization(optimization_options={'ftol': 1e-6, 'xtol': 1e-5, 'gtol': 1e-5,
                                                 'diff_step': 1e-4, 'x_scale': 'jac'})
 
     # print('\n-----------------')

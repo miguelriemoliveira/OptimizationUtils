@@ -13,15 +13,13 @@ import os
 import pprint
 
 import rospy
+from rospy_message_converter import message_converter
+
 import tf
-import visualization_msgs
 from cv_bridge import CvBridge
-from sensor_msgs.msg import Image, sensor_msgs
+from sensor_msgs.msg import Image, sensor_msgs, CameraInfo
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Point
-
-import KeyPressManager.KeyPressManager as KeyPressManager
-import matplotlib.pyplot as plt
 from matplotlib import cm
 from open3d import *
 
@@ -73,9 +71,14 @@ def setupVisualization(dataset_sensors, args):
 
             if _sensor['msg_type'] == 'Image':
                 msg_type = sensor_msgs.msg.Image
-                topic_name = 'c' + str(collection_key) + '/' + str(sensor_key)
+                topic_name = 'c' + str(collection_key) + '/' + str(sensor_key) + '/image_raw'
                 dataset_graphics['collections'][collection_key][str(sensor_key)] = {'publisher': rospy.Publisher(
                     topic_name, msg_type, queue_size=0, latch=True)}
+
+                msg_type = sensor_msgs.msg.CameraInfo
+                topic_name = 'c' + str(collection_key) + '/' + str(sensor_key) + '/camera_info'
+                dataset_graphics['collections'][collection_key][str(sensor_key)]['publisher_camera_info'] = \
+                    rospy.Publisher(topic_name, msg_type, queue_size=0, latch=True)
 
     # Create Lasers MarkerArray -----------------------------------------------------------
     markers = MarkerArray()
@@ -526,7 +529,15 @@ def visualizationFunction(data):
                         utilities.drawCross2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=1)
 
                     msg = CvBridge().cv2_to_imgmsg(image, "bgr8")
+                    msg.header.frame_id = sensor_key + '_optical' # TODO should be automated
                     dataset_graphics['collections'][collection_key][sensor_key]['publisher'].publish(msg)
+
+                    # Publish camera info message
+                    camera_info_msg = CameraInfo()
+                    camera_info_msg = message_converter.convert_dictionary_to_ros_message('sensor_msgs/CameraInfo', sensor['camera_info'])
+                    dataset_graphics['collections'][collection_key][sensor_key]['publisher_camera_info'].publish(
+                        camera_info_msg)
+
 
             elif sensor['msg_type'] == 'LaserScan':
                 pass
