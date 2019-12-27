@@ -529,15 +529,15 @@ def visualizationFunction(data):
                         utilities.drawCross2D(image, x, y, int(8E-3 * diagonal), color=color, thickness=1)
 
                     msg = CvBridge().cv2_to_imgmsg(image, "bgr8")
-                    msg.header.frame_id = sensor_key + '_optical' # TODO should be automated
+                    msg.header.frame_id = sensor_key + '_optical'  # TODO should be automated
                     dataset_graphics['collections'][collection_key][sensor_key]['publisher'].publish(msg)
 
                     # Publish camera info message
                     camera_info_msg = CameraInfo()
-                    camera_info_msg = message_converter.convert_dictionary_to_ros_message('sensor_msgs/CameraInfo', sensor['camera_info'])
+                    camera_info_msg = message_converter.convert_dictionary_to_ros_message('sensor_msgs/CameraInfo',
+                                                                                          sensor['camera_info'])
                     dataset_graphics['collections'][collection_key][sensor_key]['publisher_camera_info'].publish(
                         camera_info_msg)
-
 
             elif sensor['msg_type'] == 'LaserScan':
                 pass

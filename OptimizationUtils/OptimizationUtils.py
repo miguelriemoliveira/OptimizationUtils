@@ -352,9 +352,12 @@ class Optimizer:
         # self.printX(preamble_text='\nFinal value of parameters', x=self.xf)
 
         if self.always_visualize:
-            self.vis_function_handle(self.data_models)
             print('Press c to continue ...')
-            self.wm.waitForKey(time_to_wait=None, verbose=False)
+
+            while True:
+                self.vis_function_handle(self.data_models)
+                if self.wm.waitForKey(time_to_wait=0.1, verbose=False):
+                    break
 
     # ---------------------------
     # Utilities

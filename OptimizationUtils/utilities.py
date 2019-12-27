@@ -553,6 +553,8 @@ def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
     y = pts[1, :]
     z = pts[2, :]
 
+
+
     dists = norm(pts[0:3, :], axis=0)  # compute distances from point to camera
     xl = np.divide(x, z)  # compute homogeneous coordinates
     yl = np.divide(y, z)  # compute homogeneous coordinates

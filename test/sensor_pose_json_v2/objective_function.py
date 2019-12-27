@@ -7,7 +7,10 @@ import numpy as np
 
 import rospy
 from geometry_msgs.msg import Point
+from image_geometry import PinholeCameraModel
+from rospy_message_converter import message_converter
 from scipy.spatial import distance
+from sensor_msgs.msg import CameraInfo
 from visualization_msgs.msg import MarkerArray, Marker
 
 import OptimizationUtils.utilities as utilities
@@ -156,12 +159,17 @@ def objectiveFunction(data):
                 pts_sensor = np.dot(sensor_to_root, pts_in_root)
 
                 K = np.ndarray((3, 3), buffer=np.array(sensor['camera_info']['K']), dtype=np.float)
+                P = np.ndarray((3, 4), buffer=np.array(sensor['camera_info']['P']), dtype=np.float)
+                P = P[0:3, 0:3]
                 D = np.ndarray((5, 1), buffer=np.array(sensor['camera_info']['D']), dtype=np.float)
                 width = collection['data'][sensor_key]['width']
                 height = collection['data'][sensor_key]['height']
 
-                pixs, valid_pixs, dists = utilities.projectToCamera(K, D, width, height, pts_sensor[0:3, :])
+                # pixs, valid_pixs, dists = utilities.projectToCamera(K, D, width, height, pts_sensor[0:3, :])
+                # pixs, valid_pixs, dists = utilities.projectToCamera(P, D, width, height, pts_sensor[0:3, :])
                 # pixs, valid_pixs, dists = utilities.projectWithoutDistortion(K, width, height, pts_sensor[0:3, :])
+                #See issue #106
+                pixs, valid_pixs, dists = utilities.projectWithoutDistortion(P, width, height, pts_sensor[0:3, :])
 
                 pixs_ground_truth = collection['labels'][sensor_key]['idxs']
                 array_gt = np.zeros(pixs.shape, dtype=np.float)  # transform to np array
@@ -212,7 +220,7 @@ def objectiveFunction(data):
 
                 # Required by the visualization function to publish annotated images
                 idxs_projected = []
-                for idx, pix_ground_truth in enumerate(pixs_ground_truth):
+                for idx in range(0, pixs.shape[1]):
                     idxs_projected.append({'x': pixs[0][idx], 'y': pixs[1][idx]})
 
                 collection['labels'][sensor_key]['idxs_projected'] = idxs_projected
@@ -353,7 +361,7 @@ def objectiveFunction(data):
 
                 if args['view_optimization']:
                     marker = [x for x in dataset_graphics['ros']['MarkersLaserBeams'].markers if
-                          x.ns == str(collection_key) + '-' + str(sensor_key)][0]
+                              x.ns == str(collection_key) + '-' + str(sensor_key)][0]
                     marker.points = []
                     rviz_p0_in_laser = Point(p0_in_laser[0], p0_in_laser[1], p0_in_laser[2])
 

@@ -22,6 +22,7 @@ from objective_function import *
 from test.sensor_pose_json_v2.chessboard import createChessBoardData
 from test.sensor_pose_json_v2.visualization import *
 
+
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
@@ -32,6 +33,7 @@ def is_jsonable(x):
         return True
     except (TypeError, OverflowError):
         return False
+
 
 def walk(node):
     for key, item in node.items():
@@ -220,20 +222,20 @@ def main():
                             suffix=['1', '2', '3'],
                             bound_max=bound_max, bound_min=bound_min)
 
-        if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
-            opt.pushParamVector(group_name='S_' + _sensor_key + '_I_', data_key='dataset_sensors',
-                                getter=partial(getterCameraIntrinsics, sensor_key=_sensor_key),
-                                setter=partial(setterCameraIntrinsics, sensor_key=_sensor_key),
-                                suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
+        # if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
+        #     opt.pushParamVector(group_name='S_' + _sensor_key + '_I_', data_key='dataset_sensors',
+        #                         getter=partial(getterCameraIntrinsics, sensor_key=_sensor_key),
+        #                         setter=partial(setterCameraIntrinsics, sensor_key=_sensor_key),
+        #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
 
     # Add translation and rotation parameters related to the Chessboards
     for _collection_key in dataset_sensors['chessboards']['collections']:
-        # initial_values = getterChessBoardTranslation(dataset_chessboards, collection_key)
         # bound_max = [x + translation_delta for x in initial_values]
         # bound_min = [x - translation_delta for x in initial_values]
+
         opt.pushParamVector(group_name='C_' + _collection_key + '_t', data_key='dataset_sensors',
                             getter=partial(getterChessBoardTranslation, collection_key=_collection_key),
                             setter=partial(setterChessBoardTranslation, collection_key=_collection_key),
@@ -315,7 +317,7 @@ def main():
         # pp.pprint(dataset_graphics)
         opt.addDataModel('dataset_graphics', dataset_graphics)
 
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=50, figures=[])
+    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[])
 
     # ---------------------------------------
     # --- Start Optimization
