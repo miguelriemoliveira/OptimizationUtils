@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import sys
-import os.path
 import argparse
 import json
 import numpy as np
@@ -14,7 +13,7 @@ from OptimizationUtils.OptimizationUtils import Optimizer
 from OptimizationUtils.tf import TFTree, Transform
 
 
-def getPose(model, name, idx = None):
+def getPose(model, name, idx=None):
     # A pose is represented by a translation vector and a quaternion.
     # However, the rotation's optimization is done on a rotation vector (see Rodrigues).
     if idx is None:
@@ -25,7 +24,7 @@ def getPose(model, name, idx = None):
         return model[name][idx][0:3] + utilities.matrixToRodrigues(xform.rotation_matrix).tolist()
 
 
-def setPose(model, pose, name, idx = None):
+def setPose(model, pose, name, idx=None):
     # A pose is represented by a translation vector and a quaternion.
     # However, the optimization of the rotation is done on a rotation vector (see Rodrigues).
     mat = utilities.traslationRodriguesToTransform(pose[0:3], pose[3:])
@@ -51,15 +50,15 @@ def getPatternPose(tf_tree, root_link, camera, pattern, labels):
     # convert chessboard corners from pixels to sensor coordinates.
     K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(camera['camera_info']['K']))
     D = np.ndarray((5, 1), dtype=np.float, buffer=np.array(camera['camera_info']['D']))
-    width = camera['camera_info']['width']
-    height = camera['camera_info']['height']
 
-    corners = np.zeros( (2, len(labels['idxs'])), dtype=np.float32)
+    corners = np.zeros((2, len(labels['idxs'])), dtype=np.float32)
+    ids = [0] * len(labels['idxs'])
     for idx, point in enumerate(labels['idxs']):
         corners[0, idx] = point['x']
         corners[1, idx] = point['y']
+        ids[idx] = point['id']
 
-    _, rvecs, tvecs = cv2.solvePnP(np.array(pattern['grid'][:3,:].T), corners.T.reshape(-1,1,2), K, D)
+    _, rvecs, tvecs = cv2.solvePnP(np.array(pattern['grid'][:3, :].T[ids]), corners.T.reshape(-1, 1, 2), K, D)
     sTc = utilities.traslationRodriguesToTransform(tvecs, rvecs)
 
     return Transform.from_matrix(np.dot(rTs, sTc)).position_quaternion
@@ -74,16 +73,16 @@ def objectiveFunction(models):
 
     residual = []
 
-    for idx, collection in enumerate(collections):
+    for cid, collection in collections.items():
         tree = collection['tf_tree']
 
         # chessboard to root transformation
         if pattern['fixed']:
             tree.add_transform(pattern['parent_link'], pattern['link'], Transform(*parameters['pattern']))
             rTc = tree.lookup_transform(pattern['link'], config['world_link']).matrix
-        elif parameters['pattern'][idx] is not None:
-            tree.add_transform(pattern['parent_link'], pattern['link'] + str(idx), Transform(*parameters['pattern'][idx]))
-            rTc = tree.lookup_transform(pattern['link'] + str(idx), config['world_link']).matrix
+        elif parameters['pattern'][int(cid)] is not None:
+            tree.add_transform(pattern['parent_link'], pattern['link'] + cid, Transform(*parameters['pattern'][int(cid)]))
+            rTc = tree.lookup_transform(pattern['link'] + cid, config['world_link']).matrix
 
         for sensor_name, labels in collection['labels'].items():
             if not labels['detected']:
@@ -93,10 +92,9 @@ def objectiveFunction(models):
             tree.add_transform(sensors[sensor_name]['calibration_parent'], sensors[sensor_name]['calibration_child'],
                                xform)
 
-            # sensor to root transformation
-            rTs = tree.lookup_transform(sensors[sensor_name]['camera_info']['header']['frame_id'],
-                                        config['world_link']).matrix
-            sTr = np.linalg.inv(rTs)
+            # root to sensor transformation
+            sTr = tree.lookup_transform(config['world_link'],
+                                        sensors[sensor_name]['camera_info']['header']['frame_id']).matrix
 
             # chess to camera transformation
             sTc = np.dot(sTr, rTc)
@@ -107,19 +105,18 @@ def objectiveFunction(models):
             width = sensors[sensor_name]['camera_info']['width']
             height = sensors[sensor_name]['camera_info']['height']
 
-            corners = np.zeros( (2, len(labels['idxs'])), dtype=np.float32)
+            corners = np.zeros((2, len(labels['idxs'])), dtype=np.float32)
+            ids = range(0, len(labels['idxs']))
             for idx, point in enumerate(labels['idxs']):
                 corners[0, idx] = point['x']
                 corners[1, idx] = point['y']
+                ids[idx] = point['id']
 
-            if config['ef'] == 'projection':
-                projected, _, _ = utilities.projectToCamera(K, D, width, height, np.dot(sTc, pattern['grid']))
-                error = np.apply_along_axis(np.linalg.norm, 0, projected - corners)
-            else:
-                ret, rvecs, tvecs = cv2.solvePnP(np.array(pattern['grid'][:3,:].T), corners.T.reshape(-1,1,2), K, D)
-                sTc = utilities.traslationRodriguesToTransform(tvecs, rvecs)
-                rTs = np.dot(rTs, sTc)
-                error = np.apply_along_axis(np.linalg.norm, 0, np.dot(rTs, pattern['grid']) - np.dot(rTc, pattern['grid']))
+            projected, _, _ = utilities.projectToCamera(K, D, width, height, np.dot(sTc, pattern['grid'].T[ids].T))
+            diff = projected - corners
+            error = np.apply_along_axis(np.linalg.norm, 0, diff)
+
+            labels['error'] = diff.tolist()
 
             residual.extend(error.tolist())
 
@@ -165,27 +162,28 @@ def load_data(jsonfile, sensor_filter=None, collection_filter=None):
     sensors = dataset['sensors']
 
     # A collection is a list of data. The capture order is maintained in the list.
-    collections = [x for _, x in sorted(dataset['collections'].items())]
+    # collections = [x for _, x in sorted(dataset['collections'].items())]
+    collections = dataset['collections']
 
     # Filter the sensors and collection by sensor name
     if sensor_filter is not None:
-        sensors = dict(filter(lambda x: not sensor_filter(x), sensors.items()))
+        sensors = {k: v for k, v in sensors.items() if sensor_filter(k)}
         for c in collections:
             c['data'] = dict(filter(lambda x: not sensor_filter(x), c['data'].items()))
             c['labels'] = dict(filter(lambda x: not sensor_filter(x), c['labels'].items()))
 
     if collection_filter is not None:
-        collections = [x for idx, x in enumerate(collections) if collection_filter(idx)]
+        collections = {k: v for k, v in collections.items() if collection_filter(k)}
 
     # Image data is not stored in the JSON file for practical reasons. Mainly, too much data.
     # Instead, the image is stored in a compressed format and its name is in the collection.
-    for collection in collections:
+    for collection in collections.values():
         for sensor_name in collection['data'].keys():
             if sensors[sensor_name]['msg_type'] != 'Image':
                 continue  # we are only interested in images, remember?
 
-            filename = os.path.dirname(jsonfile) + '/' + collection['data'][sensor_name]['data_file']
-            collection['data'][sensor_name]['data'] = cv2.imread(filename)
+            # filename = os.path.dirname(jsonfile) + '/' + collection['data'][sensor_name]['data_file']
+            # collection['data'][sensor_name]['data'] = cv2.imread(filename)
 
     return sensors, collections, dataset['calibration_config']
 
@@ -194,8 +192,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-p", "--print", help="Print optimized parameters as URDF tags.", dest='print', action='store_true')
     ap.add_argument("-json", "--json_file", help="JSON file containing input dataset.", type=str, required=True)
-    ap.add_argument("-ef", "--error_function", type=str, default='projection', choices=['projection', 'distance'],
-                    help="Error function to use with images.")
+    ap.add_argument("-e", "--error", help="Final errors output file. (JSON format)", type=str)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
     def create_lambda_with_globals(s):
@@ -221,11 +218,9 @@ def main():
                                              args['sensor_selection_function'],
                                              args['collection_selection_function'])
 
-    config['ef'] = args['error_function']
-
     # The best way to keep track of all transformation pairs is to a have a
     # transformation tree similar to what ROS offers (github.com/safijari/tiny_tf).
-    for collection in collections:
+    for collection in collections.values():
         tree = TFTree()
         for _, tf in collection['transforms'].items():
             param = tf['trans'] + tf['quat']
@@ -251,8 +246,8 @@ def main():
     for name, sensor in sensors.items():
         # All collections have the same pose for the given sensor.
         key = utilities.generateKey(sensor['calibration_parent'], sensor['calibration_child'])
-        t = collections[0]['transforms'][key]['trans']
-        r = collections[0]['transforms'][key]['quat']
+        t = collections.values()[0]['transforms'][key]['trans']
+        r = collections.values()[0]['transforms'][key]['quat']
         parameters[name] = t + r
 
         opt.pushParamVector(group_name='S_' + name, data_key='parameters',
@@ -266,7 +261,7 @@ def main():
 
     grid = np.zeros((size[0]*size[1], 4), np.float32)
     grid[:, :2] = pattern['size'] * np.mgrid[0:size[0], 0:size[1]].T.reshape(-1, 2)
-    grid[:,3] = 1
+    grid[:, 3] = 1
 
     pattern['grid'] = grid.T
 
@@ -274,27 +269,27 @@ def main():
 
     if pattern['fixed']:
         parameters['pattern'] = Transform.from_position_euler(*pattern['origin']).position_quaternion
-        opt.pushParamVector(group_name='L_pattern', data_key='parameters',
+        opt.pushParamVector(group_name='L_pattern_', data_key='parameters',
                             getter=partial(getPose, name='pattern'),
                             setter=partial(setPose, name='pattern'),
                             suffix=['x', 'y', 'z', 'rx', 'ry', 'rz'])
     else:
         parameters['pattern'] = [None] * len(collections)
-        for idx, collection in enumerate(collections):
+        for idx, collection in collections.items():
             for sensor_name, labels in collection['labels'].items():
                 if not labels['detected'] or sensors[sensor_name]['msg_type'] != 'Image':
                     continue
-                parameters['pattern'][idx] = getPatternPose(collection['tf_tree'], config['world_link'],
-                                                            sensors[sensor_name], pattern, labels)
+                parameters['pattern'][int(idx)] = getPatternPose(collection['tf_tree'], config['world_link'],
+                                                                 sensors[sensor_name], pattern, labels)
 
-                opt.pushParamVector(group_name='L_' + str(idx) + '_pattern', data_key='parameters',
-                                    getter=partial(getPose, name='pattern', idx=idx),
-                                    setter=partial(setPose, name='pattern', idx=idx),
+                opt.pushParamVector(group_name='L_' + idx + '_pattern_', data_key='parameters',
+                                    getter=partial(getPose, name='pattern', idx=int(idx)),
+                                    setter=partial(setPose, name='pattern', idx=int(idx)),
                                     suffix=['x', 'y', 'z', 'rx', 'ry', 'rz'])
                 break
 
     # Declare residuals
-    for idx, collection in enumerate(collections):
+    for idx, collection in collections.items():
         for sensor_name, labels in collection['labels'].items():
             if not labels['detected']:
                 continue
@@ -303,30 +298,30 @@ def main():
             if pattern['fixed']:
                 params.extend(opt.getParamsContainingPattern('L_'))
             else:
-                params.extend(opt.getParamsContainingPattern('L_' + str(idx)))
+                params.extend(opt.getParamsContainingPattern('L_' + idx))
 
             if sensors[sensor_name]['msg_type'] == 'Image':
-                nr = config['calibration_pattern']['dimension']["x"] * config['calibration_pattern']['dimension']["y"]
+                nr = len(labels['idxs'])
                 for i in range(0, nr):
-                    opt.pushResidual(name=str(idx) + '_' + sensor_name + '_' + str(i), params=params)
+                    opt.pushResidual(name=idx + '_' + sensor_name + '_' + str(i), params=params)
 
     opt.computeSparseMatrix()
     opt.setObjectiveFunction(objectiveFunction)
 
-    options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': 1e-4}
+    options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '3-point', 'x_scale': 'jac'}
     opt.startOptimization(options)
+
+    if args['error'] is not None:
+        # Build summary.
+        summary = {'collections': {k: {kk: vv['error'] for kk, vv in v['labels'].items() if vv['detected']} for k, v in collections.items()}}
+
+        with open(args['error'], 'w') as f:
+            print >> f, json.dumps(summary, indent=2, sort_keys=True, separators=(',', ': '))
 
     if args['print']:
         print('')
         for name in sensors.keys():
             printOriginTag(name, parameters[name])
-
-        if pattern['fixed']:
-            printOriginTag('pattern', parameters['pattern'])
-        else:
-            for i in range(0, len(collections)):
-                printOriginTag('pattern' + str(i), parameters['pattern'][i])
-
 
 
 if __name__ == '__main__':

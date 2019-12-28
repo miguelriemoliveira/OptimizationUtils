@@ -222,7 +222,7 @@ class Transform(object):
 
     @property
     def position_euler(self):
-        return list(self.position) + self.euler
+        return list(self.position) + list(self.euler)
 
     @property
     def position_quaternion(self):
