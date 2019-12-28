@@ -138,8 +138,6 @@ def objectiveFunction(data):
     for collection_key, collection in dataset_sensors['collections'].items():
         for sensor_key, sensor in dataset_sensors['sensors'].items():
             local_residuals = []  # reset local residuals
-            sum_error = 0
-            num_detections = 0
 
             if not collection['labels'][sensor_key]['detected']:  # chess not detected by sensor in collection
                 continue
@@ -394,7 +392,7 @@ def objectiveFunction(data):
                                          'collections in question.')
 
                     computed_rho = distance_two_3D_points(p0_in_laser, pt_intersection)
-                    local_residuals.append(abs(computed_rho - rho)) # TODO check if abs is ok
+                    local_residuals.append(abs(computed_rho - rho)) # abs is ok, check #109.
                     incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
                     if args['view_optimization']:

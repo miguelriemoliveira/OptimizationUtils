@@ -167,7 +167,7 @@ def main():
                         edges.append(i)
                         edges.append(i + 1)
 
-                # Remove first (left most) and last (right most) edges, since these are often false edges.
+                # Remove first (right most) and last (left most) edges, since these are often false edges.
                 if len(edges) > 0:
                     edges.pop(0)  # remove the first element.
                 if len(edges) > 0:
