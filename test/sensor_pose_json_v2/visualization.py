@@ -14,12 +14,13 @@ import pprint
 
 import rospy
 from rospy_message_converter import message_converter
+from std_msgs.msg import Header, ColorRGBA
 
 import tf
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, sensor_msgs, CameraInfo
 from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, Pose, Vector3, Quaternion
 from matplotlib import cm
 from open3d import *
 
@@ -53,14 +54,14 @@ def setupVisualization(dataset_sensors, args):
 
     dataset_graphics['collections']['colormap'] = cm.tab20(
         np.linspace(0, 1, len(dataset_sensors['collections'].keys())))
-    for row_idx, collection_key in enumerate(sorted(dataset_sensors['collections'].keys())):
+    for idx, collection_key in enumerate(sorted(dataset_sensors['collections'].keys())):
         dataset_graphics['collections'][str(collection_key)] = {
-            'color': dataset_graphics['collections']['colormap'][row_idx, :]}
+            'color': dataset_graphics['collections']['colormap'][idx, :]}
 
     color_map_sensors = cm.gist_rainbow(np.linspace(0, 1, len(dataset_sensors['sensors'].keys())))
-    for row_idx, sensor_key in enumerate(sorted(dataset_sensors['sensors'].keys())):
+    for idx, sensor_key in enumerate(sorted(dataset_sensors['sensors'].keys())):
         sensor_key = str(sensor_key)
-        dataset_graphics['sensors'][sensor_key] = {'color': color_map_sensors[row_idx, :]}
+        dataset_graphics['sensors'][sensor_key] = {'color': color_map_sensors[idx, :]}
 
     # Create image publishers ----------------------------------------------------------
     # We need to republish a new image at every visualization
@@ -89,38 +90,23 @@ def setupVisualization(dataset_sensors, args):
 
             if _sensor['msg_type'] == 'LaserScan':
 
-                marker = Marker()
-                marker.header.frame_id = sensor_key
-                marker.header.stamp = rospy.Time.now()
-                marker.ns = str(collection_key) + '-' + str(sensor_key)
-                marker.id = 0
-                marker.frame_locked = True
-                marker.type = Marker.POINTS
-                marker.action = Marker.ADD
-                marker.lifetime = rospy.Duration(0)
-                marker.pose.position.x = 0
-                marker.pose.position.y = 0
-                marker.pose.position.z = 0
-                marker.pose.orientation.x = 0
-                marker.pose.orientation.y = 0
-                marker.pose.orientation.z = 0
-                marker.pose.orientation.w = 1.0
-                marker.scale.x = 0.03
-                marker.scale.y = 0.03
-                marker.scale.z = 0.0
+                marker = Marker(header=Header(frame_id=str(sensor_key), stamp=rospy.Time.now()),
+                                ns=str(collection_key) + '-' + str(sensor_key), id=0, frame_locked=True,
+                                type=Marker.POINTS, action=Marker.ADD, lifetime=rospy.Duration(0),
+                                pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                                scale=Vector3(x=0.03, y=0.03, z=0),
+                                color=ColorRGBA(r=dataset_graphics['collections'][collection_key]['color'][0],
+                                                g=dataset_graphics['collections'][collection_key]['color'][1],
+                                                b=dataset_graphics['collections'][collection_key]['color'][2], a=1.0)
+                                )
 
-                marker.color.r = dataset_graphics['collections'][collection_key]['color'][0]
-                marker.color.g = dataset_graphics['collections'][collection_key]['color'][1]
-                marker.color.b = dataset_graphics['collections'][collection_key]['color'][2]
-                marker.color.a = 1.0
-
-                # Get laser points that belong to the chessboard
+                # Get laser points that belong to the chessboard (labelled)
                 idxs = collection['labels'][sensor_key]['idxs']
-                rhos = [collection['data'][sensor_key]['ranges'][row_idx] for row_idx in idxs]
+                rhos = [collection['data'][sensor_key]['ranges'][idx] for idx in idxs]
                 thetas = [collection['data'][sensor_key]['angle_min'] +
-                          collection['data'][sensor_key]['angle_increment'] * row_idx for row_idx in idxs]
+                          collection['data'][sensor_key]['angle_increment'] * idx for idx in idxs]
 
-                for row_idx, (rho, theta) in enumerate(zip(rhos, thetas)):
+                for idx, (rho, theta) in enumerate(zip(rhos, thetas)):
                     p = Point()
                     p.z = 0
                     p.x = rho * math.cos(theta)
@@ -150,37 +136,13 @@ def setupVisualization(dataset_sensors, args):
                 marker.scale.z = 0.05
                 marker.color.a = 0.5
 
-                # first_iteration = True
-                # for row_idx, (rho, theta) in enumerate(zip(rhos, thetas)[:-1]):
-                #
-                #     x1 = rho * math.cos(theta)
-                #     y1 = rho * math.sin(theta)
-                #
-                #     if first_iteration:
-                #         x0 = x1
-                #         y0 = y1
-                #         continue
-                #
-                #     d = math.sqrt((x1-x0)**2 + (y1-y0)**2)
-                #
-                #     d_threshold = 0.05
-                #     if d < d_threshold:
-
                 marker.points = []  # Reset the list of marker points
-                for i in range(0, len(idxs) - 1):
-                    if (idxs[i + 1] - idxs[i]) != 1:
-                        p = Point()
-                        p.x = rhos[i] * math.cos(thetas[i])
-                        p.y = rhos[i] * math.sin(thetas[i])
-                        p.z = 0
-                        marker.points.append(p)
-
-                        p = Point()
-                        p.x = rhos[i + 1] * math.cos(thetas[i + 1])
-                        p.y = rhos[i + 1] * math.sin(thetas[i + 1])
-                        p.z = 0
-                        marker.points.append(p)
-
+                for edge_idx in collection['labels'][sensor_key]['edge_idxs']:  # add edge points
+                    p = Point()
+                    p.x = rhos[edge_idx] * math.cos(thetas[edge_idx])
+                    p.y = rhos[edge_idx] * math.sin(thetas[edge_idx])
+                    p.z = 0
+                    marker.points.append(p)
                 markers.markers.append(copy.deepcopy(marker))
 
     dataset_graphics['ros']['MarkersLaserScans'] = markers
@@ -195,212 +157,107 @@ def setupVisualization(dataset_sensors, args):
             if not collection['labels'][sensor_key]['detected']:  # chess not detected by sensor in collection
                 continue
             if sensor['msg_type'] == 'LaserScan':
-                marker = Marker()
-                marker.header.frame_id = sensor_key
-                marker.header.stamp = rospy.Time.now()
-                marker.ns = str(collection_key) + '-' + str(sensor_key)
-                marker.id = 0
-                marker.frame_locked = True
-                marker.type = Marker.LINE_LIST
-                marker.action = Marker.ADD
-                marker.lifetime = rospy.Duration(0)
-                marker.pose.orientation.w = 1.0
-                marker.scale.x = 0.003
-
-                marker.color.r = dataset_graphics['collections'][collection_key]['color'][0]
-                marker.color.g = dataset_graphics['collections'][collection_key]['color'][1]
-                marker.color.b = dataset_graphics['collections'][collection_key]['color'][2]
-                marker.color.a = 1.0
-                markers.markers.append(copy.deepcopy(marker))
+                marker = Marker(header=Header(frame_id=str(sensor_key), stamp=rospy.Time.now()),
+                                ns=str(collection_key) + '-' + str(sensor_key), id=0, frame_locked=True,
+                                type=Marker.LINE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
+                                pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                                scale=Vector3(x=0.003, y=0, z=0),
+                                color=ColorRGBA(r=dataset_graphics['collections'][collection_key]['color'][0],
+                                                g=dataset_graphics['collections'][collection_key]['color'][1],
+                                                b=dataset_graphics['collections'][collection_key]['color'][2], a=1.0)
+                                )
+                markers.markers.append(marker)
 
     dataset_graphics['ros']['MarkersLaserBeams'] = markers
     dataset_graphics['ros']['PubLaserBeams'] = rospy.Publisher('LaserBeams', MarkerArray, queue_size=0, latch=True)
 
     # Create Chessboards MarkerArray -----------------------------------------------------------
 
-    # a general drawing of a chessboard. Will be replicated for each collection based on each
-    # collections's chessboard pose. Fields ".header.frame_id" to be filled for each collection
-    marker = Marker()
-    marker.id = 0
-    marker.frame_locked = True
-    marker.type = Marker.LINE_LIST
-    marker.action = Marker.ADD
-    marker.lifetime = rospy.Duration(0)
-    marker.pose.position.x = 0
-    marker.pose.position.y = 0
-    marker.pose.position.z = 0
-    marker.pose.orientation.x = 0
-    marker.pose.orientation.y = 0
-    marker.pose.orientation.z = 0
-    marker.pose.orientation.w = 1.0
-    marker.scale.x = 0.005
-
-    pts = dataset_sensors['chessboards']['evaluation_points']
-    num_x = dataset_sensors['chessboards']['chess_num_x']
-    num_y = dataset_sensors['chessboards']['chess_num_y']
-    square_size = dataset_sensors['chessboards']['square_size']
-
-    for row_idx in range(0, num_y):  # visit all rows and draw an horizontal line for each
-        p = Point()
-        p.x = pts[0, num_x * row_idx]
-        p.y = pts[1, num_x * row_idx]
-        p.z = pts[2, num_x * row_idx]
-        marker.points.append(p)
-        p = Point()
-        p.x = pts[0, num_x * row_idx + num_x - 1]
-        p.y = pts[1, num_x * row_idx + num_x - 1]
-        p.z = pts[2, num_x * row_idx + num_x - 1]
-        marker.points.append(p)
-
-    for col_idx in range(0, num_x):  # visit all columns and draw a vertical line for each
-        p = Point()
-        p.x = pts[0, col_idx]
-        p.y = pts[1, col_idx]
-        p.z = pts[2, col_idx]
-        marker.points.append(p)
-        p = Point()
-        p.x = pts[0, col_idx + (num_y - 1) * num_x]
-        p.y = pts[1, col_idx + (num_y - 1) * num_x]
-        p.z = pts[2, col_idx + (num_y - 1) * num_x]
-        marker.points.append(p)
-
-    # Draw physical limit of the pattern
-    # Top Line ---------------
-    p = Point()
-    p.x = -1 * square_size
-    p.y = -1 * square_size
-    p.z = 0
-    marker.points.append(p)
-    p = Point()
-    p.x = (num_x) * square_size
-    p.y = -1 * square_size
-    p.z = 0
-    marker.points.append(p)
-
-    # Bottom Line ---------------
-    p = Point()
-    p.x = -1 * square_size
-    p.y = (num_y) * square_size
-    p.z = 0
-    marker.points.append(p)
-    p = Point()
-    p.x = (num_x) * square_size
-    p.y = (num_y) * square_size
-    p.z = 0
-    marker.points.append(p)
-
-    # Left Line ---------------
-    p = Point()
-    p.x = -1 * square_size
-    p.y = -1 * square_size
-    p.z = 0
-    marker.points.append(p)
-    p = Point()
-    p.x = -1 * square_size
-    p.y = (num_y) * square_size
-    p.z = 0
-    marker.points.append(p)
-
-    # Right Line ---------------
-    p = Point()
-    p.x = (num_x) * square_size
-    p.y = -1 * square_size
-    p.z = 0
-    marker.points.append(p)
-    p = Point()
-    p.x = (num_x) * square_size
-    p.y = (num_y) * square_size
-    p.z = 0
-    marker.points.append(p)
-
-    # Draw limit points used to compute the longitudinal distance
-    limit_pts = dataset_sensors['chessboards']['limit_points']
-
-    marker_limit_pts = Marker()
-    marker_limit_pts.id = 0
-    marker_limit_pts.frame_locked = True
-    marker_limit_pts.type = Marker.SPHERE_LIST
-    marker_limit_pts.action = Marker.ADD
-    marker_limit_pts.lifetime = rospy.Duration(0)
-    marker_limit_pts.pose.position.x = 0
-    marker_limit_pts.pose.position.y = 0
-    marker_limit_pts.pose.position.z = 0
-    marker_limit_pts.pose.orientation.x = 0
-    marker_limit_pts.pose.orientation.y = 0
-    marker_limit_pts.pose.orientation.z = 0
-    marker_limit_pts.pose.orientation.w = 1.0
-    marker_limit_pts.scale.x = 0.015
-    marker_limit_pts.scale.y = 0.015
-    marker_limit_pts.scale.z = 0.015
-
-    # print(limit_pts)
-    # print(limit_pts.shape)
-    for idx in range(0, limit_pts.shape[1]):
-        p = Point()
-        p.x = limit_pts[0, idx]
-        p.y = limit_pts[1, idx]
-        p.z = limit_pts[2, idx]
-        marker_limit_pts.points.append(p)
-
-    # Draw inner points used to compute the longitudinal distance
-    inner_pts = dataset_sensors['chessboards']['inner_points']
-
-    marker_inner_pts = Marker()
-    marker_inner_pts.frame_locked = True
-    marker_inner_pts.type = Marker.SPHERE_LIST
-    marker_inner_pts.action = Marker.ADD
-    marker_inner_pts.lifetime = rospy.Duration(0)
-    marker_inner_pts.pose.position.x = 0
-    marker_inner_pts.pose.position.y = 0
-    marker_inner_pts.pose.position.z = 0
-    marker_inner_pts.pose.orientation.x = 0
-    marker_inner_pts.pose.orientation.y = 0
-    marker_inner_pts.pose.orientation.z = 0
-    marker_inner_pts.pose.orientation.w = 1.0
-    marker_inner_pts.scale.x = 0.025
-    marker_inner_pts.scale.y = 0.025
-    marker_inner_pts.scale.z = 0.025
-
-    for idx in range(0, inner_pts.shape[1]):
-        p = Point()
-        p.x = inner_pts[0, idx]
-        p.y = inner_pts[1, idx]
-        p.z = inner_pts[2, idx]
-        marker_inner_pts.points.append(p)
-
-    # Create a marker array for drawing a chessboard for each collection
     markers = MarkerArray()
     now = rospy.Time.now()
+    epts = dataset_sensors['chessboards']['evaluation_points']
+    sx = dataset_sensors['chessboards']['chess_num_x']
+    sy = dataset_sensors['chessboards']['chess_num_y']
+    square_size = dataset_sensors['chessboards']['square_size']
     for collection_chess_key, collection_chess in dataset_sensors['chessboards']['collections'].items():
-        marker.header.frame_id = 'chessboard_' + collection_chess_key
-        marker.id = 0
-        marker.header.stamp = now
-        marker.ns = str(collection_chess_key)
-        marker.color.r = dataset_graphics['collections'][collection_chess_key]['color'][0]
-        marker.color.g = dataset_graphics['collections'][collection_chess_key]['color'][1]
-        marker.color.b = dataset_graphics['collections'][collection_chess_key]['color'][2]
-        marker.color.a = 1.0
-        markers.markers.append(copy.deepcopy(marker))
 
-        marker_limit_pts.header.frame_id = 'chessboard_' + collection_chess_key
-        marker_limit_pts.id = 1
-        marker_limit_pts.header.stamp = now
-        marker_limit_pts.ns = str(collection_chess_key)
-        marker_limit_pts.color.r = dataset_graphics['collections'][collection_chess_key]['color'][0]
-        marker_limit_pts.color.g = dataset_graphics['collections'][collection_chess_key]['color'][1]
-        marker_limit_pts.color.b = dataset_graphics['collections'][collection_chess_key]['color'][2]
-        marker_limit_pts.color.a = 1.0
-        markers.markers.append(copy.deepcopy(marker_limit_pts))
+        # Chessboard drawing (just visual with lines)
+        marker = Marker(header=Header(frame_id='chessboard_' + collection_chess_key, stamp=now),
+                        ns=str(collection_chess_key), id=0, frame_locked=True,
+                        type=Marker.LINE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
+                        pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                        scale=Vector3(x=0.005, y=0, z=0),
+                        color=ColorRGBA(r=dataset_graphics['collections'][collection_chess_key]['color'][0],
+                                        g=dataset_graphics['collections'][collection_chess_key]['color'][1],
+                                        b=dataset_graphics['collections'][collection_chess_key]['color'][2], a=1.0))
 
-        marker_inner_pts.header.frame_id = 'chessboard_' + collection_chess_key
-        marker_inner_pts.id = 2
-        marker_inner_pts.header.stamp = now
-        marker_inner_pts.ns = str(collection_chess_key)
-        marker_inner_pts.color.r = dataset_graphics['collections'][collection_chess_key]['color'][0]
-        marker_inner_pts.color.g = dataset_graphics['collections'][collection_chess_key]['color'][1]
-        marker_inner_pts.color.b = dataset_graphics['collections'][collection_chess_key]['color'][2]
-        marker_inner_pts.color.a = 1.0
-        markers.markers.append(copy.deepcopy(marker_inner_pts))
+        w = sx - 1
+        for idx in range(0, sy):  # visit all rows and draw an horizontal line for each
+            marker.points.append(Point(x=epts[0, sx * idx], y=epts[1, sx * idx], z=epts[2, sx * idx]))
+            marker.points.append(
+                Point(x=epts[0, sx * idx + w], y=epts[1, sx * idx + w], z=epts[2, sx * idx + w]))
+
+        h = (sy - 1) * sx
+        for idx in range(0, sx):  # visit all columns and draw a vertical line for each
+            marker.points.append(Point(x=epts[0, idx], y=epts[1, idx], z=epts[2, idx]))
+            marker.points.append(Point(x=epts[0, idx + h], y=epts[1, idx + h], z=epts[2, idx + h]))
+
+        # Pattern physical canvas: Top Line
+        marker.points.append(Point(x=-1 * square_size, y=-1 * square_size, z=0))
+        marker.points.append(Point(x=sx * square_size, y=-1 * square_size, z=0))
+
+        # Pattern physical canvas: Bottom Line
+        marker.points.append(Point(x=-1 * square_size, y=sy * square_size, z=0))
+        marker.points.append(Point(x=sx * square_size, y=sy * square_size, z=0))
+
+        # Pattern physical canvas: Left Line
+        p = Point(x=-1 * square_size, y=-1 * square_size, z=0)
+        marker.points.append(p)
+        p = Point(x=-1 * square_size, y=sy * square_size, z=0)
+        marker.points.append(p)
+
+        # Pattern physical canvas: Right Line
+        p = Point(x=sx * square_size, y=-1 * square_size, z=0)
+        marker.points.append(p)
+        p = Point(x=sx * square_size, y=sy * square_size, z=0)
+        marker.points.append(p)
+
+        markers.markers.append(marker)
+
+        # Draw limit points used to compute the longitudinal distance
+        marker = Marker(header=Header(frame_id='chessboard_' + collection_chess_key, stamp=now),
+                        ns=str(collection_chess_key), id=1, frame_locked=True,
+                        type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
+                        pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                        scale=Vector3(x=0.015, y=0.015, z=0.015),
+                        color=ColorRGBA(r=dataset_graphics['collections'][collection_chess_key]['color'][0],
+                                        g=dataset_graphics['collections'][collection_chess_key]['color'][1],
+                                        b=dataset_graphics['collections'][collection_chess_key]['color'][2], a=1.0))
+
+        for idx in range(0, dataset_sensors['chessboards']['limit_points'].shape[1]):
+            marker.points.append(Point(x=dataset_sensors['chessboards']['limit_points'][0, idx],
+                                       y=dataset_sensors['chessboards']['limit_points'][1, idx],
+                                       z=dataset_sensors['chessboards']['limit_points'][2, idx]))
+
+        markers.markers.append(marker)
+
+        # Draw inner points
+        marker = Marker(header=Header(frame_id='chessboard_' + collection_chess_key, stamp=now),
+                        ns=str(collection_chess_key), id=2, frame_locked=True,
+                        type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
+                        pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                        scale=Vector3(x=0.025, y=0.025, z=0.025),
+                        color=ColorRGBA(r=dataset_graphics['collections'][collection_chess_key]['color'][0],
+                                        g=dataset_graphics['collections'][collection_chess_key]['color'][1],
+                                        b=dataset_graphics['collections'][collection_chess_key]['color'][2],
+                                        a=1.0))
+
+        for idx in range(0, dataset_sensors['chessboards']['inner_points'].shape[1]):
+            marker.points.append(Point(x=dataset_sensors['chessboards']['inner_points'][0, idx],
+                                       y=dataset_sensors['chessboards']['inner_points'][1, idx],
+                                       z=dataset_sensors['chessboards']['inner_points'][2, idx]))
+
+        markers.markers.append(marker)
 
     dataset_graphics['ros']['MarkersChessboards'] = markers
     dataset_graphics['ros']['PubChessboards'] = rospy.Publisher('Chessboards', MarkerArray, queue_size=0, latch=True)
@@ -411,21 +268,14 @@ def setupVisualization(dataset_sensors, args):
     # Text signaling the anchored sensor
     for _sensor_key, sensor in dataset_sensors['sensors'].items():
         if _sensor_key == dataset_sensors['calibration_config']['anchored_sensor']:
-            marker = Marker()
-            marker.header.frame_id = _sensor_key
-            marker.id = 0
-            marker.header.stamp = now
-            marker.ns = _sensor_key
-            marker.type = Marker.TEXT_VIEW_FACING
-            marker.color.r = 0.6
-            marker.color.g = 0.6
-            marker.color.b = 0.6
-            marker.color.a = 1.0
-            marker.pose.orientation.w = 1
-            marker.pose.position.z = 0.2
-            marker.text = "Anchored"
-            marker.scale.z = 0.1
-            markers.markers.append(copy.deepcopy(marker))
+            marker = Marker(header=Header(frame_id=str(_sensor_key), stamp=now),
+                            ns=str(_sensor_key), id=0, frame_locked=True,
+                            type=Marker.TEXT_VIEW_FACING, action=Marker.ADD, lifetime=rospy.Duration(0),
+                            pose=Pose(position=Point(x=0, y=0, z=0.2), orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                            scale=Vector3(x=0.0, y=0.0, z=0.1),
+                            color=ColorRGBA(r=0.6, g=0.6, b=0.6,a=1.0), text='Anchored')
+
+            markers.markers.append(marker)
 
     dataset_graphics['ros']['MarkersMiscellaneous'] = markers
     dataset_graphics['ros']['PubMiscellaneous'] = rospy.Publisher('Miscellaneous', MarkerArray, queue_size=0,

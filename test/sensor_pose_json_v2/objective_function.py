@@ -168,7 +168,7 @@ def objectiveFunction(data):
                 # pixs, valid_pixs, dists = utilities.projectToCamera(K, D, width, height, pts_sensor[0:3, :])
                 # pixs, valid_pixs, dists = utilities.projectToCamera(P, D, width, height, pts_sensor[0:3, :])
                 # pixs, valid_pixs, dists = utilities.projectWithoutDistortion(K, width, height, pts_sensor[0:3, :])
-                #See issue #106
+                # See issue #106
                 pixs, valid_pixs, dists = utilities.projectWithoutDistortion(P, width, height, pts_sensor[0:3, :])
 
                 pixs_ground_truth = collection['labels'][sensor_key]['idxs']
@@ -254,9 +254,7 @@ def objectiveFunction(data):
 
                 pts_in_chessboard = np.dot(chessboard_to_root, pts_in_root)
 
-                # Compute longitudinal and orthogonal error
-
-                # Compute longitudinal error for extremas
+                # --- Residuals: longitudinal error for extrema
                 # TODO verify if the extrema points are not outliers ...
                 dists = np.zeros((1, 2), np.float)
                 idxs_min = np.zeros((1, 2), np.int)
@@ -283,11 +281,32 @@ def objectiveFunction(data):
                 local_residuals.append(dists[0, 1])
                 incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
-                # ---------------------------------LONGITUDINAL DISTANCE FOR INNER POINTS -------------------------
+                # --- Residuals: Longitudinal distance for inner points
+
+                # Miguel's approach to longitudinal distance inner points
+                pts_inner_in_chessboard = dataset_chessboards['inner_points'][0:2, :]  # First we need all inner points
+                edges2d_in_chessboard = pts_in_chessboard[0:2, collection['labels'][sensor_key]['edge_idxs']]  # this
+                # is a longitudinal residual, so ignore z values.
+
+                xb = pts_inner_in_chessboard.transpose()
+                for i in range(edges2d_in_chessboard.shape[1]):  # compute minimum distance to inner_pts for each edge
+                    xa = np.reshape(edges2d_in_chessboard[:, i], (2, 1)).transpose()  # need the reshape because this
+                    # becomes a shape (2,) which the function cdist does not support.
+
+                    min_distance = np.amin(distance.cdist(xa, xb, 'euclidean'))
+
+                    local_residuals.append(0.1 * min_distance) # TODO check this ad hoc weighing of the residual
+                    incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
+
+
+                # Afonso's way
                 # edges = 0
                 # for i in range(0, len(idxs) - 1):
                 #     if (idxs[i + 1] - idxs[i]) != 1:
                 #         edges += 1
+                #
+                #
+                # # edges = len(collection['labels'][sensor_key]['edge_idxs']
                 #
                 # dists_inner_1 = np.zeros((1, edges), np.float)
                 # dists_inner_2 = np.zeros((1, edges), np.float)
@@ -328,7 +347,7 @@ def objectiveFunction(data):
                 #     local_residuals.append(dists_inner_2[0, c])
                 #     incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
-                # --------------------------------- BEAM DIRECTION DISTANCE FROM POINT TO CHESSBOARD PLAN  ------------
+                # --- Residuals: Beam direction distance from point to chessboard plan
                 # For computing the intersection we need:
                 # p0, p1: Define the line.
                 # p_co, p_no: define the plane:
@@ -345,7 +364,6 @@ def objectiveFunction(data):
                 quat = dataset_chessboards['collections'][collection_key]['quat']
                 root_to_chessboard = utilities.translationQuaternionToTransform(trans, quat)
                 laser_to_chessboard = np.dot(np.linalg.inv(root_to_sensor), root_to_chessboard)
-                # laser_to_chessboard = np.dot(root_to_sensor, root_to_chessboard)
 
                 p_co_in_chessboard = np.array([[0], [0], [0], [1]], np.float)
                 p_co_in_laser = np.dot(laser_to_chessboard, p_co_in_chessboard)
@@ -376,7 +394,7 @@ def objectiveFunction(data):
                                          'collections in question.')
 
                     computed_rho = distance_two_3D_points(p0_in_laser, pt_intersection)
-                    local_residuals.append(computed_rho - rho)
+                    local_residuals.append(abs(computed_rho - rho)) # TODO check if abs is ok
                     incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
                     if args['view_optimization']:
@@ -408,13 +426,11 @@ def objectiveFunction(data):
                 #     counter += 1
 
                 # UPDATE GLOBAL RESIDUALS
-                local_residuals = [x * 10 for x in local_residuals]
+                # local_residuals = [x * 10 for x in local_residuals]
                 residuals.extend(local_residuals)  # extend list of residuals
                 residuals_per_collection[collection_key]['total'] += sum([abs(x) for x in local_residuals])
                 residuals_per_sensor[sensor_key]['total'] += sum([abs(x) for x in local_residuals])
                 residuals_per_msg_type['LaserScan']['total'] += sum([abs(x) for x in local_residuals])
-
-                # Store for visualization
 
             else:
                 raise ValueError("Unknown sensor msg_type")

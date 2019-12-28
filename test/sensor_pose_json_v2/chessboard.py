@@ -67,19 +67,19 @@ def createChessBoardData(args, dataset_sensors):
             chessboard_evaluation_points[2, counter] = 0
             chessboard_evaluation_points[3, counter] = 1
             counter += 1
-            if idx_x != (int(num_x * factor) - 1):
-                for i in range(0, n):
-                    chessboard_inner_points[0, i_counter] = x + (i * (step_x / n))
-                    chessboard_inner_points[1, i_counter] = y
-                    chessboard_inner_points[2, i_counter] = 0
-                    chessboard_inner_points[3, i_counter] = 1
-                    i_counter += 1
-            else:
-                chessboard_inner_points[0, i_counter] = x
-                chessboard_inner_points[1, i_counter] = y
-                chessboard_inner_points[2, i_counter] = 0
-                chessboard_inner_points[3, i_counter] = 1
-                i_counter += 1
+            # if idx_x != (int(num_x * factor) - 1):
+            #     for i in range(0, n):
+            #         chessboard_inner_points[0, i_counter] = x + (i * (step_x / n))
+            #         chessboard_inner_points[1, i_counter] = y
+            #         chessboard_inner_points[2, i_counter] = 0
+            #         chessboard_inner_points[3, i_counter] = 1
+            #         i_counter += 1
+            # else:
+            #     chessboard_inner_points[0, i_counter] = x
+            #     chessboard_inner_points[1, i_counter] = y
+            #     chessboard_inner_points[2, i_counter] = 0
+            #     chessboard_inner_points[3, i_counter] = 1
+            #     i_counter += 1
 
             if idx_y != (int(num_y * factor) - 1):
                 for i in range(1, n):
@@ -89,21 +89,21 @@ def createChessBoardData(args, dataset_sensors):
                     chessboard_inner_points[3, i_counter] = 1
                     i_counter += 1
 
-            if idx_y == 0:
-                for i in range(0, n):
-                    chessboard_limit_points[0, l_counter] = x - ((n - i) * (step_x / n))
-                    chessboard_limit_points[1, l_counter] = y - step_y
-                    chessboard_limit_points[2, l_counter] = 0
-                    chessboard_limit_points[3, l_counter] = 1
-                    l_counter += 1
-
-                if idx_x == (int(num_x * factor) - 1):
-                    for i in range(n, 0, -1):
-                        chessboard_limit_points[0, l_counter] = x + ((n - i) * (step_x / n))
-                        chessboard_limit_points[1, l_counter] = y - step_y
-                        chessboard_limit_points[2, l_counter] = 0
-                        chessboard_limit_points[3, l_counter] = 1
-                        l_counter += 1
+            # if idx_y == 0:
+            #     for i in range(0, n):
+            #         chessboard_limit_points[0, l_counter] = x - ((n - i) * (step_x / n))
+            #         chessboard_limit_points[1, l_counter] = y - step_y
+            #         chessboard_limit_points[2, l_counter] = 0
+            #         chessboard_limit_points[3, l_counter] = 1
+            #         l_counter += 1
+            #
+            #     if idx_x == (int(num_x * factor) - 1):
+            #         for i in range(n, 0, -1):
+            #             chessboard_limit_points[0, l_counter] = x + ((n - i) * (step_x / n))
+            #             chessboard_limit_points[1, l_counter] = y - step_y
+            #             chessboard_limit_points[2, l_counter] = 0
+            #             chessboard_limit_points[3, l_counter] = 1
+            #             l_counter += 1
 
             if idx_x == (int(num_x * factor) - 1):
                 for i in range(0, n):
@@ -129,21 +129,21 @@ def createChessBoardData(args, dataset_sensors):
             idx_x = abs(idx_x - (int(num_x * factor) - 1))
             x = idx_x * step_x
 
-            if idx_y == (int(num_y * factor) - 1):
-                for i in range(0, n):
-                    chessboard_limit_points[0, l_counter] = x + ((n - i) * (step_x / n))
-                    chessboard_limit_points[1, l_counter] = y + step_y
-                    chessboard_limit_points[2, l_counter] = 0
-                    chessboard_limit_points[3, l_counter] = 1
-                    l_counter += 1
-
-                if idx_x == 0:
-                    for i in range(n, 0, -1):
-                        chessboard_limit_points[0, l_counter] = x - ((n - i) * (step_x / n))
-                        chessboard_limit_points[1, l_counter] = y + step_y
-                        chessboard_limit_points[2, l_counter] = 0
-                        chessboard_limit_points[3, l_counter] = 1
-                        l_counter += 1
+            # if idx_y == (int(num_y * factor) - 1):
+            #     for i in range(0, n):
+            #         chessboard_limit_points[0, l_counter] = x + ((n - i) * (step_x / n))
+            #         chessboard_limit_points[1, l_counter] = y + step_y
+            #         chessboard_limit_points[2, l_counter] = 0
+            #         chessboard_limit_points[3, l_counter] = 1
+            #         l_counter += 1
+            #
+            #     if idx_x == 0:
+            #         for i in range(n, 0, -1):
+            #             chessboard_limit_points[0, l_counter] = x - ((n - i) * (step_x / n))
+            #             chessboard_limit_points[1, l_counter] = y + step_y
+            #             chessboard_limit_points[2, l_counter] = 0
+            #             chessboard_limit_points[3, l_counter] = 1
+            #             l_counter += 1
 
             if idx_x == 0:
                 for i in range(0, n):

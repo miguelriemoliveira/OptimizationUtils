@@ -476,7 +476,7 @@ if __name__ == "__main__":
                 points_cc = np.append(points_cc, points_cc_[:, n:n+1], 1)
 
     total_points = n_points * accepted_collections
-    print '\nTotal studied points (for each procedure): '
+    print('\nTotal studied points (for each procedure): ')
     print(total_points)
 
     avg_error_x_opt = np.sum(np.abs(points_opt[0, :]))/total_points

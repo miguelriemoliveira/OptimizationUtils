@@ -284,8 +284,7 @@ class Optimizer:
 
             # Printing information
             # self.printParameters(flg_simple=True)
-            # self.printResiduals(errors)
-            # print('\nAverage error = ' + str(np.average(errors)) + '\n')
+            self.printResiduals(errors)
 
         else:
             self.vis_counter += 1
@@ -309,7 +308,7 @@ class Optimizer:
 
         errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
 
-        # Setup boundaries for parameters 0.7042666256867649,2
+        # Setup boundaries for parameters
         bounds_min = []
         bounds_max = []
         for name in self.groups:

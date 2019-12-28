@@ -125,7 +125,8 @@ def main():
                 del dataset_sensors['collections'][_collection_key]
         print("Deleted collections: " + str(deleted))
 
-    # DELETING COLLECTIONS WHERE THE CHESSBOARD WAS NOT FOUND BY BOTH CAMERAS:
+    # TODO In the future this should not be needed
+    # Deleting collections where the chessboard was not found by both cameras:
     for _collection_key, collection in dataset_sensors['collections'].items():
         for _sensor_key, sensor in dataset_sensors['sensors'].items():
             if not collection['labels'][_sensor_key]['detected']:
@@ -152,6 +153,26 @@ def main():
 
     print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
         len(dataset_sensors['collections'].keys())) + ' collections.')
+
+    # ---------------------------------------
+    # --- DETECT EDGES IN THE LASER SCANS
+    # ---------------------------------------
+    for sensor_key, sensor in dataset_sensors['sensors'].items():
+        if sensor['msg_type'] == 'LaserScan':  # only for lasers
+            for collection_key, collection in dataset_sensors['collections'].items():
+                idxs = collection['labels'][sensor_key]['idxs']
+                edges = []  # a list of edges
+                for i in range(0, len(idxs) - 1):
+                    if (idxs[i + 1] - idxs[i]) != 1:
+                        edges.append(i)
+                        edges.append(i + 1)
+
+                # Remove first (left most) and last (right most) edges, since these are often false edges.
+                if len(edges) > 0:
+                    edges.pop(0)  # remove the first element.
+                if len(edges) > 0:
+                    edges.pop()  # if the index is not given, then the last element is popped out and removed.
+                collection['labels'][sensor_key]['edge_idxs'] = edges
 
     # ---------------------------------------
     # --- SETUP OPTIMIZER
@@ -236,6 +257,12 @@ def main():
         # bound_max = [x + translation_delta for x in initial_values]
         # bound_min = [x - translation_delta for x in initial_values]
 
+        # initial_translation = getterChessBoardTranslation(dataset_sensors,_collection_key)
+        # initial_translation[0] += 0.9
+        # initial_translation[1] += 0.7
+        # initial_translation[2] += 0.7
+        # setterChessBoardTranslation(dataset_sensors, initial_translation, _collection_key)
+
         opt.pushParamVector(group_name='C_' + _collection_key + '_t', data_key='dataset_sensors',
                             getter=partial(getterChessBoardTranslation, collection_key=_collection_key),
                             setter=partial(setterChessBoardTranslation, collection_key=_collection_key),
@@ -272,33 +299,21 @@ def main():
                 for idx in range(0, 4):
                     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
 
-            # elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
-            #     # for idx in range(0, 2):
-            #     for idx in range(0, 4):
-            #         opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
-
             elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
-                num_pts_in_cluster = len(collection['labels'][_sensor_key]['idxs'])
-                idxs = collection['labels'][_sensor_key]['idxs']
-                edges = 0
-                for i in range(0, len(idxs) - 1):
-                    if (idxs[i + 1] - idxs[i]) != 1:
-                        edges += 1
-                # laser_residuals_number = 2 + num_pts_in_cluster + (2 * edges)
-                laser_residuals_number = 2 + num_pts_in_cluster
-                for idx in range(0, laser_residuals_number):
-                    opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
 
-            # elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
-            #
-            #     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + 'extrema_left', params=params)
-            #     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + 'extrema_right', params=params)
-            #
-            #     num_pts_in_cluster = len(collection['labels'][_sensor_key]['idxs'])
-            #     for idx in range(0, num_pts_in_cluster):
-            #         opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
+                # Extrema points (longitudinal error)
+                opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_eleft', params=params)
+                opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_eright', params=params)
 
-    # print('residuals = ' + str(opt.residuals))
+                # Inner points, use detection of edges (longitudinal error)
+                for idx, _ in enumerate(collection['labels'][sensor_key]['edge_idxs']):
+                    opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_inner_' + str(idx), params=params)
+
+                # Laser beam (orthogonal error)
+                for idx in range(0, len(collection['labels'][_sensor_key]['idxs'])):
+                    opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_beam_' + str(idx), params=params)
+
+    # opt.printResiduals()
 
     # ---------------------------------------
     # --- Compute the SPARSE MATRIX
@@ -324,7 +339,7 @@ def main():
     # ---------------------------------------
     print('Initializing optimization ...')
     opt.startOptimization(optimization_options={'ftol': 1e-6, 'xtol': 1e-5, 'gtol': 1e-5,
-                                                'diff_step': 1e-4, 'x_scale': 'jac'})
+                                                'diff_step': 1e-5, 'x_scale': 'jac'})
 
     # print('\n-----------------')
     # opt.printParameters(opt.x0, text='Initial parameters')
