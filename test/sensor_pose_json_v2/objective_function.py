@@ -256,20 +256,19 @@ def objectiveFunction(data):
                 # TODO verify if the extrema points are not outliers ...
 
                 # Miguel's approach to longitudinal error for extrema points
-                pts_canvas_in_chessboard = dataset_chessboards['limit_points'][0:2, :]  # First we need all the
-                print(pts_canvas_in_chessboard)
-                # chessboard's canvas points
-                xb = pts_canvas_in_chessboard.transpose()
+                pts_canvas_in_chessboard = dataset_chessboards['limit_points'][0:2, :].transpose()
 
                 # compute minimum distance to inner_pts for right most edge (first in pts_in_chessboard list)
-                # extrema_right = np.reshape(pts_in_chessboard[0:2, 0], (2, 1))  # longitudinal -> ignore z values
-                # min_distance_right = np.amin(distance.cdist(extrema_right.transpose(), xb, 'euclidean'))
-                # local_residuals.append(min_distance_right)
-                # incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
+                extrema_right = np.reshape(pts_in_chessboard[0:2, 0], (2, 1))  # longitudinal -> ignore z values
+                min_distance_right = np.amin(distance.cdist(extrema_right.transpose(),
+                                                            pts_canvas_in_chessboard, 'euclidean'))
+                local_residuals.append(min_distance_right)
+                incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
                 # compute minimum distance to inner_pts for left most edge (last in pts_in_chessboard list)
                 extrema_left = np.reshape(pts_in_chessboard[0:2, -1], (2, 1))  # longitudinal -> ignore z values
-                min_distance_left = np.amin(distance.cdist(extrema_left.transpose(), xb, 'euclidean'))
+                min_distance_left = np.amin(distance.cdist(extrema_left.transpose(),
+                                                           pts_canvas_in_chessboard, 'euclidean'))
                 local_residuals.append(min_distance_left)
                 incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
@@ -302,18 +301,17 @@ def objectiveFunction(data):
                 # --- Residuals: Longitudinal distance for inner points
 
                 # Miguel's approach to longitudinal distance inner points
-                pts_inner_in_chessboard = dataset_chessboards['inner_points'][0:2, :]  # First we need all inner points
+                pts_inner_in_chessboard = dataset_chessboards['inner_points'][0:2, :].transpose()
                 edges2d_in_chessboard = pts_in_chessboard[0:2, collection['labels'][sensor_key]['edge_idxs']]  # this
                 # is a longitudinal residual, so ignore z values.
 
-                xb = pts_inner_in_chessboard.transpose()
                 for i in range(edges2d_in_chessboard.shape[1]):  # compute minimum distance to inner_pts for each edge
                     xa = np.reshape(edges2d_in_chessboard[:, i], (2, 1)).transpose()  # need the reshape because this
                     # becomes a shape (2,) which the function cdist does not support.
 
-                    min_distance = np.amin(distance.cdist(xa, xb, 'euclidean'))
-                    # local_residuals.append(0.1 * min_distance) # TODO check this ad hoc weighing of the residual
-                    # incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
+                    min_distance = np.amin(distance.cdist(xa, pts_inner_in_chessboard, 'euclidean'))
+                    local_residuals.append(0.2 * min_distance)  # TODO check this ad hoc weighing of the residual
+                    incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
                 # Afonso's way
                 # edges = 0

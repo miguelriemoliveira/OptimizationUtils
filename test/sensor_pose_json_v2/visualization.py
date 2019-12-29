@@ -229,8 +229,8 @@ def setupVisualization(dataset_sensors, args):
                         ns=str(collection_chess_key), id=1, frame_locked=True,
                         type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
                         pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
-                        scale=Vector3(x=0.055, y=0.015, z=0.015),
-                        color=ColorRGBA(r=dataset_graphics['collections'][collection_chess_key]['color'][0]+.5,
+                        scale=Vector3(x=0.015, y=0.015, z=0.015),
+                        color=ColorRGBA(r=dataset_graphics['collections'][collection_chess_key]['color'][0],
                                         g=dataset_graphics['collections'][collection_chess_key]['color'][1],
                                         b=dataset_graphics['collections'][collection_chess_key]['color'][2], a=1.0))
 
@@ -242,22 +242,22 @@ def setupVisualization(dataset_sensors, args):
         markers.markers.append(marker)
 
         # Draw inner points
-        # marker = Marker(header=Header(frame_id='chessboard_' + collection_chess_key, stamp=now),
-        #                 ns=str(collection_chess_key), id=2, frame_locked=True,
-        #                 type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
-        #                 pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
-        #                 scale=Vector3(x=0.025, y=0.025, z=0.025),
-        #                 color=ColorRGBA(r=dataset_graphics['collections'][collection_chess_key]['color'][0],
-        #                                 g=dataset_graphics['collections'][collection_chess_key]['color'][1],
-        #                                 b=dataset_graphics['collections'][collection_chess_key]['color'][2],
-        #                                 a=1.0))
-        #
-        # for idx in range(0, dataset_sensors['chessboards']['inner_points'].shape[1]):
-        #     marker.points.append(Point(x=dataset_sensors['chessboards']['inner_points'][0, idx],
-        #                                y=dataset_sensors['chessboards']['inner_points'][1, idx],
-        #                                z=dataset_sensors['chessboards']['inner_points'][2, idx]))
-        #
-        # markers.markers.append(marker)
+        marker = Marker(header=Header(frame_id='chessboard_' + collection_chess_key, stamp=now),
+                        ns=str(collection_chess_key), id=2, frame_locked=True,
+                        type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
+                        pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                        scale=Vector3(x=0.025, y=0.025, z=0.025),
+                        color=ColorRGBA(r=dataset_graphics['collections'][collection_chess_key]['color'][0],
+                                        g=dataset_graphics['collections'][collection_chess_key]['color'][1],
+                                        b=dataset_graphics['collections'][collection_chess_key]['color'][2],
+                                        a=1.0))
+
+        for idx in range(0, dataset_sensors['chessboards']['inner_points'].shape[1]):
+            marker.points.append(Point(x=dataset_sensors['chessboards']['inner_points'][0, idx],
+                                       y=dataset_sensors['chessboards']['inner_points'][1, idx],
+                                       z=dataset_sensors['chessboards']['inner_points'][2, idx]))
+
+        markers.markers.append(marker)
 
     dataset_graphics['ros']['MarkersChessboards'] = markers
     dataset_graphics['ros']['PubChessboards'] = rospy.Publisher('Chessboards', MarkerArray, queue_size=0, latch=True)

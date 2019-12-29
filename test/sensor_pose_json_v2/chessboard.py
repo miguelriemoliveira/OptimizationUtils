@@ -41,10 +41,11 @@ def createChessBoardData(args, dataset_sensors):
                            'square_size': square,
                            'collections': {}}
 
+    step = 0.01
+
     # Limit Points ----------------
     # Miguel's way: Create limit_points (all points defined in 2D, no z, not homogeneous) in the chessboard ref frame.
     pts = [[], []]
-    step = 0.05
 
     # Left vertical line
     x = -square
@@ -74,11 +75,33 @@ def createChessBoardData(args, dataset_sensors):
     # for x in list(np.linspace(x0, x1, num=int(abs(x1 - x0) / step), dtype=np.float)):
     #     pts[0].append(x), pts[1].append(y)
 
-    pts = np.array(pts, np.float) # convert list to numpy array
+    pts = np.array(pts, np.float)  # convert list to numpy array
     pts = np.vstack((pts, np.zeros((1, pts.shape[1]))))  # add z = 0 coordinates to all points
     pts = np.vstack((pts, np.ones((1, pts.shape[1]))))  # homogenize all points
-
     dataset_chessboards['limit_points'] = pts
+
+    # Limit Points ----------------
+    # Miguel's way: Create inner_points (all points defined in 2D, no z, not homogeneous) in the chessboard ref frame.
+    pts = [[], []]
+
+    # Vertical lines
+    for x in [x * square for x in range(0, num_x)]:
+        y0 = 0
+        y1 = (num_y-1) * square
+        for y in list(np.linspace(y0, y1, num=int(abs(y1 - y0) / step), dtype=np.float)):
+            pts[0].append(x), pts[1].append(y)
+
+    # Horizontal lines
+    # for y in [y * square for y in range(0, num_y)]:
+    #     x0 = 0
+    #     x1 = (num_x-1) * square
+    #     for x in list(np.linspace(x0, x1, num=int(abs(x1 - x0) / step), dtype=np.float)):
+    #         pts[0].append(x), pts[1].append(y)
+
+    pts = np.array(pts, np.float)  # convert list to numpy array
+    pts = np.vstack((pts, np.zeros((1, pts.shape[1]))))  # add z = 0 coordinates to all points
+    pts = np.vstack((pts, np.ones((1, pts.shape[1]))))  # homogenize all points
+    dataset_chessboards['inner_points'] = pts
 
     # TODO limit points number should be a parsed argument
     n = 10
@@ -201,9 +224,8 @@ def createChessBoardData(args, dataset_sensors):
                         l_counter += 1
 
     dataset_chessboards['evaluation_points'] = chessboard_evaluation_points
-    print(chessboard_limit_points.shape)
     # dataset_chessboards['limit_points'] = chessboard_limit_points
-    dataset_chessboards['inner_points'] = chessboard_inner_points
+    # dataset_chessboards['inner_points'] = chessboard_inner_points
 
     # print('chessboard_limit_points.shape=' + str(chessboard_limit_points.shape))
     # exit(0)
