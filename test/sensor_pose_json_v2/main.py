@@ -303,11 +303,11 @@ def main():
 
                 # Extrema points (longitudinal error)
                 opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_eleft', params=params)
-                opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_eright', params=params)
+                # opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_eright', params=params)
 
                 # Inner points, use detection of edges (longitudinal error)
-                for idx, _ in enumerate(collection['labels'][sensor_key]['edge_idxs']):
-                    opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_inner_' + str(idx), params=params)
+                # for idx, _ in enumerate(collection['labels'][sensor_key]['edge_idxs']):
+                #     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_inner_' + str(idx), params=params)
 
                 # Laser beam (orthogonal error)
                 for idx in range(0, len(collection['labels'][_sensor_key]['idxs'])):

@@ -36,10 +36,49 @@ def createChessBoardData(args, dataset_sensors):
 
     num_x = dataset_sensors['calibration_config']['calibration_pattern']['dimension']['x']
     num_y = dataset_sensors['calibration_config']['calibration_pattern']['dimension']['y']
-    size = dataset_sensors['calibration_config']['calibration_pattern']['size']
-    dataset_chessboards = {'chess_num_x': num_x, 'chess_num_y': num_y, 'number_corners': int(num_x)*int(num_y),
-                           'square_size': size,
+    square = dataset_sensors['calibration_config']['calibration_pattern']['size']
+    dataset_chessboards = {'chess_num_x': num_x, 'chess_num_y': num_y, 'number_corners': int(num_x) * int(num_y),
+                           'square_size': square,
                            'collections': {}}
+
+    # Limit Points ----------------
+    # Miguel's way: Create limit_points (all points defined in 2D, no z, not homogeneous) in the chessboard ref frame.
+    pts = [[], []]
+    step = 0.05
+
+    # Left vertical line
+    x = -square
+    y0 = -square
+    y1 = num_y * square
+    for y in list(np.linspace(y0, y1, num=int(abs(y1 - y0) / step), dtype=np.float)):
+        pts[0].append(x), pts[1].append(y)
+
+    # Right vertical line
+    x = num_x * square
+    y0 = -square
+    y1 = num_y * square
+    for y in list(np.linspace(y0, y1, num=int(abs(y1 - y0) / step), dtype=np.float)):
+        pts[0].append(x), pts[1].append(y)
+
+    # Top horizontal line
+    # x0 = -square
+    # x1 = num_x * square
+    # y = -square
+    # for x in list(np.linspace(x0, x1, num=int(abs(x1 - x0) / step), dtype=np.float)):
+    #     pts[0].append(x), pts[1].append(y)
+
+    # Bottom horizontal line
+    # x0 = -square
+    # x1 = num_x * square
+    # y = num_y * square
+    # for x in list(np.linspace(x0, x1, num=int(abs(x1 - x0) / step), dtype=np.float)):
+    #     pts[0].append(x), pts[1].append(y)
+
+    pts = np.array(pts, np.float) # convert list to numpy array
+    pts = np.vstack((pts, np.zeros((1, pts.shape[1]))))  # add z = 0 coordinates to all points
+    pts = np.vstack((pts, np.ones((1, pts.shape[1]))))  # homogenize all points
+
+    dataset_chessboards['limit_points'] = pts
 
     # TODO limit points number should be a parsed argument
     n = 10
@@ -51,13 +90,13 @@ def createChessBoardData(args, dataset_sensors):
     chessboard_evaluation_points = np.zeros((4, num_pts), np.float32)
     chessboard_limit_points = np.zeros((4, int(num_l_pts)), np.float32)
     chessboard_inner_points = np.zeros((4, int(num_i_pts)), np.float32)
-    step_x = (num_x) * size / (num_x * factor)
-    step_y = (num_y) * size / (num_y * factor)
+    step_x = num_x * square / (num_x * factor)
+    step_y = num_y * square / (num_y * factor)
 
     counter = 0
     l_counter = 0
     i_counter = 0
-    # TODO afonso should put this more synthesized
+    # TODO @afonsocastro should put this more synthesized
     for idx_y in range(0, int(num_y * factor)):
         y = idx_y * step_y
         for idx_x in range(0, int(num_x * factor)):
@@ -162,11 +201,15 @@ def createChessBoardData(args, dataset_sensors):
                         l_counter += 1
 
     dataset_chessboards['evaluation_points'] = chessboard_evaluation_points
-    dataset_chessboards['limit_points'] = chessboard_limit_points
+    print(chessboard_limit_points.shape)
+    # dataset_chessboards['limit_points'] = chessboard_limit_points
     dataset_chessboards['inner_points'] = chessboard_inner_points
 
+    # print('chessboard_limit_points.shape=' + str(chessboard_limit_points.shape))
+    # exit(0)
+
     objp = np.zeros((num_x * num_y, 3), np.float32)
-    objp[:, :2] = size * np.mgrid[0:num_x, 0:num_y].T.reshape(-1, 2)
+    objp[:, :2] = square * np.mgrid[0:num_x, 0:num_y].T.reshape(-1, 2)
     chessboard_points = np.transpose(objp)
     chessboard_points = np.vstack(
         (chessboard_points, np.ones((1, num_x * num_y), dtype=np.float)))
@@ -201,13 +244,13 @@ def createChessBoardData(args, dataset_sensors):
 
                 # TODO should we not read these from the dictionary?
                 objp = np.zeros((num_x * num_y, 3), np.float32)
-                objp[:, :2] = size * np.mgrid[0:num_x, 0:num_y].T.reshape(-1,
-                                                                                                                    2)
+                objp[:, :2] = square * np.mgrid[0:num_x, 0:num_y].T.reshape(-1,
+                                                                            2)
                 # Build a numpy array with the chessboard corners
-                corners = np.zeros((len(collection['labels'][sensor_key]['idxs']),1,2), dtype=np.float)
+                corners = np.zeros((len(collection['labels'][sensor_key]['idxs']), 1, 2), dtype=np.float)
                 for idx, point in enumerate(collection['labels'][sensor_key]['idxs']):
-                    corners[idx,0,0] = point['x']
-                    corners[idx,0,1] = point['y']
+                    corners[idx, 0, 0] = point['x']
+                    corners[idx, 0, 1] = point['y']
 
                 # Find pose of the camera w.r.t the chessboard
                 ret, rvecs, tvecs = cv2.solvePnP(objp, corners, K, D)
