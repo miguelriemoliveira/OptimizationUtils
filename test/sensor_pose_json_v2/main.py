@@ -243,11 +243,15 @@ def main():
                             suffix=['1', '2', '3'],
                             bound_max=bound_max, bound_min=bound_min)
 
-        # if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
-        #     opt.pushParamVector(group_name='S_' + _sensor_key + '_I_', data_key='dataset_sensors',
-        #                         getter=partial(getterCameraIntrinsics, sensor_key=_sensor_key),
-        #                         setter=partial(setterCameraIntrinsics, sensor_key=_sensor_key),
-        #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
+        if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
+            #     opt.pushParamVector(group_name='S_' + _sensor_key + '_I_', data_key='dataset_sensors',
+            #                         getter=partial(getterCameraIntrinsics, sensor_key=_sensor_key),
+            #                         setter=partial(setterCameraIntrinsics, sensor_key=_sensor_key),
+            #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
+            opt.pushParamVector(group_name='S_' + _sensor_key + '_P_', data_key='dataset_sensors',
+                            getter=partial(getterCameraPMatrix, sensor_key=_sensor_key),
+                            setter=partial(setterCameraPMatrix, sensor_key=_sensor_key),
+                            suffix=['fx_p', 'fy_p', 'cx_p', 'cy_p'])
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
@@ -306,8 +310,8 @@ def main():
                 opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_eright', params=params)
 
                 # Inner points, use detection of edges (longitudinal error)
-                for idx, _ in enumerate(collection['labels'][sensor_key]['edge_idxs']):
-                    opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_inner_' + str(idx), params=params)
+                # for idx, _ in enumerate(collection['labels'][sensor_key]['edge_idxs']):
+                #     opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_inner_' + str(idx), params=params)
 
                 # Laser beam (orthogonal error)
                 for idx in range(0, len(collection['labels'][_sensor_key]['idxs'])):

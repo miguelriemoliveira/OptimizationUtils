@@ -159,6 +159,7 @@ def objectiveFunction(data):
                 # K = np.ndarray((3, 3), buffer=np.array(sensor['camera_info']['K']), dtype=np.float)
                 P = np.ndarray((3, 4), buffer=np.array(sensor['camera_info']['P']), dtype=np.float)
                 P = P[0:3, 0:3]
+                print('P = \n' + str(P))
                 # D = np.ndarray((5, 1), buffer=np.array(sensor['camera_info']['D']), dtype=np.float)
                 width = collection['data'][sensor_key]['width']
                 height = collection['data'][sensor_key]['height']
@@ -310,8 +311,8 @@ def objectiveFunction(data):
                     # becomes a shape (2,) which the function cdist does not support.
 
                     min_distance = np.amin(distance.cdist(xa, pts_inner_in_chessboard, 'euclidean'))
-                    local_residuals.append(0.2 * min_distance)  # TODO check this ad hoc weighing of the residual
-                    incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
+                    # local_residuals.append(0.2 * min_distance)  # TODO check this ad hoc weighing of the residual
+                    # incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
                 # Afonso's way
                 # edges = 0

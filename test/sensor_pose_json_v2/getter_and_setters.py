@@ -68,6 +68,23 @@ def setterSensorRotation(data, value, sensor_key):
         data['collections'][_collection_key]['transforms'][transform_key]['quat'] = quat
 
 
+def getterCameraPMatrix(data, sensor_key):
+    fx_p = data['sensors'][sensor_key]['camera_info']['P'][0]
+    fy_p = data['sensors'][sensor_key]['camera_info']['P'][5]
+    cx_p = data['sensors'][sensor_key]['camera_info']['P'][2]
+    cy_p = data['sensors'][sensor_key]['camera_info']['P'][6]
+    intrinsics = [fx_p, fy_p, cx_p, cy_p]
+    return intrinsics
+
+
+def setterCameraPMatrix(data, value, sensor_key):
+    assert len(value) == 4, "value must be a list with length 4."
+    data['sensors'][sensor_key]['camera_info']['P'][0] = value[0]  # fx_p
+    data['sensors'][sensor_key]['camera_info']['P'][5] = value[1]  # fy_p
+    data['sensors'][sensor_key]['camera_info']['P'][2] = value[2]  # cx_p
+    data['sensors'][sensor_key]['camera_info']['P'][6] = value[3]  # cy_p
+
+
 def getterCameraIntrinsics(data, sensor_key):
     fx = data['sensors'][sensor_key]['camera_info']['K'][0]
     fy = data['sensors'][sensor_key]['camera_info']['K'][4]
@@ -115,4 +132,3 @@ def setterChessBoardRotation(data, value, collection_key):
     hmatrix[0:3, 0:3] = matrix
     quat = transformations.quaternion_from_matrix(hmatrix)
     data['chessboards']['collections'][collection_key]['quat'] = quat
-
