@@ -209,6 +209,7 @@ def objectiveFunction(data):
                     (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
                 # e1 = e1 / 100
                 local_residuals.append(e1)
+                local_residuals = [x/100 for x in local_residuals]
                 incrementResidualsCount(collection_key, sensor_key, 'Image')
 
                 # Update residuals for images
@@ -311,8 +312,8 @@ def objectiveFunction(data):
                     # becomes a shape (2,) which the function cdist does not support.
 
                     min_distance = np.amin(distance.cdist(xa, pts_inner_in_chessboard, 'euclidean'))
-                    # local_residuals.append(0.2 * min_distance)  # TODO check this ad hoc weighing of the residual
-                    # incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
+                    local_residuals.append(0.2 * min_distance)  # TODO check this ad hoc weighing of the residual
+                    incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
 
                 # Afonso's way
                 # edges = 0
