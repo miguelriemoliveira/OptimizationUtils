@@ -1,9 +1,11 @@
 # -------------------------------------------------------------------------------
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
+import pprint
 from copy import deepcopy
 import math
 import numpy as np
+from statistics import mean
 
 import rospy
 from geometry_msgs.msg import Point
@@ -121,35 +123,13 @@ def objectiveFunction(data):
     if args['view_optimization']:
         dataset_graphics = data['dataset_graphics']
 
-    # Initialize residuals. Also create dictionaries of partial residuals for better debugging.
-    # , collection_key + '_count': 0
-    # for collection_key in dataset_sensors['collections']
-    meter_to_pixel_factor = 0.001  # image residuals will be multiplied by the image residuals
-    r = {}
-    residuals = []
-    weighted_residuals = []
-    residuals_per_collection = {collection_key: {'total': 0.0, 'count': 0}
-                                for collection_key in dataset_sensors['collections']}
-    residuals_per_sensor = {sensor_key: {'total': 0.0, 'count': 0} for sensor_key in dataset_sensors['sensors']}
-    residuals_per_msg_type = {'Image': {'total': 0.0, 'count': 0}, 'LaserScan': {'total': 0.0, 'count': 0}}
-
-    def incrementResidualsCount(collection_key, sensor_key, msg_type):
-        residuals_per_collection[collection_key]['count'] += 1
-        residuals_per_sensor[sensor_key]['count'] += 1
-        residuals_per_msg_type[msg_type]['count'] += 1
-
+    r = {}  # Initialize residuals dictionary.
     for collection_key, collection in dataset_sensors['collections'].items():
         for sensor_key, sensor in dataset_sensors['sensors'].items():
-            raw_residuals = []  # reset raw residuals
-            intra_n_residuals = []  # reset intra normalized residuals
-
             if not collection['labels'][sensor_key]['detected']:  # chess not detected by sensor in collection
                 continue
 
-            # print("Computing residuals for collection " + collection_key + ", sensor " + sensor_key)
-
             if sensor['msg_type'] == 'Image':
-
                 # Compute chessboard points in local sensor reference frame
                 trans = dataset_chessboards['collections'][collection_key]['trans']
                 quat = dataset_chessboards['collections'][collection_key]['quat']
@@ -188,58 +168,31 @@ def objectiveFunction(data):
                 #     error_sum += e1
 
                 idx = 0
-                e1 = math.sqrt(
-                    (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                # e1 = e1 / 100
-                raw_residuals.append(e1)
-                incrementResidualsCount(collection_key, sensor_key, 'Image')
-                r[collection_key + '_' + sensor_key + '_0'] = e1
+                rname = collection_key + '_' + sensor_key + '_0'
+                r[rname] = math.sqrt((pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
 
                 idx = dataset_chessboards['chess_num_x'] - 1
-                e1 = math.sqrt(
-                    (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                # e1 = e1 / 100
-                raw_residuals.append(e1)
-                incrementResidualsCount(collection_key, sensor_key, 'Image')
-                r[collection_key + '_' + sensor_key + '_1'] = e1
+                rname = collection_key + '_' + sensor_key + '_1'
+                r[rname] = math.sqrt((pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
 
                 idx = dataset_chessboards['number_corners'] - dataset_chessboards['chess_num_x']
-                e1 = math.sqrt(
-                    (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                # e1 = e1 / 100
-                raw_residuals.append(e1)
-                incrementResidualsCount(collection_key, sensor_key, 'Image')
-                r[collection_key + '_' + sensor_key + '_2'] = e1
+                rname = collection_key + '_' + sensor_key + '_2'
+                r[rname] = math.sqrt((pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
 
                 idx = dataset_chessboards['number_corners'] - 1
-                e1 = math.sqrt(
-                    (pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
-                # e1 = e1 / 100
-                raw_residuals.append(e1)
-                incrementResidualsCount(collection_key, sensor_key, 'Image')
-                r[collection_key + '_' + sensor_key + '_3'] = e1
-
-                # Intra normalization
-                intra_n_residuals.extend(
-                    [x * meter_to_pixel_factor for x in raw_residuals])  # compensate pixels, meters
+                rname = collection_key + '_' + sensor_key + '_3'
+                r[rname] = math.sqrt((pixs[0, idx] - array_gt[0, idx]) ** 2 + (pixs[1, idx] - array_gt[1, idx]) ** 2)
 
                 # Required by the visualization function to publish annotated images
                 idxs_projected = []
                 for idx in range(0, pixs.shape[1]):
                     idxs_projected.append({'x': pixs[0][idx], 'y': pixs[1][idx]})
-
                 collection['labels'][sensor_key]['idxs_projected'] = idxs_projected  # store projections
 
                 if 'idxs_initial' not in collection['labels'][sensor_key]:  # store the first projections
                     collection['labels'][sensor_key]['idxs_initial'] = deepcopy(idxs_projected)
 
             elif sensor['msg_type'] == 'LaserScan':
-
-                # Weights for each measurement. Longitudinal (extrema and inner) 50% weight, orthogonal (beam) 50% also.
-                weights = {'extrema': 0.25, 'inner': 0.25, 'beam': 0.5}
-                if not sum(weights.values()) == 1:  # Check weights are well defined
-                    raise ValueError('Sum of weights must equal to 1.')
-
                 # Get laser points that belong to the chessboard
                 idxs = collection['labels'][sensor_key]['idxs']
                 rhos = [collection['data'][sensor_key]['ranges'][idx] for idx in idxs]
@@ -266,44 +219,30 @@ def objectiveFunction(data):
 
                 # --- Residuals: longitudinal error for extrema
                 pts_canvas_in_chessboard = dataset_chessboards['limit_points'][0:2, :].transpose()
-                w = weights['extrema'] / 2  # compute weight per extrema point (only two points)
 
                 # compute minimum distance to inner_pts for right most edge (first in pts_in_chessboard list)
                 extrema_right = np.reshape(pts_in_chessboard[0:2, 0], (2, 1))  # longitudinal -> ignore z values
-                min_distance_right = np.amin(distance.cdist(extrema_right.transpose(),
-                                                            pts_canvas_in_chessboard, 'euclidean'))
-                raw_residuals.append(min_distance_right)
-                intra_n_residuals.append(w * min_distance_right)
-                incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
-                r[collection_key + '_' + sensor_key + '_eright'] = min_distance_right
+                rname = collection_key + '_' + sensor_key + '_eright'
+                r[rname] = float(
+                    np.amin(distance.cdist(extrema_right.transpose(), pts_canvas_in_chessboard, 'euclidean')))
 
                 # compute minimum distance to inner_pts for left most edge (last in pts_in_chessboard list)
                 extrema_left = np.reshape(pts_in_chessboard[0:2, -1], (2, 1))  # longitudinal -> ignore z values
-                min_distance_left = w * np.amin(distance.cdist(extrema_left.transpose(),
-                                                               pts_canvas_in_chessboard, 'euclidean'))
-                raw_residuals.append(min_distance_left)
-                intra_n_residuals.append(w * min_distance_left)
-                incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
-                r[collection_key + '_' + sensor_key + '_eleft'] = min_distance_left
+                rname = collection_key + '_' + sensor_key + '_eleft'
+                r[rname] = float(
+                    np.amin(distance.cdist(extrema_left.transpose(), pts_canvas_in_chessboard, 'euclidean')))
 
                 # --- Residuals: Longitudinal distance for inner points
                 pts_inner_in_chessboard = dataset_chessboards['inner_points'][0:2, :].transpose()
                 edges2d_in_chessboard = pts_in_chessboard[0:2, collection['labels'][sensor_key]['edge_idxs']]  # this
                 # is a longitudinal residual, so ignore z values.
 
-                if not edges2d_in_chessboard.shape[1] == 0:
-                    w = weights['inner'] / edges2d_in_chessboard.shape[1]  # compute weight per inner point
-                else:
-                    w = 0
                 for idx in range(edges2d_in_chessboard.shape[1]):  # compute minimum distance to inner_pts for each edge
                     xa = np.reshape(edges2d_in_chessboard[:, idx], (2, 1)).transpose()  # need the reshape because this
                     # becomes a shape (2,) which the function cdist does not support.
 
-                    min_distance = np.amin(distance.cdist(xa, pts_inner_in_chessboard, 'euclidean'))
-                    raw_residuals.append(min_distance)
-                    intra_n_residuals.append(w * min_distance)
-                    incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
-                    r[collection_key + '_' + sensor_key + '_inner_' + str(idx)] = min_distance
+                    rname = collection_key + '_' + sensor_key + '_inner_' + str(idx)
+                    r[rname] = float(np.amin(distance.cdist(xa, pts_inner_in_chessboard, 'euclidean')))
 
                 # --- Residuals: Beam direction distance from point to chessboard plan
                 # For computing the intersection we need:
@@ -341,8 +280,6 @@ def objectiveFunction(data):
                     marker.points = []
                     rviz_p0_in_laser = Point(p0_in_laser[0], p0_in_laser[1], p0_in_laser[2])
 
-                counter = 0
-                w = weights['beam'] / pts_in_laser.shape[1]  # compute weight per beam point
                 for idx in range(0, pts_in_laser.shape[1]):  # for all points
                     rho = rhos[idx]
                     p1_in_laser = pts_in_laser[:, idx]
@@ -352,48 +289,21 @@ def objectiveFunction(data):
                         raise ValueError('Error: chessboard is almost parallel to the laser beam! Please delete the '
                                          'collections in question.')
 
-                    computed_rho = distance_two_3D_points(p0_in_laser, pt_intersection)
-                    beam_residual = abs(computed_rho - rho)
-                    raw_residuals.append(beam_residual)  # abs is ok, check #109.
-                    intra_n_residuals.append(w * beam_residual)  # abs is ok, check #109.
-                    incrementResidualsCount(collection_key, sensor_key, 'LaserScan')
-                    r[collection_key + '_' + sensor_key + '_beam_' + str(idx)] = beam_residual
+                    rname = collection_key + '_' + sensor_key + '_beam_' + str(idx)
+                    r[rname] = abs(distance_two_3D_points(p0_in_laser, pt_intersection) - rho)
 
                     if args['view_optimization']:
                         marker.points.append(deepcopy(rviz_p0_in_laser))
                         marker.points.append(Point(pt_intersection[0], pt_intersection[1], pt_intersection[2]))
 
-                    counter += 1
-
             else:
                 raise ValueError("Unknown sensor msg_type")
-
-            # --- Update global residuals
-            residuals.extend(raw_residuals)  # extend list of residuals
-            weighted_residuals.extend([x / len(raw_residuals) for x in raw_residuals])  # inter normalization
-            # for all collection-sensor pairs
-            residuals_per_collection[collection_key]['total'] += sum([abs(x) for x in raw_residuals])
-            residuals_per_sensor[sensor_key]['total'] += sum([abs(x) for x in raw_residuals])
-            residuals_per_msg_type[sensor['msg_type']]['total'] += sum([abs(x) for x in raw_residuals])
-
-    # Compute average of residuals
-
-    computeResidualsAverage(residuals_per_sensor)
-    computeResidualsAverage(residuals_per_collection)
-    computeResidualsAverage(residuals_per_msg_type)
-    print('Avg residuals per collection:\n ' + str({key: residuals_per_collection[key]['average']
-                                                    for key in residuals_per_collection}))
-    print('Avg residuals per sensor:\n ' + str({key: residuals_per_sensor[key]['average']
-                                                for key in residuals_per_sensor}))
-    print('Avg residuals per msg_type:\n ' + str({key: residuals_per_msg_type[key]['average']
-                                                  for key in residuals_per_msg_type}))
-    print('Total error:\n ' + str(sum(residuals)))
 
     # --- Normalization of residuals.
     rn = deepcopy(r)  # make a copy of the non normalized dictionary.
 
     # Message type normalization. Pixels and meters should be weighted based on an adhoc defined meter_to_pixel factor.
-    meter_to_pixel_factor = 100
+    meter_to_pixel_factor = 200  # trial and error, the best technique around :-)
     for collection_key, collection in dataset_sensors['collections'].items():
         for sensor_key, sensor in dataset_sensors['sensors'].items():
             if not collection['labels'][sensor_key]['detected']:  # chess not detected by sensor in collection
@@ -412,37 +322,51 @@ def objectiveFunction(data):
 
             pair_keys = [k for k in rn.keys() if collection_key == k.split('_')[0] and sensor_key in k]
 
-            if sensor['msg_type'] == 'Image': # Intra normalization: for cameras there is nothing to do, since all
+            if sensor['msg_type'] == 'Image':  # Intra normalization: for cameras there is nothing to do, since all
                 # measurements have the same importance. Inter normalization, divide by the number of pixels considered.
                 rn.update({k: rn[k] / len(pair_keys) for k in pair_keys})
 
-            elif sensor['msg_type'] == 'LaserScan': # Intra normalization: longitudinal measurements (extrema (.25)
+            elif sensor['msg_type'] == 'LaserScan':  # Intra normalization: longitudinal measurements (extrema (.25)
                 # and inner (.25)] and orthogonal measurements (beam (0.5)). Inter normalization, consider the number of
                 # measurements.
-                extrema_keys = [k for k in pair_keys if 'eleft' in k or 'eright' in k]
+                extrema_keys = [k for k in pair_keys if '_eleft' in k or '_eright' in k]
                 rn.update({k: 0.25 / len(extrema_keys) * rn[k] for k in extrema_keys})
 
-                inner_keys = [k for k in pair_keys if 'inner' in k]
+                inner_keys = [k for k in pair_keys if '_inner' in k]
                 rn.update({k: 0.25 / len(inner_keys) * rn[k] for k in inner_keys})
 
-                beam_keys = [k for k in pair_keys if 'beam' in k]
+                beam_keys = [k for k in pair_keys if '_beam' in k]
                 rn.update({k: 0.5 / len(beam_keys) * rn[k] for k in beam_keys})
 
-    # Print (just for debugging)
-    for collection_key, collection in dataset_sensors['collections'].items():
-        for sensor_key, sensor in dataset_sensors['sensors'].items():
-            pair_keys = [k for k in rn.keys() if collection_key == k.split('_')[0] and sensor_key in k]
-            extrema_keys = [k for k in pair_keys if 'eleft' in k or 'eright' in k]
-            inner_keys = [k for k in pair_keys if 'inner' in k]
-            beam_keys = [k for k in pair_keys if 'beam' in k]
-            print('Collection ' + collection_key + ' ' + sensor_key + ' has ' + str(len(pair_keys)) + ' residuals: ' +
-                  str(len(extrema_keys)) + ' extrema, ' + str(len(inner_keys)) + ' inner, ' + str(
-                        len(beam_keys)) + ' beam.')
 
-    # for key in r.keys():
-    #     print(key + ' r = ' + str(r[key]) + ' rn = ' + str(rn[key]))
+    # for collection_key, collection in dataset_sensors['collections'].items():
+    #     for sensor_key, sensor in dataset_sensors['sensors'].items():
+    #         pair_keys = [k for k in rn.keys() if collection_key == k.split('_')[0] and sensor_key in k]
+    #         extrema_keys = [k for k in pair_keys if 'eleft' in k or 'eright' in k]
+    #         inner_keys = [k for k in pair_keys if 'inner' in k]
+    #         beam_keys = [k for k in pair_keys if 'beam' in k]
+    #         print('Collection ' + collection_key + ' ' + sensor_key + ' has ' + str(len(pair_keys)) +
+    #               ' residuals: ' + str(len(extrema_keys)) + ' extrema, ' + str(len(inner_keys)) + ' inner, ' +
+    #               str(len(beam_keys)) + ' beam.')
+    #
+    # per_col_sensor = {str(c): {str(s): {'avg': mean([r[k] for k in r.keys() if c == k.split('_')[0] and s in k]),
+    #                                     'navg': mean([rn[k] for k in rn.keys() if c == k.split('_')[0] and s in k])}
+    #                            for s in dataset_sensors['sensors']} for c in dataset_sensors['collections']}
+    #
+    per_sensor = {str(sensor_key): {'avg': mean([r[k] for k in r.keys() if sensor_key in k]),
+                                    'navg': mean([rn[k] for k in rn.keys() if sensor_key in k])}
+                  for sensor_key in dataset_sensors['sensors']}
 
-    # exit(0)
-    # return residuals  # Return the residuals
-    # return weighted_residuals  # Return the residuals
-    return rn  # Return the residuals
+    per_msg_type = {'Image': {'avg': mean([r[k] for k in r.keys() if 'camera' in k]),
+                              'navg': mean([rn[k] for k in rn.keys() if 'camera' in k])},
+                    'LaserScan': {'avg': mean([r[k] for k in r.keys() if 'laser' in k]),
+                                  'navg': mean([rn[k] for k in rn.keys() if 'laser' in k])}
+                    }
+    # report = {'0-per_col_sensor': per_col_sensor, '1-per_sensor': per_sensor, '2-per_msg_type': per_msg_type}
+    report = {'1-per_sensor': per_sensor, '2-per_msg_type': per_msg_type}
+
+    pp = pprint.PrettyPrinter(indent=2)
+    pp.pprint(report)
+
+    # return rn  # Return the residuals
+    return rn  # Return the normalized residuals

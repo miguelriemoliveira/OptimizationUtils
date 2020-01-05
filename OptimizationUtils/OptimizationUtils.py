@@ -2,6 +2,7 @@
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import matplotlib
+import pprint
 from collections import namedtuple, OrderedDict
 from copy import deepcopy
 import pandas
@@ -285,7 +286,7 @@ class Optimizer:
 
             # Printing information
             # self.printParameters(flg_simple=True)
-            self.printResiduals(errors)
+            # self.printResiduals(errors)
 
         else:
             self.vis_counter += 1
@@ -295,16 +296,13 @@ class Optimizer:
     def errorDictToList(self, errors):
 
         if type(errors) is list:
-            print('Objective function returned a list, nothing to do.')
             error_list = errors
         elif type(errors) is dict:
-            print('Objective function returned a dict, converting to list.')
             error_dict = errors
             error_list = []
 
             for residual in self.residuals:  # residuals is an ordered dictionary.
                 error_list.append(error_dict[residual])
-
         else:
             raise ValueError('errors of unknown type ' + str(type(errors)))
 

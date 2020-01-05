@@ -109,28 +109,28 @@ def main():
 
     # Load images from files into memory. Images in the json file are stored in separate png files and in their place
     # a field "data_file" is saved with the path to the file. We must load the images from the disk.
-    for _collection_key, collection in dataset_sensors['collections'].items():
-        for _sensor_key, sensor in dataset_sensors['sensors'].items():
+    for collection_key, collection in dataset_sensors['collections'].items():
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
             if not sensor['msg_type'] == 'Image':  # nothing to do here.
                 continue
 
-            filename = os.path.dirname(args['json_file']) + '/' + collection['data'][_sensor_key]['data_file']
-            collection['data'][_sensor_key]['data'] = cv2.imread(filename)
+            filename = os.path.dirname(args['json_file']) + '/' + collection['data'][sensor_key]['data_file']
+            collection['data'][sensor_key]['data'] = cv2.imread(filename)
 
     if not args['collection_selection_function'] is None:
         deleted = []
-        for _collection_key in dataset_sensors['collections'].keys():
-            if not args['collection_selection_function'](_collection_key):  # use the lambda expression csf
-                deleted.append(_collection_key)
-                del dataset_sensors['collections'][_collection_key]
+        for collection_key in dataset_sensors['collections'].keys():
+            if not args['collection_selection_function'](collection_key):  # use the lambda expression csf
+                deleted.append(collection_key)
+                del dataset_sensors['collections'][collection_key]
         print("Deleted collections: " + str(deleted))
 
     # TODO In the future this should not be needed
     # Deleting collections where the chessboard was not found by both cameras:
-    for _collection_key, collection in dataset_sensors['collections'].items():
-        for _sensor_key, sensor in dataset_sensors['sensors'].items():
-            if not collection['labels'][_sensor_key]['detected']:
-                del dataset_sensors['collections'][_collection_key]
+    for collection_key, collection in dataset_sensors['collections'].items():
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            if not collection['labels'][sensor_key]['detected']:
+                del dataset_sensors['collections'][collection_key]
                 break
 
     print("\nCollections studied:\n " + str(dataset_sensors['collections'].keys()))
@@ -145,10 +145,10 @@ def main():
     # ---------------------------------------
     if not args['sensor_selection_function'] is None:
         deleted = []
-        for _sensor_key in dataset_sensors['sensors'].keys():
-            if not args['sensor_selection_function'](_sensor_key):  # use the lambda expression ssf
-                deleted.append(_sensor_key)
-                del dataset_sensors['sensors'][_sensor_key]
+        for sensor_key in dataset_sensors['sensors'].keys():
+            if not args['sensor_selection_function'](sensor_key):  # use the lambda expression ssf
+                deleted.append(sensor_key)
+                del dataset_sensors['sensors'][sensor_key]
         print("Deleted sensors: " + str(deleted))
 
     print('Loaded dataset containing ' + str(len(dataset_sensors['sensors'].keys())) + ' sensors and ' + str(
@@ -200,13 +200,13 @@ def main():
         'anchored_sensor'] + Style.RESET_ALL)
 
     print('Creating parameters ...')
-    for _sensor_key, sensor in dataset_sensors['sensors'].items():
+    for sensor_key, sensor in dataset_sensors['sensors'].items():
 
         # Translation -------------------------------------
-        initial_translation = getterSensorTranslation(dataset_sensors, sensor_key=_sensor_key,
+        initial_translation = getterSensorTranslation(dataset_sensors, sensor_key=sensor_key,
                                                       collection_key=selected_collection_key)
 
-        if _sensor_key == dataset_sensors['calibration_config']['anchored_sensor']:
+        if sensor_key == dataset_sensors['calibration_config']['anchored_sensor']:
             bound_max = [x + sys.float_info.epsilon for x in initial_translation]
             bound_min = [x - sys.float_info.epsilon for x in initial_translation]
         else:
@@ -214,68 +214,68 @@ def main():
             # bound_min = [x - translation_delta for x in initial_translation]
             bound_max = [+inf for x in initial_translation]
             bound_min = [-inf for x in initial_translation]
-            if 'laser' in _sensor_key:
+            if 'laser' in sensor_key:
                 bound_max[2] = initial_translation[2] + translation_delta
                 bound_min[2] = initial_translation[2] - translation_delta
 
-        opt.pushParamVector(group_name='S_' + _sensor_key + '_t', data_key='dataset_sensors',
-                            getter=partial(getterSensorTranslation, sensor_key=_sensor_key,
+        opt.pushParamVector(group_name='S_' + sensor_key + '_t', data_key='dataset_sensors',
+                            getter=partial(getterSensorTranslation, sensor_key=sensor_key,
                                            collection_key=selected_collection_key),
-                            setter=partial(setterSensorTranslation, sensor_key=_sensor_key),
+                            setter=partial(setterSensorTranslation, sensor_key=sensor_key),
                             suffix=['x', 'y', 'z'],
                             bound_max=bound_max, bound_min=bound_min)
 
         # Rotation --------------------------------------
-        initial_rotation = getterSensorRotation(dataset_sensors, sensor_key=_sensor_key,
+        initial_rotation = getterSensorRotation(dataset_sensors, sensor_key=sensor_key,
                                                 collection_key=selected_collection_key)
 
-        if _sensor_key == dataset_sensors['calibration_config']['anchored_sensor']:
+        if sensor_key == dataset_sensors['calibration_config']['anchored_sensor']:
             bound_max = [x + sys.float_info.epsilon for x in initial_rotation]
             bound_min = [x - sys.float_info.epsilon for x in initial_rotation]
         else:
             bound_max = [+inf for x in initial_rotation]
             bound_min = [-inf for x in initial_rotation]
 
-        opt.pushParamVector(group_name='S_' + _sensor_key + '_r', data_key='dataset_sensors',
-                            getter=partial(getterSensorRotation, sensor_key=_sensor_key,
+        opt.pushParamVector(group_name='S_' + sensor_key + '_r', data_key='dataset_sensors',
+                            getter=partial(getterSensorRotation, sensor_key=sensor_key,
                                            collection_key=selected_collection_key),
-                            setter=partial(setterSensorRotation, sensor_key=_sensor_key),
+                            setter=partial(setterSensorRotation, sensor_key=sensor_key),
                             suffix=['1', '2', '3'],
                             bound_max=bound_max, bound_min=bound_min)
 
         # if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
-            #     opt.pushParamVector(group_name='S_' + _sensor_key + '_I_', data_key='dataset_sensors',
-            #                         getter=partial(getterCameraIntrinsics, sensor_key=_sensor_key),
-            #                         setter=partial(setterCameraIntrinsics, sensor_key=_sensor_key),
+            #     opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
+            #                         getter=partial(getterCameraIntrinsics, sensor_key=sensor_key),
+            #                         setter=partial(setterCameraIntrinsics, sensor_key=sensor_key),
             #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
-            # opt.pushParamVector(group_name='S_' + _sensor_key + '_P_', data_key='dataset_sensors',
-            #                 getter=partial(getterCameraPMatrix, sensor_key=_sensor_key),
-            #                 setter=partial(setterCameraPMatrix, sensor_key=_sensor_key),
+            # opt.pushParamVector(group_name='S_' + sensor_key + '_P_', data_key='dataset_sensors',
+            #                 getter=partial(getterCameraPMatrix, sensor_key=sensor_key),
+            #                 setter=partial(setterCameraPMatrix, sensor_key=sensor_key),
             #                 suffix=['fx_p', 'fy_p', 'cx_p', 'cy_p'])
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
 
     # Add translation and rotation parameters related to the Chessboards
-    for _collection_key in dataset_sensors['chessboards']['collections']:
+    for collection_key in dataset_sensors['chessboards']['collections']:
         # bound_max = [x + translation_delta for x in initial_values]
         # bound_min = [x - translation_delta for x in initial_values]
 
-        # initial_translation = getterChessBoardTranslation(dataset_sensors,_collection_key)
+        # initial_translation = getterChessBoardTranslation(dataset_sensors,collection_key)
         # initial_translation[0] += 0.9
         # initial_translation[1] += 0.7
         # initial_translation[2] += 0.7
-        # setterChessBoardTranslation(dataset_sensors, initial_translation, _collection_key)
+        # setterChessBoardTranslation(dataset_sensors, initial_translation, collection_key)
 
-        opt.pushParamVector(group_name='C_' + _collection_key + '_t', data_key='dataset_sensors',
-                            getter=partial(getterChessBoardTranslation, collection_key=_collection_key),
-                            setter=partial(setterChessBoardTranslation, collection_key=_collection_key),
+        opt.pushParamVector(group_name='C_' + collection_key + '_t', data_key='dataset_sensors',
+                            getter=partial(getterChessBoardTranslation, collection_key=collection_key),
+                            setter=partial(setterChessBoardTranslation, collection_key=collection_key),
                             suffix=['x', 'y', 'z'])
         # ,bound_max=bound_max, bound_min=bound_min)
 
-        opt.pushParamVector(group_name='C_' + _collection_key + '_r', data_key='dataset_sensors',
-                            getter=partial(getterChessBoardRotation, collection_key=_collection_key),
-                            setter=partial(setterChessBoardRotation, collection_key=_collection_key),
+        opt.pushParamVector(group_name='C_' + collection_key + '_r', data_key='dataset_sensors',
+                            getter=partial(getterChessBoardRotation, collection_key=collection_key),
+                            setter=partial(setterChessBoardRotation, collection_key=collection_key),
                             suffix=['1', '2', '3'])
 
     # ---------------------------------------
@@ -290,32 +290,32 @@ def main():
     # by the parameters tx,ty,tz,r1,r2,r3 of the sensor and the chessboard
 
     print("Creating residuals ... ")
-    for _collection_key, collection in dataset_sensors['collections'].items():
-        for _sensor_key, sensor in dataset_sensors['sensors'].items():
-            if not collection['labels'][_sensor_key]['detected']:  # if chessboard not detected by sensor in collection
+    for collection_key, collection in dataset_sensors['collections'].items():
+        for sensor_key, sensor in dataset_sensors['sensors'].items():
+            if not collection['labels'][sensor_key]['detected']:  # if chessboard not detected by sensor in collection
                 continue
 
-            params = opt.getParamsContainingPattern('S_' + _sensor_key)  # sensor related params
-            params.extend(opt.getParamsContainingPattern('C_' + _collection_key + '_'))  # chessboard related params
+            params = opt.getParamsContainingPattern('S_' + sensor_key)  # sensor related params
+            params.extend(opt.getParamsContainingPattern('C_' + collection_key + '_'))  # chessboard related params
 
             if sensor['msg_type'] == 'Image':  # if sensor is a camera use four residuals
                 # for idx in range(0, dataset_chessboards['number_corners']):
                 for idx in range(0, 4):
-                    opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_' + str(idx), params=params)
+                    opt.pushResidual(name=collection_key + '_' + sensor_key + '_' + str(idx), params=params)
 
             elif sensor['msg_type'] == 'LaserScan':  # if sensor is a 2D lidar add two residuals
 
                 # Extrema points (longitudinal error)
-                opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_eleft', params=params)
-                opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_eright', params=params)
+                opt.pushResidual(name=collection_key + '_' + sensor_key + '_eleft', params=params)
+                opt.pushResidual(name=collection_key + '_' + sensor_key + '_eright', params=params)
 
                 # Inner points, use detection of edges (longitudinal error)
                 for idx, _ in enumerate(collection['labels'][sensor_key]['edge_idxs']):
-                    opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_inner_' + str(idx), params=params)
+                    opt.pushResidual(name=collection_key + '_' + sensor_key + '_inner_' + str(idx), params=params)
 
                 # Laser beam (orthogonal error)
-                for idx in range(0, len(collection['labels'][_sensor_key]['idxs'])):
-                    opt.pushResidual(name=_collection_key + '_' + _sensor_key + '_beam_' + str(idx), params=params)
+                for idx in range(0, len(collection['labels'][sensor_key]['idxs'])):
+                    opt.pushResidual(name=collection_key + '_' + sensor_key + '_beam_' + str(idx), params=params)
 
     # opt.printResiduals()
 
