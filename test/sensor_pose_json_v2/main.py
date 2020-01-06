@@ -342,7 +342,7 @@ def main():
     # --- Start Optimization
     # ---------------------------------------
     print('Initializing optimization ...')
-    opt.startOptimization(optimization_options={'ftol': 1e-6, 'xtol': 1e-5, 'gtol': 1e-5,
+    opt.startOptimization(optimization_options={'ftol': 1e-6, 'xtol': 1e-4, 'gtol': 1e-5,
                                                 'diff_step': 1e-4, 'x_scale': 'jac'})
 
     # print('\n-----------------')
