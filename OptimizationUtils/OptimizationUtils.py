@@ -2,6 +2,7 @@
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import matplotlib
+import pprint
 from collections import namedtuple, OrderedDict
 from copy import deepcopy
 import pandas
@@ -255,6 +256,7 @@ class Optimizer:
         self.x = x  # setup x parameters.
         self.fromXToData()  # Copy from parameters to data models.
         errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
+        errors = self.errorDictToList(errors)
 
         # Visualization: skip if counter does not exceed blackout interval
         if self.always_visualize and self.vis_counter >= self.vis_niterations:
@@ -284,12 +286,27 @@ class Optimizer:
 
             # Printing information
             # self.printParameters(flg_simple=True)
-            self.printResiduals(errors)
+            # self.printResiduals(errors)
 
         else:
             self.vis_counter += 1
 
         return errors
+
+    def errorDictToList(self, errors):
+
+        if type(errors) is list:
+            error_list = errors
+        elif type(errors) is dict:
+            error_dict = errors
+            error_list = []
+
+            for residual in self.residuals:  # residuals is an ordered dictionary.
+                error_list.append(error_dict[residual])
+        else:
+            raise ValueError('errors of unknown type ' + str(type(errors)))
+
+        return error_list
 
     def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8,
                                                       'diff_step': 1e-4}):
@@ -301,12 +318,15 @@ class Optimizer:
         self.x0 = deepcopy(self.x)  # store current x as initial parameter values
         self.fromXToData()  # copy from x to data models
         self.errors0 = self.objective_function(self.data_models)  # call obj. func. (once) to get initial residuals
+        self.errors0 = self.errorDictToList(self.errors0)
+
         if not len(self.residuals.keys()) == len(self.errors0):  # check if residuals are properly configured
             raise ValueError(
                 'Number of residuals returned by the objective function (' + str(len(self.errors0)) +
                 ') is not consistent with the number of residuals configured (' + str(len(self.residuals.keys())) + ')')
 
         errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
+        errors = self.errorDictToList(errors)
 
         # Setup boundaries for parameters
         bounds_min = []

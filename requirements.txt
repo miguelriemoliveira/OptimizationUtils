@@ -5,3 +5,4 @@ image_geometry
 plyfile
 open3d-python
 scipy
+statistics

@@ -80,8 +80,8 @@ def objectiveFunction(models):
         if pattern['fixed']:
             tree.add_transform(pattern['parent_link'], pattern['link'], Transform(*parameters['pattern']))
             rTc = tree.lookup_transform(pattern['link'], config['world_link']).matrix
-        elif parameters['pattern'][int(cid)] is not None:
-            tree.add_transform(pattern['parent_link'], pattern['link'] + cid, Transform(*parameters['pattern'][int(cid)]))
+        elif cid in parameters['pattern']:
+            tree.add_transform(pattern['parent_link'], pattern['link'] + cid, Transform(*parameters['pattern'][cid]))
             rTc = tree.lookup_transform(pattern['link'] + cid, config['world_link']).matrix
 
         for sensor_name, labels in collection['labels'].items():
@@ -274,17 +274,17 @@ def main():
                             setter=partial(setPose, name='pattern'),
                             suffix=['x', 'y', 'z', 'rx', 'ry', 'rz'])
     else:
-        parameters['pattern'] = [None] * len(collections)
+        parameters['pattern'] = {}
         for idx, collection in collections.items():
             for sensor_name, labels in collection['labels'].items():
                 if not labels['detected'] or sensors[sensor_name]['msg_type'] != 'Image':
                     continue
-                parameters['pattern'][int(idx)] = getPatternPose(collection['tf_tree'], config['world_link'],
+                parameters['pattern'][idx] = getPatternPose(collection['tf_tree'], config['world_link'],
                                                                  sensors[sensor_name], pattern, labels)
 
                 opt.pushParamVector(group_name='L_' + idx + '_pattern_', data_key='parameters',
-                                    getter=partial(getPose, name='pattern', idx=int(idx)),
-                                    setter=partial(setPose, name='pattern', idx=int(idx)),
+                                    getter=partial(getPose, name='pattern', idx=idx),
+                                    setter=partial(setPose, name='pattern', idx=idx),
                                     suffix=['x', 'y', 'z', 'rx', 'ry', 'rz'])
                 break
 
@@ -311,9 +311,11 @@ def main():
     options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '3-point', 'x_scale': 'jac'}
     opt.startOptimization(options)
 
-    if args['error'] is not None:
+    if args['error']:
         # Build summary.
         summary = {'collections': {k: {kk: vv['error'] for kk, vv in v['labels'].items() if vv['detected']} for k, v in collections.items()}}
+        ## remove empty collections
+        summary['collections'] = {k: v for k, v in summary['collections'].items() if len(v) > 0}
 
         with open(args['error'], 'w') as f:
             print >> f, json.dumps(summary, indent=2, sort_keys=True, separators=(',', ': '))
@@ -322,6 +324,8 @@ def main():
         print('')
         for name in sensors.keys():
             printOriginTag(name, parameters[name])
+
+        # printOriginTag('pattern', parameters['pattern'])
 
 
 if __name__ == '__main__':
