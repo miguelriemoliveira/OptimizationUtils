@@ -35,9 +35,9 @@ if __name__ == "__main__":
     n_iter = 0
     n_eva = 0
 
-    for key, value in data.items():
+    for iteration_key, value in data.items():
         n_iter += 1
-        for key2, value2 in data[key].items():
+        for evaluation_key, value2 in data[iteration_key].items():
             n_eva += 1
 
     avg_errors_left_laser = np.zeros((1, n_eva), np.float32)
@@ -45,8 +45,15 @@ if __name__ == "__main__":
     avg_errors_top_left_camera = np.zeros((1, n_eva), np.float32)
     avg_errors_top_right_camera = np.zeros((1, n_eva), np.float32)
     i = 0
-    for key, value in data.items():
-        for key2, value2 in data[key].items():
+    interation_keys = data.keys().sort()
+    for iteration_key in interation_keys:
+        value = data[iteration_key]
+        print("Iteration " + str(iteration_key))
+
+        evaluation_keys = value.keys().sort()
+        for evaluation_key in evaluation_keys:
+            print("\tEvaluation " + str(evaluation_key))
+            value2 = value[evaluation_key]
             avg_errors_left_laser[0, i] = value2['per_sensor']['left_laser']['avg']
             avg_errors_right_laser[0, i] = value2['per_sensor']['right_laser']['avg']
             avg_errors_top_left_camera[0, i] = value2['per_sensor']['top_left_camera']['avg']

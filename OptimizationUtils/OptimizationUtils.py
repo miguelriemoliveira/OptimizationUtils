@@ -367,15 +367,12 @@ class Optimizer:
     def finalOptimizationReport(self):
         """Just print some info and show the images"""
         print('\n-------------\nOptimization finished: ' + self.result['message'])
-        # self.printX(preamble_text='\nInitial value of parameters', x=self.x0)
-        # self.printX(preamble_text='\nFinal value of parameters', x=self.xf)
 
         if self.always_visualize:
-            print('Press c to continue ...')
-
+            print('Press x to finalize ...')
             while True:
                 self.vis_function_handle(self.data_models)
-                if self.wm.waitForKey(time_to_wait=0.1, verbose=False):
+                if self.wm.waitForKey(time_to_wait=0.1, verbose=False) == 'x':
                     break
 
     # ---------------------------

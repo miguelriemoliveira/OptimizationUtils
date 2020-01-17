@@ -244,14 +244,14 @@ def main():
                             bound_max=bound_max, bound_min=bound_min)
 
         # if sensor['msg_type'] == 'Image':  # if sensor is a camera add intrinsics
-            #     opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
-            #                         getter=partial(getterCameraIntrinsics, sensor_key=sensor_key),
-            #                         setter=partial(setterCameraIntrinsics, sensor_key=sensor_key),
-            #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
-            # opt.pushParamVector(group_name='S_' + sensor_key + '_P_', data_key='dataset_sensors',
-            #                 getter=partial(getterCameraPMatrix, sensor_key=sensor_key),
-            #                 setter=partial(setterCameraPMatrix, sensor_key=sensor_key),
-            #                 suffix=['fx_p', 'fy_p', 'cx_p', 'cy_p'])
+        #     opt.pushParamVector(group_name='S_' + sensor_key + '_I_', data_key='dataset_sensors',
+        #                         getter=partial(getterCameraIntrinsics, sensor_key=sensor_key),
+        #                         setter=partial(setterCameraIntrinsics, sensor_key=sensor_key),
+        #                         suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
+        # opt.pushParamVector(group_name='S_' + sensor_key + '_P_', data_key='dataset_sensors',
+        #                 getter=partial(getterCameraPMatrix, sensor_key=sensor_key),
+        #                 setter=partial(setterCameraPMatrix, sensor_key=sensor_key),
+        #                 suffix=['fx_p', 'fy_p', 'cx_p', 'cy_p'])
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
@@ -342,8 +342,11 @@ def main():
     # --- Start Optimization
     # ---------------------------------------
     print('Initializing optimization ...')
-    opt.startOptimization(optimization_options={'ftol': 1e-6, 'xtol': 1e-4, 'gtol': 1e-5,
-                                                'diff_step': 1e-4, 'x_scale': 'jac'})
+    # opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': 1e-4,
+    #                                             'x_scale': 'jac'})
+    opt.startOptimization(optimization_options={'ftol': 1e-3, 'xtol': 1e-3, 'gtol': 1e-3, 'diff_step': 1e-2,
+                                                'x_scale': 'jac'})
+    #TODO dif step as None
 
     # print('\n-----------------')
     # opt.printParameters(opt.x0, text='Initial parameters')
@@ -351,12 +354,18 @@ def main():
     # opt.printParameters(opt.xf, text='Final parameters')
 
     # ---------------------------------------
-    # --- Save JSON file
+    # --- Save updated JSON file
     # ---------------------------------------
     # Write json file with updated dataset_sensors
+    print('Saving json file ...')
     createJSONFile('test/sensor_pose_json_v2/results/dataset_sensors_results.json', dataset_sensors)
+    print('File saved.')
 
+    # ---------------------------------------
+    # --- Save updated xacro
+    # ---------------------------------------
     # Cycle all sensors in calibration config, and for each replace the optimized transform in the original xacro
+    print('Save updated xacro file ...')
     for sensor_key in dataset_sensors['calibration_config']['sensors']:
         child = dataset_sensors['calibration_config']['sensors'][sensor_key]['child_link']
         parent = dataset_sensors['calibration_config']['sensors'][sensor_key]['parent_link']
@@ -374,7 +383,7 @@ def main():
                 print('Replacing xyz = ' + str(joint.origin.xyz) + ' by ' + str(trans))
                 joint.origin.xyz = trans
 
-                rpy = list(tf.transformations.euler_from_quaternion(quat, axes='rxyz'))
+                rpy = list(tf.transformations.euler_from_quaternion(quat, axes='sxyz'))
                 print('Replacing rpy = ' + str(joint.origin.rpy) + ' by ' + str(rpy))
                 joint.origin.rpy = rpy
                 break
@@ -387,6 +396,8 @@ def main():
     with open(outfile, 'w') as out:
         print("Writing optimized urdf to " + str(outfile))
         out.write(URDF.to_xml_string(xml_robot))
+
+    print('Xacro file saved.')
 
 
 if __name__ == "__main__":
