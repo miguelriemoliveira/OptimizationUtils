@@ -34,6 +34,25 @@ def setPose(model, pose, name, idx=None):
     else:
         model[name][idx] = xform.position_quaternion
 
+def getCameraIntrinsics(model, name):
+    fx = model[name]['camera_info']['K'][0]
+    fy = model[name]['camera_info']['K'][4]
+    cx = model[name]['camera_info']['K'][2]
+    cy = model[name]['camera_info']['K'][5]
+    D = model[name]['camera_info']['D']
+    intrinsics = [fx, fy, cx, cy]
+    intrinsics.extend(D)
+    return intrinsics
+
+
+def setCameraIntrinsics(model, value, name):
+    assert len(value) == 9, "value must be a list with length 9."
+    model[name]['camera_info']['K'][0] = value[0]
+    model[name]['camera_info']['K'][4] = value[1]
+    model[name]['camera_info']['K'][2] = value[2]
+    model[name]['camera_info']['K'][5] = value[3]
+    model[name]['camera_info']['D'] = value[4:]
+
 
 def printOriginTag(name, pose):
     xform = Transform(*pose)
@@ -43,9 +62,9 @@ def printOriginTag(name, pose):
     print('<origin xyz="{}" rpy="{}"/>'.format(" ".join(t), " ".join(r)))
 
 
-def getPatternPose(tf_tree, root_link, camera, pattern, labels):
+def getPatternPose(tf_tree, frame_id, camera, pattern, labels):
     # sensor to root transformation
-    rTs = tf_tree.lookup_transform(camera['camera_info']['header']['frame_id'], root_link).matrix
+    rTs = tf_tree.lookup_transform(camera['camera_info']['header']['frame_id'], frame_id).matrix
 
     # convert chessboard corners from pixels to sensor coordinates.
     K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(camera['camera_info']['K']))
@@ -102,6 +121,7 @@ def objectiveFunction(models):
             # convert chessboard corners from pixels to sensor coordinates.
             K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(sensors[sensor_name]['camera_info']['K']))
             D = np.ndarray((5, 1), dtype=np.float, buffer=np.array(sensors[sensor_name]['camera_info']['D']))
+
             width = sensors[sensor_name]['camera_info']['width']
             height = sensors[sensor_name]['camera_info']['height']
 
@@ -190,6 +210,7 @@ def load_data(jsonfile, sensor_filter=None, collection_filter=None):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("-i", "--intrinsic", help="Optimize the intrinsic parameters of cameras.", dest='intrinsic', action='store_true')
     ap.add_argument("-p", "--print", help="Print optimized parameters as URDF tags.", dest='print', action='store_true')
     ap.add_argument("-json", "--json_file", help="JSON file containing input dataset.", type=str, required=True)
     ap.add_argument("-e", "--error", help="Final errors output file. (JSON format)", type=str)
@@ -255,6 +276,12 @@ def main():
                             setter=partial(setPose, name=name),
                             suffix=['x', 'y', 'z', 'rx', 'ry', 'rz'])
 
+        if sensors[name]['msg_type'] == 'Image' and args['intrinsic']:
+            opt.pushParamVector(group_name='S_' + name + '_intrinsics_', data_key='sensors',
+                                getter=partial(getCameraIntrinsics, name=name),
+                                setter=partial(setCameraIntrinsics, name=name),
+                                suffix=['fx', 'fy', 'cx', 'cy', 'k1', 'k2', 't1', 't2', 'k3'])
+
     pattern = config['calibration_pattern']
     # cache the chessboard grid
     size = (pattern['dimension']["x"], pattern['dimension']["y"])
@@ -279,13 +306,14 @@ def main():
             for sensor_name, labels in collection['labels'].items():
                 if not labels['detected'] or sensors[sensor_name]['msg_type'] != 'Image':
                     continue
-                parameters['pattern'][idx] = getPatternPose(collection['tf_tree'], config['world_link'],
-                                                                 sensors[sensor_name], pattern, labels)
+                parameters['pattern'][idx] = getPatternPose(collection['tf_tree'], pattern['parent_link'],
+                                                            sensors[sensor_name], pattern, labels)
 
                 opt.pushParamVector(group_name='L_' + idx + '_pattern_', data_key='parameters',
                                     getter=partial(getPose, name='pattern', idx=idx),
                                     setter=partial(setPose, name='pattern', idx=idx),
                                     suffix=['x', 'y', 'z', 'rx', 'ry', 'rz'])
+
                 break
 
     # Declare residuals
@@ -311,6 +339,9 @@ def main():
     options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '3-point', 'x_scale': 'jac'}
     opt.startOptimization(options)
 
+    rmse = np.sqrt(np.mean(np.array(objectiveFunction(opt.data_models)) ** 2))
+    print("RMSE {}".format(rmse))
+
     if args['error']:
         # Build summary.
         summary = {'collections': {k: {kk: vv['error'] for kk, vv in v['labels'].items() if vv['detected']} for k, v in collections.items()}}
@@ -321,7 +352,15 @@ def main():
             print >> f, json.dumps(summary, indent=2, sort_keys=True, separators=(',', ': '))
 
     if args['print']:
-        print('')
+        if args['intrinsic']:
+            print('\nIntrinsics')
+            print('----------')
+            for name, sensor in sensors.items():
+                print(name)
+                print(getCameraIntrinsics(sensors, name))
+
+        print('\nExtrinsics')
+        print('----------')
         for name in sensors.keys():
             printOriginTag(name, parameters[name])
 
