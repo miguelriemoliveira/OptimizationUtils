@@ -9,8 +9,9 @@ import cv2
 from functools import partial
 
 from OptimizationUtils import utilities
-from OptimizationUtils.OptimizationUtils import Optimizer
+from OptimizationUtils.OptimizationUtils import Optimizer, addArguments
 from OptimizationUtils.tf import TFTree, Transform
+from visualization import setupVisualization, visualizationFunction
 
 
 def getPose(model, name, idx=None):
@@ -33,6 +34,7 @@ def setPose(model, pose, name, idx=None):
         model[name] = xform.position_quaternion
     else:
         model[name][idx] = xform.position_quaternion
+
 
 def getCameraIntrinsics(model, name):
     fx = model[name]['camera_info']['K'][0]
@@ -210,7 +212,9 @@ def load_data(jsonfile, sensor_filter=None, collection_filter=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("-i", "--intrinsic", help="Optimize the intrinsic parameters of cameras.", dest='intrinsic', action='store_true')
+    ap = addArguments(ap)  # OptimizationUtils arguments
+    ap.add_argument("-i", "--intrinsic", help="Optimize the intrinsic parameters of cameras.", dest='intrinsic',
+                    action='store_true')
     ap.add_argument("-p", "--print", help="Print optimized parameters as URDF tags.", dest='print', action='store_true')
     ap.add_argument("-json", "--json_file", help="JSON file containing input dataset.", type=str, required=True)
     ap.add_argument("-e", "--error", help="Final errors output file. (JSON format)", type=str)
@@ -286,7 +290,7 @@ def main():
     # cache the chessboard grid
     size = (pattern['dimension']["x"], pattern['dimension']["y"])
 
-    grid = np.zeros((size[0]*size[1], 4), np.float32)
+    grid = np.zeros((size[0] * size[1], 4), np.float32)
     grid[:, :2] = pattern['size'] * np.mgrid[0:size[0], 0:size[1]].T.reshape(-1, 2)
     grid[:, 3] = 1
 
@@ -336,6 +340,17 @@ def main():
     opt.computeSparseMatrix()
     opt.setObjectiveFunction(objectiveFunction)
 
+    # Visualization
+    if args['view_optimization']:
+        print("Configuring visualization ... ")
+        graphics = setupVisualization(parameters, collections, sensors, args)
+        # pp = pprint.PrettyPrinter(indent=4)
+        # pp.pprint(dataset_graphics)
+        opt.addDataModel('graphics', graphics)
+
+    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[])
+
+    # Start optimization
     options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '3-point', 'x_scale': 'jac'}
     opt.startOptimization(options)
 
@@ -344,7 +359,8 @@ def main():
 
     if args['error']:
         # Build summary.
-        summary = {'collections': {k: {kk: vv['error'] for kk, vv in v['labels'].items() if vv['detected']} for k, v in collections.items()}}
+        summary = {'collections': {k: {kk: vv['error'] for kk, vv in v['labels'].items() if vv['detected']} for k, v in
+                                   collections.items()}}
         ## remove empty collections
         summary['collections'] = {k: v for k, v in summary['collections'].items() if len(v) > 0}
 
