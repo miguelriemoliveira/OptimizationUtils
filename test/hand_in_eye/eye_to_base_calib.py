@@ -260,7 +260,7 @@ def main():
 
     # should the models be unified? (eurico)
     # Miguel: I vote yes, definitely, the work of maintaining this is daunting
-    # TODO this should be removed! Will work on it.
+    # TODO this should be removed! Will work on it. asdasd
     opt.addDataModel('parameters', parameters)
     opt.addDataModel('collections', collections)
     opt.addDataModel('sensors', sensors)
