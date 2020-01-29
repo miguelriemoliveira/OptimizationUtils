@@ -16,6 +16,8 @@ import rospy
 import urdf_parser_py
 from rospy_message_converter import message_converter
 from std_msgs.msg import Header, ColorRGBA
+
+from rospy_urdf_to_rviz_converter.rospy_urdf_to_rviz_converter import robot_description_to_marker_array
 from tf import transformations
 from urdf_parser_py.urdf import URDF
 
@@ -44,6 +46,10 @@ def setupVisualization(parameters, collections, sensors, args):
     # for collection_key, collection in dataset_sensors['collections'].items():
     #     dataset_graphics['collections'][str(collection_key)] = {}  # Create a new key for each collection
     #
+
+    # markers2 = robot_description_to_marker_array(_robot_description='/robot_description', _frame_id_prefix='', _namespace=None,
+    #                                   _rgba=None)
+
     # Initialize ROS stuff
     rospy.init_node("optimization_node")
     graphics['ros']['tf_broadcaster'] = tf.TransformBroadcaster()
@@ -54,6 +60,17 @@ def setupVisualization(parameters, collections, sensors, args):
     # Parse robot description from param /robot_description
     rospy.loginfo('Reading xml xacro file ...')
     xml_robot = URDF.from_parameter_server()
+    # xml_robot2 = URDF.from_xml_file('/home/mike/catkin_ws/src/AtlasCarCalibration/interactive_calibration/calibrations/ur10e'
+    #                    '/eye_in_hand_chess/ur10e.urdf.xacro')
+    # URDF.from_xml('/home/mike/catkin_ws/src/AtlasCarCalibration/interactive_calibration/calibrations/ur10e'
+    #                    '/eye_in_hand_chess/ur10e.urdf.xacro',)
+    # URDF.fr
+
+
+    # print(xml_robot)
+    # print('-----------------------------------')
+    # print(xml_robot2)
+    # exit(0)
 
     # Create colormaps to be used for coloring the elements. Each collection contains a color, each sensor likewise.
     graphics['collections']['colormap'] = cm.tab20b(np.linspace(0, 1, len(collections.keys())))
@@ -169,6 +186,8 @@ def visualizationFunction(data):
     pattern = data['pattern']
     config = data['config']
     graphics = data['graphics']
+
+    print(parameters)
 
     now = rospy.Time.now()
 

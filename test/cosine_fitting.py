@@ -37,6 +37,8 @@ class Polynomial:
         self.params_3_and_4 = [0, 0]
 
 
+
+
 if __name__ == "__main__":
 
     # ---------------------------------------
@@ -127,6 +129,8 @@ if __name__ == "__main__":
     print('residuals = ' + str(opt.residuals))
 
     opt.computeSparseMatrix()
+
+
 
     # ---------------------------------------
     # --- Define THE VISUALIZATION FUNCTION
