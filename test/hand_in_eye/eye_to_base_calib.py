@@ -260,7 +260,7 @@ def main():
 
     # should the models be unified? (eurico)
     # Miguel: I vote yes, definitely, the work of maintaining this is daunting
-    # TODO this should be removed! Will work on it.
+    # TODO this should be removed! Will work on it. asdasd
     opt.addDataModel('parameters', parameters)
     opt.addDataModel('collections', collections)
     opt.addDataModel('sensors', sensors)
@@ -340,16 +340,6 @@ def main():
 
     opt.computeSparseMatrix()
     opt.setObjectiveFunction(objectiveFunction)
-
-    # Visualization
-    if args['view_optimization']:
-        print("Configuring visualization ... ")
-        graphics = setupVisualization(parameters, collections, sensors, args)
-        # pp = pprint.PrettyPrinter(indent=4)
-        # pp.pprint(dataset_graphics)
-        opt.addDataModel('graphics', graphics)
-
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[])
 
     # Start optimization
     options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '3-point', 'x_scale': 'jac'}
