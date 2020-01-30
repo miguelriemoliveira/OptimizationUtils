@@ -35,7 +35,7 @@ from open3d import *
 from OptimizationUtils import utilities
 
 
-def setupVisualization(parameters, collections, sensors, args):
+def setupVisualization(dataset, args):
     """
     Creates the necessary variables in a dictionary "dataset_graphics", which will be passed onto the visualization
     function
@@ -73,11 +73,11 @@ def setupVisualization(parameters, collections, sensors, args):
     # exit(0)
 
     # Create colormaps to be used for coloring the elements. Each collection contains a color, each sensor likewise.
-    graphics['collections']['colormap'] = cm.tab20b(np.linspace(0, 1, len(collections.keys())))
-    for idx, collection_key in enumerate(sorted(collections.keys())):
+    graphics['collections']['colormap'] = cm.tab20b(np.linspace(0, 1, len(dataset['collections'].keys())))
+    for idx, collection_key in enumerate(sorted(dataset['collections'].keys())):
         graphics['collections'][str(collection_key)] = {'color': graphics['collections']['colormap'][idx, :]}
 
-    for collection_key, collection in collections.items():
+    for collection_key, collection in dataset['collections'].items():
         print("Collection : " + str(collection_key))
         count = 0
         for link in xml_robot.links:
@@ -178,19 +178,22 @@ def setupVisualization(parameters, collections, sensors, args):
     return graphics
 
 
-def visualizationFunction(data):
+def visualizationFunction(models):
     # Get the data from the model
-    parameters = data['parameters']
-    collections = data['collections']
-    sensors = data['sensors']
-    pattern = data['pattern']
-    config = data['config']
-    graphics = data['graphics']
+    # parameters = data['parameters']
+    # collections = models['dataset']['collections']
+    # sensors =  models['dataset']['sensors']
+    # pattern =  models['dataset']['pattern']
+    # config =   models['dataset']['config']
+    # graphics = models['dataset']['graphics']
 
-    print(parameters)
+    collections = models['dataset']['collections']
+    sensors = models['dataset']['sensors']
+    pattern = models['dataset']['pattern']
+    config = models['dataset']['calibration_config']
+    graphics = models['graphics']
 
     now = rospy.Time.now()
-
     print("Calling visualization")
 
     for collection_key, collection in collections.items():

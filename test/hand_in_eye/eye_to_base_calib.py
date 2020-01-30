@@ -341,16 +341,6 @@ def main():
     opt.computeSparseMatrix()
     opt.setObjectiveFunction(objectiveFunction)
 
-    # Visualization
-    if args['view_optimization']:
-        print("Configuring visualization ... ")
-        graphics = setupVisualization(parameters, collections, sensors, args)
-        # pp = pprint.PrettyPrinter(indent=4)
-        # pp.pprint(dataset_graphics)
-        opt.addDataModel('graphics', graphics)
-
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[])
-
     # Start optimization
     options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '3-point', 'x_scale': 'jac'}
     opt.startOptimization(options)
