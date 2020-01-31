@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-
+import os
 import sys
 import argparse
 import json
 import numpy as np
+from copy import deepcopy
+
 import cv2
 
 from functools import partial
@@ -102,6 +104,7 @@ def objectiveFunction(models):
     sensors = models['dataset']['sensors']
     pattern = models['dataset']['pattern']
     config = models['dataset']['calibration_config']
+    args = models['args']
     residuals = []
 
     for collection_key, collection in collections.items():
@@ -159,6 +162,16 @@ def objectiveFunction(models):
             error = np.apply_along_axis(np.linalg.norm, 0, diff)
 
             labels['error'] = diff.tolist()
+
+            # Required by the visualization function to publish annotated images
+            if args['ros_visualization']:
+                idxs_projected = []
+                for idx in range(0, projected.shape[1]):
+                    idxs_projected.append({'x': projected[0][idx], 'y': projected[1][idx]})
+                collection['labels'][sensor_name]['idxs_projected'] = idxs_projected  # store projections
+
+                if 'idxs_initial' not in collection['labels'][sensor_name]:  # store the first projections
+                    collection['labels'][sensor_name]['idxs_initial'] = deepcopy(idxs_projected)
 
             residuals.extend(error.tolist())
 
@@ -224,8 +237,8 @@ def load_data(jsonfile, sensor_filter=None, collection_filter=None):
             if dataset['sensors'][sensor_name]['msg_type'] != 'Image':
                 continue  # we are only interested in images, remember?
 
-            # filename = os.path.dirname(jsonfile) + '/' + collection['data'][sensor_name]['data_file']
-            # collection['data'][sensor_name]['data'] = cv2.imread(filename)
+            filename = os.path.dirname(jsonfile) + '/' + collection['data'][sensor_name]['data_file']
+            collection['data'][sensor_name]['data'] = cv2.imread(filename)
 
     return dataset
 
@@ -239,6 +252,7 @@ def main():
     ap.add_argument("-json", "--json_file", help="JSON file containing input dataset.", type=str, required=True)
     ap.add_argument("-e", "--error", help="Final errors output file. (JSON format)", type=str)
     ap.add_argument("-rv", "--ros_visualization", help="Publish ros visualization markers.", action='store_true')
+    ap.add_argument("-si", "--show_images", help="shows images for each camera", action='store_true', default=False)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
     def create_lambda_with_globals(s):
@@ -280,6 +294,7 @@ def main():
     # Setup optimizer
     opt = Optimizer()
     opt.addDataModel('dataset', dataset)  # a single data model containing the full dataset.
+    opt.addDataModel('args', args)  # a model containing the input args.
 
     # In some cases, all collections have the same transform values. For example, the pose of a given sensor. We define
     # a collection to be the one used to get the value of the transform. Arbitrarly, we select the first key in the
