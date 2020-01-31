@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-"""
-Reads a set of data and labels from a group of sensors in a json file and calibrates the poses of these sensors.
-"""
 
 # -------------------------------------------------------------------------------
 # --- IMPORTS (standard, then third party, then my own modules)
@@ -194,7 +191,7 @@ def visualizationFunction(models):
     graphics = models['graphics']
 
     now = rospy.Time.now()
-    print("Calling visualization")
+    # print("Calling visualization")
 
     for collection_key, collection in collections.items():
 
@@ -203,7 +200,7 @@ def visualizationFunction(models):
         graphics['ros']['tf_broadcaster'].sendTransform((0, 0, 0), (0, 0, 0, 1), now, child, parent)
 
         for transform_key, transform in collection['transforms'].items():
-            print("Visiting collection " + collection_key + " transform " + transform_key)
+            # print("Visiting collection " + collection_key + " transform " + transform_key)
             # TODO after https://github.com/lardemua/AtlasCarCalibration/issues/54 this will be unnecessary
 
             parent = 'c' + collection_key + '_' + transform_key.split('-')[0]

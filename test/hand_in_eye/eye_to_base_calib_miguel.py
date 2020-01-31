@@ -7,42 +7,39 @@ import numpy as np
 import cv2
 
 from functools import partial
-
 from tf import transformations
-
 from OptimizationUtils import utilities
 from OptimizationUtils.OptimizationUtils import Optimizer, addArguments
 from OptimizationUtils.tf import TFTree, Transform
 from visualization import setupVisualization, visualizationFunction
 
 
-def getTransform(dataset, transform_key, collection_name):
+def getterTransform(dataset, transform_key, collection_name):
     # The pose must be returned as a list of translation vector and rotation, i.e. [tx, ty, tz, r1, r2, r3] where r1,
     # r2,r3 are angles of the Rodrigues rotation vector.
 
-    t = dataset['collections'][collection_name]['transforms'][transform_key]['trans']
-    q = dataset['collections'][collection_name]['transforms'][transform_key]['quat']
+    trans = dataset['collections'][collection_name]['transforms'][transform_key]['trans']
+    quat = dataset['collections'][collection_name]['transforms'][transform_key]['quat']
 
-    # Convert to [tx, ty, tz, r1, r2, r3] format
-    h_matrix = transformations.quaternion_matrix(q)  # quaternion to homogeneous matrix
+    # Convert from (trans, quat) to [tx, ty, tz, r1, r2, r3] format
+    h_matrix = transformations.quaternion_matrix(quat)  # quaternion to homogeneous matrix
     matrix = h_matrix[0:3, 0:3]  # non-homogeneous matrix 3x3
     rod = utilities.matrixToRodrigues(matrix).tolist()  # matrix to Rodrigues
-    return t + rod
+    return trans + rod
 
 
-def setTransform(dataset, values, transform_key, collection_name=None):
+def setterTransform(dataset, values, transform_key, collection_name=None):
     # The pose must be returned as a list of translation vector and rotation, i.e. [tx, ty, tz, r1, r2, r3] where r1,
     # r2,r3 are angles of the Rodrigues rotation vector.
 
     # Convert from [tx, ty, tz, r1, r2, r3] format to trans and quat format
-    trans = values[0:3]
-    rod = values[3:]
+    trans, rod = values[0:3], values[3:]
     matrix = utilities.rodriguesToMatrix(rod)
     h_matrix = np.identity(4)
     h_matrix[0:3, 0:3] = matrix
     quat = transformations.quaternion_from_matrix(h_matrix)
 
-    if collection_name is None:  # if no collection is given set all collections with the same value
+    if collection_name is None:  # if collection_name is None, set all collections with the same value
         for collection_key in dataset['collections']:
             dataset['collections'][collection_key]['transforms'][transform_key]['trans'] = trans  # set the translation
             dataset['collections'][collection_key]['transforms'][transform_key]['quat'] = quat  # set the quaternion
@@ -50,7 +47,8 @@ def setTransform(dataset, values, transform_key, collection_name=None):
         dataset['collections'][collection_name]['transforms'][transform_key]['trans'] = trans  # set the translation
         dataset['collections'][collection_name]['transforms'][transform_key]['quat'] = quat  # set the quaternion
 
-def getCameraIntrinsics(dataset, sensor_name):
+
+def getterCameraIntrinsics(dataset, sensor_name):
     fx = dataset['sensors'][sensor_name]['camera_info']['K'][0]
     fy = dataset['sensors'][sensor_name]['camera_info']['K'][4]
     cx = dataset['sensors'][sensor_name]['camera_info']['K'][2]
@@ -61,7 +59,7 @@ def getCameraIntrinsics(dataset, sensor_name):
     return intrinsics
 
 
-def setCameraIntrinsics(dataset, value, sensor_name):
+def setterCameraIntrinsics(dataset, value, sensor_name):
     assert len(value) == 9, "value must be a list with length 9."
     dataset['sensors'][sensor_name]['camera_info']['K'][0] = value[0]
     dataset['sensors'][sensor_name]['camera_info']['K'][4] = value[1]
@@ -108,7 +106,7 @@ def objectiveFunction(models):
 
     for collection_key, collection in collections.items():
         tree = collection['tf_tree']
-        print("visiting collection " + collection_key)
+        # print("visiting collection " + collection_key)
 
         # Chessboard to root transformation.
         # We do not need to worry about the calibration pattern being fixed or not since we have a stored transform
@@ -135,7 +133,6 @@ def objectiveFunction(models):
             quat = collection['transforms'][transform_key]['quat']
             tree.add_transform(parent_sensor, child_sensor, Transform(trans[0], trans[1], trans[2],
                                                                       quat[0], quat[1], quat[2], quat[3]))
-
             # root to sensor transformation
             sTr = tree.lookup_transform(config['world_link'],
                                         sensors[sensor_name]['camera_info']['header']['frame_id']).matrix
@@ -241,6 +238,7 @@ def main():
     ap.add_argument("-p", "--print", help="Print optimized parameters as URDF tags.", dest='print', action='store_true')
     ap.add_argument("-json", "--json_file", help="JSON file containing input dataset.", type=str, required=True)
     ap.add_argument("-e", "--error", help="Final errors output file. (JSON format)", type=str)
+    ap.add_argument("-rv", "--ros_visualization", help="Publish ros visualization markers.", action='store_true')
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
     def create_lambda_with_globals(s):
@@ -262,7 +260,11 @@ def main():
 
     # Sensor information and calibration data is saved in a json file.
     # The dataset is organized as a collection of data.
-    # TODO Eurico, changed to use a single datamodel dataset, where we have inside all the others you had before.
+    # TODO Eurico, I think it is better to have a single data model which correponds to the json file. To split the
+    #  content of the json into pieces does not make a lot of sense. For example, in the calibration example we save
+    #  the altered json, if you wanted to do that you'd have to put it back toghether. We should discuss this also in
+    #  the scope of #55 and #100 and may end up revising, but we shoul be consistent throughout the several examples.
+    #  I see additional data models as a higher level stuff: for example, supose you have two jsons ...
     dataset = load_data(args['json_file'], args['sensor_selection_function'], args['collection_selection_function'])
 
     # The best way to keep track of all transformation pairs is to a have a
@@ -277,33 +279,39 @@ def main():
 
     # Setup optimizer
     opt = Optimizer()
-    opt.addDataModel('dataset', dataset)
+    opt.addDataModel('dataset', dataset)  # a single data model containing the full dataset.
 
-    # All collections have the same pose for the given sensor. For the getters we only need to get one collection.
-    # Lets take the first key on the dictionary and always get that transformation.
+    # In some cases, all collections have the same transform values. For example, the pose of a given sensor. We define
+    # a collection to be the one used to get the value of the transform. Arbitrarly, we select the first key in the
+    # collections dictionary
     selected_collection_key = dataset['collections'].keys()[0]
 
-    # The pose of several sensors are explicit optimization parameters.
-    # These poses are the the same for all collections.
-    # We will save these parameters in a global model.
+    # Steaming from the config json, we define a transform to be optimized for each sensor. It could happen that two
+    # or more sensors define the same transform to be optimized (#120). To cope with this we first create a list of
+    # transformations to be optimized and then compute the unique set of that list.
+    transforms_set = set()
     for sensor_name, sensor in dataset['sensors'].items():
         parent = sensor['calibration_parent']
         child = sensor['calibration_child']
         transform_key = utilities.generateKey(parent, child)
+        transforms_set.add(transform_key)
 
-        # Six parameters containing the optimized transformation for this sensor
+    for transform_key in transforms_set:  # push six parameters for each transform to be optimized.
         opt.pushParamVector(group_name=transform_key, data_key='dataset',
-                            getter=partial(getTransform, transform_key=transform_key,
+                            getter=partial(getterTransform, transform_key=transform_key,
                                            collection_name=selected_collection_key),
-                            setter=partial(setTransform, transform_key=transform_key, collection_name=None),
+                            setter=partial(setterTransform, transform_key=transform_key, collection_name=None),
                             suffix=['_x', '_y', '_z', '_r1', '_r2', '_r3'])
 
-        # Add intrinsics if sensor is a camera
-        if dataset['sensors'][sensor_name]['msg_type'] == 'Image' and args['intrinsic']:
-            opt.pushParamVector(group_name='S_' + sensor_name + '_intrinsics', data_key='dataset',
-                                getter=partial(getCameraIntrinsics, sensor_name=sensor_name),
-                                setter=partial(setCameraIntrinsics, sensor_name=sensor_name),
-                                suffix=['_fx', '_fy', '_cx', '_cy', '_k1', '_k2', '_t1', '_t2', '_k3'])
+    # Add intrinsics as optimization parameters if sensor is a camera
+    if args['intrinsic']:
+        for sensor_name, sensor in dataset['sensors'].items():
+
+            if dataset['sensors'][sensor_name]['msg_type'] == 'Image':
+                opt.pushParamVector(group_name='S_' + sensor_name + '_intrinsics', data_key='dataset',
+                                    getter=partial(getterCameraIntrinsics, sensor_name=sensor_name),
+                                    setter=partial(setterCameraIntrinsics, sensor_name=sensor_name),
+                                    suffix=['_fx', '_fy', '_cx', '_cy', '_k1', '_k2', '_t1', '_t2', '_k3'])
 
     # Cache the chessboard grid
     # TODO Eurico, changed this a bit to make sure the data model pattern does not contain the same information as the
@@ -318,20 +326,14 @@ def main():
     pattern['grid'] = grid.T
     dataset['pattern'] = pattern
 
-    # TODO just for debugging
-    # dataset['calibration_config']['calibration_pattern']['fixed'] = False
-
-    # Create first guesses for the pattern poses
-    # TODO I think it is better that each piece of code of loop does a
-    #  single thing. Before your code would do two things: set up the first guess and create the parameters. For
-    #  clarity, I have separated this into two pieces of code.
+    # Create first guesses for the pattern poses and the corresponding optimization parameters
     if dataset['calibration_config']['calibration_pattern']['fixed']:
 
         parent = dataset['calibration_config']['calibration_pattern']['parent_link']
         child = dataset['calibration_config']['calibration_pattern']['link']
         transform_key = utilities.generateKey(parent, child)
 
-        # TODO origin is used as a first guess when the pattern is fixed, right? Why not use the getpose as bellow?
+        # TODO origin is used as a first guess when the pattern is fixed, right? Why not use the getFirstGuessPose as bellow?
         trans = dataset['calibration_config']['calibration_pattern']['origin'][0:3]
         rpy = dataset['calibration_config']['calibration_pattern']['origin'][3:]
         quat = transformations.quaternion_from_euler(rpy[0], rpy[1], rpy[2])
@@ -342,9 +344,9 @@ def main():
                                                        'quat': quat}
 
         opt.pushParamVector(group_name=transform_key, data_key='dataset',
-                            getter=partial(getTransform, transform_key=transform_key,
+                            getter=partial(getterTransform, transform_key=transform_key,
                                            collection_name=selected_collection_key),
-                            setter=partial(setTransform, transform_key=transform_key, collection_name=None),
+                            setter=partial(setterTransform, transform_key=transform_key, collection_name=None),
                             suffix=['_x', '_y', '_z', '_r1', '_r2', '_r3'])
 
     else:
@@ -357,7 +359,7 @@ def main():
                 if not labels['detected'] or not dataset['sensors'][sensor_name]['msg_type'] == 'Image':
                     continue
 
-                #TODO this function could return a tuple of (trans,quat)
+                # TODO this function could return a tuple of (trans,quat)
                 # For first guess, get pattern pose using solvePNP
                 pose = getPatternFirstGuessPose(collection['tf_tree'], parent, dataset['sensors'][sensor_name], pattern,
                                                 labels)
@@ -367,9 +369,9 @@ def main():
                                                            'quat': quat}
 
                 opt.pushParamVector(group_name='c' + collection_key + '_' + transform_key, data_key='dataset',
-                                    getter=partial(getTransform, transform_key=transform_key,
+                                    getter=partial(getterTransform, transform_key=transform_key,
                                                    collection_name=selected_collection_key),
-                                    setter=partial(setTransform, transform_key=transform_key,
+                                    setter=partial(setterTransform, transform_key=transform_key,
                                                    collection_name=selected_collection_key),
                                     suffix=['_x', '_y', '_z', '_r1', '_r2', '_r3'])
 
@@ -380,10 +382,7 @@ def main():
 
     # Declare residuals
     for collection_key, collection in dataset['collections'].items():
-
         for sensor_name, labels in collection['labels'].items():
-
-            print('num_labels = ' + str(len(collection['labels'][sensor_name]['idxs'])))
             if not labels['detected']:
                 continue
 
@@ -395,6 +394,7 @@ def main():
             # Params related to the pattern
             transform_key = utilities.generateKey(dataset['calibration_config']['calibration_pattern']['parent_link'],
                                                   dataset['calibration_config']['calibration_pattern']['link'])
+
             if dataset['calibration_config']['calibration_pattern']['fixed']:
                 params.extend(opt.getParamsContainingPattern(transform_key))
             else:
@@ -407,28 +407,23 @@ def main():
     opt.computeSparseMatrix()
     opt.setObjectiveFunction(objectiveFunction)
 
-
-
-    opt.printParameters()
-    opt.printResiduals()
-    opt.printSparseMatrix()
+    # opt.printParameters()
+    # opt.printResiduals()
+    # opt.printSparseMatrix()
 
     # Visualization
     if args['view_optimization']:
+        opt.setInternalVisualization(True)
+
+    if args['ros_visualization']:
         print("Configuring visualization ... ")
         graphics = setupVisualization(dataset, args)
-        # pp = pprint.PrettyPrinter(indent=4)
-        # pp.pprint(dataset_graphics)
         opt.addDataModel('graphics', graphics)
-
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[])
+        opt.setVisualizationFunction(visualizationFunction, args['ros_visualization'], niterations=1, figures=[])
 
     # Start optimization
     options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '3-point', 'x_scale': 'jac'}
     opt.startOptimization(options)
-
-
-    exit(0)
 
     rmse = np.sqrt(np.mean(np.array(objectiveFunction(opt.data_models)) ** 2))
     print("RMSE {}".format(rmse))
@@ -436,7 +431,7 @@ def main():
     if args['error']:
         # Build summary.
         summary = {'collections': {k: {kk: vv['error'] for kk, vv in v['labels'].items() if vv['detected']} for k, v in
-                                   collections.items()}}
+                                   dataset['collections'].items()}}
         ## remove empty collections
         summary['collections'] = {k: v for k, v in summary['collections'].items() if len(v) > 0}
 
@@ -447,14 +442,14 @@ def main():
         if args['intrinsic']:
             print('\nIntrinsics')
             print('----------')
-            for sensor_name, sensor in sensors.items():
+            for sensor_name, sensor in dataset['sensors'].items():
                 print(sensor_name)
-                print(getCameraIntrinsics(sensors, sensor_name))
+                print(getterCameraIntrinsics(dataset['sensors'], sensor_name))
 
         print('\nExtrinsics')
         print('----------')
-        for sensor_name in sensors.keys():
-            printOriginTag(sensor_name, parameters[sensor_name])
+        # for sensor_name in dataset['sensors'].keys():
+        #     printOriginTag(sensor_name, parameters[sensor_name])
 
         # printOriginTag('pattern', parameters['pattern'])
 

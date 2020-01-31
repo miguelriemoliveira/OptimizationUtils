@@ -92,6 +92,8 @@ def objectiveFunction(models):
     pattern = models['pattern']
     config = models['config']
 
+    print(parameters)
+    # exit(0)
     residual = []
 
     for cid, collection in collections.items():
