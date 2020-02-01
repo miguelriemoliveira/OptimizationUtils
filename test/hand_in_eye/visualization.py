@@ -4,19 +4,14 @@
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
 import copy
-import os
-import subprocess
-
 import cv2
 import math
-import pprint
-
 import rospy
 import urdf_parser_py
 from rospy_message_converter import message_converter
 from std_msgs.msg import Header, ColorRGBA
 
-from rospy_urdf_to_rviz_converter.rospy_urdf_to_rviz_converter import urdf_to_marker_array
+from rospy_urdf_to_rviz_converter.rospy_urdf_to_rviz_converter import urdfToMarkerArray
 from tf import transformations
 from urdf_parser_py.urdf import URDF
 
@@ -49,21 +44,15 @@ def setupVisualization(dataset, args):
     graphics['ros']['tf_broadcaster'] = tf.TransformBroadcaster()
     graphics['ros']['publisher_models'] = rospy.Publisher('robot_meshes', MarkerArray, queue_size=0, latch=True)
 
-    # Parse robot description from ros paramemeter /robot_description
+    # Parse robot description from the ros parameter '/robot_description'
     # TODO the ros xacro file could be stored in the json file for usage here
     rospy.loginfo('Reading xml xacro file ...')
     xml_robot = URDF.from_parameter_server()
 
-    # how to read the robo description from a xacro file
-    # xacro_file = '/home/mike/catkin_ws/src/AtlasCarCalibration/interactive_calibration/calibrations/ur10e' \
-    #              '/eye_in_hand_chess/ur10e.urdf.xacro '
-    # tmp_file = '/tmp/my_xacro.xacro'
-    # cmd = 'xacro ' + xacro_file + ' -o ' + tmp_file
-    # os.system(cmd)
-    # xml_robot = URDF.from_xml_file(tmp_file)
 
     pattern = dataset['calibration_config']['calibration_pattern']
-    graphics['pattern']['colormap'] = cm.plasma(np.linspace(0, 1, pattern['dimension']['x'] * pattern['dimension']['y']))
+    graphics['pattern']['colormap'] = cm.plasma(
+        np.linspace(0, 1, pattern['dimension']['x'] * pattern['dimension']['y']))
 
     # Create colormaps to be used for coloring the elements. Each collection contains a color, each sensor likewise.
     graphics['collections']['colormap'] = cm.tab20b(np.linspace(0, 1, len(dataset['collections'].keys())))
@@ -80,8 +69,8 @@ def setupVisualization(dataset, args):
         print("Collection : " + str(collection_key))
         rgba = graphics['collections'][collection_key]['color']
         # rgba[3] = 0.3 # change the alpha
-        m = urdf_to_marker_array(xml_robot, frame_id_prefix='c' + collection_key + '_', namespace=collection_key,
-                                 rgba=rgba)
+        m = urdfToMarkerArray(xml_robot, frame_id_prefix='c' + collection_key + '_', namespace=collection_key,
+                              rgba=rgba)
         markers.markers.extend(m.markers)
 
     graphics['ros']['robot_mesh_markers'] = markers
@@ -138,11 +127,10 @@ def visualizationFunction(models):
     for marker in graphics['ros']['robot_mesh_markers'].markers:
         marker.header.stamp = now
 
-    #Publish the models
+    # Publish the models
     graphics['ros']['publisher_models'].publish(graphics['ros']['robot_mesh_markers'])
-    #     rospy.sleep(1)
 
-    # # Publish Annotated images
+    # Publish Annotated images
     for collection_key, collection in collections.items():
         for sensor_key, sensor in sensors.items():
 
@@ -184,7 +172,6 @@ def visualizationFunction(models):
                     graphics['collections'][collection_key][sensor_key]['publisher'].publish(msg)
 
                     # Publish camera info message
-                    camera_info_msg = CameraInfo()
                     camera_info_msg = message_converter.convert_dictionary_to_ros_message('sensor_msgs/CameraInfo',
                                                                                           sensor['camera_info'])
                     camera_info_msg.header.frame_id = msg.header.frame_id
