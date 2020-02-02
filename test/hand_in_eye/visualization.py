@@ -71,7 +71,22 @@ def setupVisualization(dataset, args):
         # rgba[3] = 0.3 # change the alpha
         m = urdfToMarkerArray(xml_robot, frame_id_prefix='c' + collection_key + '_', namespace=collection_key,
                               rgba=rgba)
-        markers.markers.extend(m.markers)
+
+
+
+    # Draw the chessboard
+    for collection_key, collection in dataset['collections'].items():
+        m = Marker(header=Header(frame_id='c' + collection_key + '_chessboard_link', stamp=rospy.Time.now()),
+                   ns='c' + collection_key + '_', id=999, frame_locked=True,
+                   type=Marker.MESH_RESOURCE, action=Marker.ADD, lifetime=rospy.Duration(0),
+                   pose=Pose(position=Point(x=0, y=0, z=0),
+                             orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                   scale=Vector3(x=1.0, y=1.0, z=1.0),
+                   color=ColorRGBA(r=1, g=1, b=1, a=1))
+        m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5x5.dae'
+        m.mesh_use_embedded_materials = True
+        markers.markers.append(m)
+        break
 
     graphics['ros']['robot_mesh_markers'] = markers
 
