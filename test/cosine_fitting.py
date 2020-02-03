@@ -210,7 +210,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     print("\n\nStarting optimization")
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-12, 'gtol': 1e-8, 'diff_step': 1e-4})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': 1e-4})
 
     wm = KeyPressManager.KeyPressManager.WindowManager()
     if wm.waitForKey():

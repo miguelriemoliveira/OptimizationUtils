@@ -67,7 +67,7 @@ class Optimizer:
         self.vis_niterations = 0
         self.vis_counter = 0
         self.always_visualize = False
-        self.internal_visualization = False
+        self.internal_visualization = True
 
         print('\nInitializing optimizer...')
 
