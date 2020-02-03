@@ -112,8 +112,8 @@ if __name__ == "__main__":
     # Image used
     if not args['dataset_path'][-1] == '/':  # make sure the path is correct
         args['dataset_path'] += '/'
-    name_image_left = args['dataset_path'] + 'top_left_camera_10.jpg'
-    name_image_right = args['dataset_path'] + 'top_right_camera_10.jpg'
+    name_image_left = args['dataset_path'] + 'top_left_camera_1.jpg'
+    name_image_right = args['dataset_path'] + 'top_right_camera_1.jpg'
 
     # termination criteria
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -295,12 +295,12 @@ if __name__ == "__main__":
     def visualizationFunction(model):
         pass
     #
-    #     calibration = model['calibration']
-    #
-    #     img1 = cv2.imread(name_image_right)
-    #     img = cv2.drawChessboardCorners(img1, (9, 6), calibration.right_cam_image_points[0], True)
-    #     cv2.imshow('img', img)
-    #     cv2.waitKey(20)
+        calibration = model['calibration']
+
+        img1 = cv2.imread(name_image_right)
+        img = cv2.drawChessboardCorners(img1, (9, 6), calibration.right_cam_image_points[0], True)
+        cv2.imshow('img', img)
+        cv2.waitKey(20)
     #
     #     # y = calibration.param0[0] + \
     #     #     np.multiply(calibration.param1[0], np.power(x, 1)) + \
