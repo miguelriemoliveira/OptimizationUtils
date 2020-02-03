@@ -67,6 +67,7 @@ class Optimizer:
         self.vis_niterations = 0
         self.vis_counter = 0
         self.always_visualize = False
+        self.internal_visualization = True
 
         print('\nInitializing optimizer...')
 
@@ -221,6 +222,9 @@ class Optimizer:
         """
         self.objective_function = handle
 
+    def setInternalVisualization(self, internal_visualization):
+        self.internal_visualization = internal_visualization
+
     def setVisualizationFunction(self, handle, always_visualize, niterations=0, figures=None):
         """ Sets up the visualization function to be called to plot the data during the optimization procedure.
 
@@ -263,26 +267,27 @@ class Optimizer:
             self.vis_counter = 0  # reset counter
             self.vis_function_handle(self.data_models)  # call visualization function
 
-            # redraw residuals plot
-            self.plot_handle.set_data(range(0, len(errors)), errors)
-            self.ax.relim()  # recompute new limits
-            self.ax.autoscale_view()  # re-enable auto scale
-            self.wm.waitForKey(time_to_wait=0.01, verbose=True)  # wait a bit
+            if self.internal_visualization:
+                # redraw residuals plot
+                self.plot_handle.set_data(range(0, len(errors)), errors)
+                self.ax.relim()  # recompute new limits
+                self.ax.autoscale_view()  # re-enable auto scale
+                self.wm.waitForKey(time_to_wait=0.01, verbose=True)  # wait a bit
 
-            # redraw error evolution plot
-            self.total_error.append(np.sum(np.abs(errors)))
-            x = range(0, len(self.total_error))
-            # print("total errors=" + str(self.total_error))
-            self.error_plot_handle, = self.error_ax.plot(x, self.total_error,
-                                                         color='blue',
-                                                         linestyle='solid', linewidth=2, markersize=6)
+                # redraw error evolution plot
+                self.total_error.append(np.sum(np.abs(errors)))
+                x = range(0, len(self.total_error))
+                # print("total errors=" + str(self.total_error))
+                self.error_plot_handle, = self.error_ax.plot(x, self.total_error,
+                                                             color='blue',
+                                                             linestyle='solid', linewidth=2, markersize=6)
 
-            # reset x limits if needed
-            _, xmax = self.error_ax.get_xlim()
-            if x[-1] > xmax:
-                self.error_ax.set_xlim(0, x[-1] + 100)
+                # reset x limits if needed
+                _, xmax = self.error_ax.get_xlim()
+                if x[-1] > xmax:
+                    self.error_ax.set_xlim(0, x[-1] + 100)
 
-            self.error_ax.set_ylim(0, np.max(self.total_error))
+                self.error_ax.set_ylim(0, np.max(self.total_error))
 
             # Printing information
             # self.printParameters(flg_simple=True)
@@ -337,22 +342,24 @@ class Optimizer:
             bounds_min.extend(bound_min)
 
         if self.always_visualize:
-            self.drawResidualsFigure()  # First draw of residuals figure
-            self.drawErrorEvolutionFigure()  # First draw of error evolution figure
-            self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figures)
-            self.vis_counter = 0  # reset counter
-            self.vis_function_handle(self.data_models)  # call visualization function
-            self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
-            self.ax.relim()  # recompute new limits
-            self.ax.autoscale_view()  # re-enable auto scale
-            self.wm.waitForKey(time_to_wait=0.01, verbose=False)  # wait a bit
 
-            # Printing information
-            # self.printParameters(flg_simple=True)
-            # self.printResiduals(errors)
-            # print('\nAverage error = ' + str(np.average(errors)) + '\n')
-            self.wm.waitForKey(time_to_wait=None, verbose=True,
-                               message="Ready to start optimization: press 'c' to continue.")  # wait a bit
+            if self.internal_visualization:
+                self.drawResidualsFigure()  # First draw of residuals figure
+                self.drawErrorEvolutionFigure()  # First draw of error evolution figure
+                self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figures)
+                self.vis_counter = 0  # reset counter
+                self.vis_function_handle(self.data_models)  # call visualization function
+                self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
+                self.ax.relim()  # recompute new limits
+                self.ax.autoscale_view()  # re-enable auto scale
+                self.wm.waitForKey(time_to_wait=0.01, verbose=False)  # wait a bit
+
+                # Printing information
+                # self.printParameters(flg_simple=True)
+                # self.printResiduals(errors)
+                # print('\nAverage error = ' + str(np.average(errors)) + '\n')
+                self.wm.waitForKey(time_to_wait=None, verbose=True,
+                                   message="Ready to start optimization: press 'c' to continue.")  # wait a bit
 
         # Call optimization function (finally!)
         print("Starting optimization ...")
@@ -368,7 +375,7 @@ class Optimizer:
         """Just print some info and show the images"""
         print('\n-------------\nOptimization finished: ' + self.result['message'])
 
-        if self.always_visualize:
+        if self.always_visualize and self.internal_visualization:
             print('Press x to finalize ...')
             while True:
                 self.vis_function_handle(self.data_models)
