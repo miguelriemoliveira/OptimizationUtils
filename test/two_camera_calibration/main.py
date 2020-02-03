@@ -38,19 +38,25 @@ class Calibration:
         self.right_cam_image_points = []
 
 
-
 def generate_chessboard(size, dimensions=(9, 6)):
     objp = np.zeros((dimensions[0] * dimensions[1], 3), np.float32)
     objp[:, :2] = np.mgrid[0:dimensions[0], 0:dimensions[1]].T.reshape(-1, 2)
     objp = objp * size
     return objp
 
+
 def find_cam_chess_realpoints(fname, left_or_right):
     objpoints_left = []
     imgpoints_left = []
     objpoints_right = []
     imgpoints_right = []
+    print(fname)
     img = cv2.imread(fname)
+    if img is None:
+        raise ValueError('Could not read image from ' + str(fname))
+    # print(img.shape)
+    # cv2.imshow('gui', img)
+    # cv2.waitKey(0)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Find the chess board corners
@@ -73,6 +79,7 @@ def find_cam_chess_realpoints(fname, left_or_right):
 
     return rvec, tvec
 
+
 if __name__ == "__main__":
 
     # ---------------------------------------
@@ -81,7 +88,9 @@ if __name__ == "__main__":
 
     ap = argparse.ArgumentParser()
     ap = OptimizationUtils.addArguments(ap)  # OptimizationUtils arguments
+    ap.add_argument("-d", "--dataset_path", help="Path to the dataset", type=str, required=True)
     args = vars(ap.parse_args())
+
     print(args)
 
     # ---------------------------------------
@@ -101,9 +110,10 @@ if __name__ == "__main__":
     dist_right = np.array([-2.06069540e-01, -1.27768958e-01, 2.22591520e-03, 1.60327811e-03, 2.08236968e+00])
 
     # Image used
-    name_image_left = './fotos_calibration/top_left_camera_10.jpg'
-    name_image_right = './fotos_calibration/top_right_camera_10.jpg'
-
+    if not args['dataset_path'][-1] == '/':  # make sure the path is correct
+        args['dataset_path'] += '/'
+    name_image_left = args['dataset_path'] + 'top_left_camera_10.jpg'
+    name_image_right = args['dataset_path'] + 'top_right_camera_10.jpg'
 
     # termination criteria
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -120,45 +130,50 @@ if __name__ == "__main__":
 
     print("calibration model\n")
     print(calibration.right_cam_rotation_vector[0])
+    print(opt.data_models['calibration'].right_cam_rotation_vector[0])
 
     # Create specialized getter and setter functions
-    def setter(calibration, value, i):
-        if i == 0:
+    def setter(calibration, value, idx):
+        if idx == 0:
             print("value\n")
             print(value)
             calibration.right_cam_rotation_vector[0] = value
-        elif i == 1:
+        elif idx == 1:
             calibration.right_cam_rotation_vector[1] = value
-        elif i == 2:
+        elif idx == 2:
             calibration.right_cam_rotation_vector[2] = value
-        elif i == 3:
+        elif idx == 3:
             calibration.right_cam_translation[0] = value
-        elif i == 4:
+        elif idx == 4:
             calibration.right_cam_translation[1] = value
-        elif i == 5:
+        elif idx == 5:
             calibration.right_cam_translation[2] = value
+        else:
+            raise ValueError('Unknown i value: ' + str(idx))
 
 
-    def getter(calibration, i):
-        if i == 0:
+    def getter(calibration, idx):
+        if idx == 0:
             print("getter\n")
             print(calibration.right_cam_rotation_vector)
             return [calibration.right_cam_rotation_vector[0]]
-        elif i == 1:
+        elif idx == 1:
             return [calibration.right_cam_rotation_vector[1]]
-        elif i == 2:
+        elif idx == 2:
             return [calibration.right_cam_rotation_vector[2]]
-        elif i == 3:
+        elif idx == 3:
             return [calibration.right_cam_translation[0]]
-        elif i == 4:
+        elif idx == 4:
             return [calibration.right_cam_translation[1]]
-        elif i == 5:
+        elif idx == 5:
             return [calibration.right_cam_translation[2]]
+        else:
+            raise ValueError('Unknown i value: ' + str(idx))
 
-
+    parameter_names = ['r1', 'r2', 'r3', 'tx', 'ty', 'tz']
     for idx in range(0, 6):
-        opt.pushParamScalar(group_name='p' + str(idx), data_key='calibration', getter=partial(getter, i=idx),
-                            setter=partial(setter, i=idx))
+        opt.pushParamScalar(group_name=parameter_names[idx], data_key='calibration', getter=partial(getter, idx=idx),
+                            setter=partial(setter, idx=idx))
 
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
@@ -210,14 +225,14 @@ if __name__ == "__main__":
         imgpoints_right_real = cv2.projectPoints(pts_chessboard, rvec_cam_right, tvec_cam_right, k_right, dist_right)
 
         error = []
-        for a in range(dimensions[0]*dimensions[1]):
-            error.append((imgpoints_right_optimize[0][a][0][0] - imgpoints_right_real[0][a][0][0]) ** 2 + (
-                    imgpoints_right_optimize[0][a][0][1] - imgpoints_right_real[0][a][0][1]) ** 2)
-        print("error")
-        print(error)
+        for a in range(dimensions[0] * dimensions[1]):
+            error.append(math.sqrt((imgpoints_right_optimize[0][a][0][0] - imgpoints_right_real[0][a][0][0]) ** 2 + (
+                    imgpoints_right_optimize[0][a][0][1] - imgpoints_right_real[0][a][0][1]) ** 2))
 
-        # exit(0)
+
+        print("avg error: " + str(np.mean(np.array(error))))
         return error
+
 
     opt.setObjectiveFunction(objectiveFunction)
 
@@ -225,11 +240,12 @@ if __name__ == "__main__":
     # --- Define THE RESIDUALS
     # ---------------------------------------
     for a in range(0, dimensions[0] * dimensions[1]):
-        opt.pushResidual(name='x' + str(a), params=['r0', 'r1', 'r2', 't0', 't1', 't2'])
+        opt.pushResidual(name='r' + str(a), params=parameter_names)
 
     print('residuals = ' + str(opt.residuals))
 
     opt.computeSparseMatrix()
+    opt.printSparseMatrix()
 
     # ---------------------------------------
     # --- Define THE VISUALIZATION FUNCTION
@@ -276,7 +292,8 @@ if __name__ == "__main__":
     #     handles['text'].set_position((pt_origin[0, 0], pt_origin[1, 0]))
     #     handles['text'].set_3d_properties(z=pt_origin[2, 0], zdir='x')
 
-    # def visualizationFunction(model):
+    def visualizationFunction(model):
+        pass
     #
     #     calibration = model['calibration']
     #
@@ -297,7 +314,7 @@ if __name__ == "__main__":
     #     if wm.waitForKey(0.01, verbose=False):
     #         exit(0)
     # #
-    # opt.setVisualizationFunction(visualizationFunction, True)
+    opt.setVisualizationFunction(visualizationFunction, True)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
@@ -313,7 +330,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     print("\n\nStarting optimization")
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-12, 'gtol': 1e99, 'diff_step': 1e-1})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-4, 'diff_step': 1e-4})
 
     wm = KeyPressManager.KeyPressManager.WindowManager()
     if wm.waitForKey():
