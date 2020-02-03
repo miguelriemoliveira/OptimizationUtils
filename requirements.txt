@@ -1,7 +1,7 @@
 rospy_message_converter
 networkx
 pandas
-image_geometry
+#image_geometry
 plyfile
 open3d-python
 scipy
