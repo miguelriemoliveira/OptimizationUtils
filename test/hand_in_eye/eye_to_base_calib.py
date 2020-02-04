@@ -7,6 +7,7 @@ import numpy as np
 import cv2
 
 from functools import partial
+from timeit import default_timer as timer
 
 from OptimizationUtils import utilities
 from OptimizationUtils.OptimizationUtils import Optimizer, addArguments
@@ -92,7 +93,7 @@ def objectiveFunction(models):
     pattern = models['pattern']
     config = models['config']
 
-    print(parameters)
+    # print(parameters)
     # exit(0)
     residual = []
 
@@ -100,20 +101,17 @@ def objectiveFunction(models):
         tree = collection['tf_tree']
 
         # chessboard to root transformation
-        if pattern['fixed']:
-            tree.add_transform(pattern['parent_link'], pattern['link'], Transform(*parameters['pattern']))
-            rTc = tree.lookup_transform(pattern['link'], config['world_link']).matrix
-        elif cid in parameters['pattern']:
-            tree.add_transform(pattern['parent_link'], pattern['link'] + cid, Transform(*parameters['pattern'][cid]))
-            rTc = tree.lookup_transform(pattern['link'] + cid, config['world_link']).matrix
+        pparam = parameters['pattern'] if pattern['fixed'] else parameters['pattern'][cid]
+        tree.add_transform(pattern['parent_link'], pattern['link'], Transform(*pparam))
+        rTc = tree.lookup_transform(pattern['link'], config['world_link']).matrix
 
         for sensor_name, labels in collection['labels'].items():
             if not labels['detected']:
                 continue
 
             xform = Transform(*parameters[sensor_name])
-            tree.add_transform(sensors[sensor_name]['calibration_parent'], sensors[sensor_name]['calibration_child'],
-                               xform)
+            tree.add_transform(sensors[sensor_name]['calibration_parent'],
+                               sensors[sensor_name]['calibration_child'], xform)
 
             # root to sensor transformation
             sTr = tree.lookup_transform(config['world_link'],
@@ -129,20 +127,32 @@ def objectiveFunction(models):
             width = sensors[sensor_name]['camera_info']['width']
             height = sensors[sensor_name]['camera_info']['height']
 
-            corners = np.zeros((2, len(labels['idxs'])), dtype=np.float32)
-            ids = range(0, len(labels['idxs']))
-            for idx, point in enumerate(labels['idxs']):
-                corners[0, idx] = point['x']
-                corners[1, idx] = point['y']
-                ids[idx] = point['id']
+            corners = labels['corners']
+            ids = labels['ids']
 
             projected, _, _ = utilities.projectToCamera(K, D, width, height, np.dot(sTc, pattern['grid'].T[ids].T))
             diff = projected - corners
             error = np.apply_along_axis(np.linalg.norm, 0, diff)
 
-            labels['error'] = diff.tolist()
+            if not labels.has_key('error'):
+                labels['init_error'] = diff.tolist()
 
+            labels['error'] = diff.tolist()
             residual.extend(error.tolist())
+
+            ## ---
+            A = Transform(*pparam)
+            A = Transform(*getPatternPose(tree, sensors[sensor_name]['calibration_child'], sensors[sensor_name], pattern, labels))
+            X = tree.lookup_transform(config['world_link'] , pattern['link'])
+            Z = tree.lookup_transform(sensors[sensor_name]['calibration_parent'], sensors[sensor_name]['calibration_child'])
+            B = tree.lookup_transform(config['world_link'] , sensors[sensor_name]['calibration_parent'])
+
+            diff = np.dot(A.matrix, X.matrix) - np.dot(Z.matrix, B.matrix)
+            err = np.linalg.norm(diff, ord='fro')
+
+            residual.append(float(err)*100)
+            ## ---
+
 
     return residual
 
@@ -184,9 +194,6 @@ def load_data(jsonfile, sensor_filter=None, collection_filter=None):
     # Sensors metadata.
     # Contains information such as their links, topics, intrinsics (if camera), etc..
     sensors = dataset['sensors']
-
-    # A collection is a list of data. The capture order is maintained in the list.
-    # collections = [x for _, x in sorted(dataset['collections'].items())]
     collections = dataset['collections']
 
     # Filter the sensors and collection by sensor name
@@ -249,9 +256,21 @@ def main():
     # transformation tree similar to what ROS offers (github.com/safijari/tiny_tf).
     for collection in collections.values():
         tree = TFTree()
-        for _, tf in collection['transforms'].items():
+        for tf in collection['transforms'].values():
             param = tf['trans'] + tf['quat']
             tree.add_transform(tf['parent'], tf['child'], Transform(*param))
+
+        # convert corners to our internal format
+        for labels in collection['labels'].values():
+            corners = np.zeros((2, len(labels['idxs'])), dtype=np.float32)
+            ids = range(0, len(labels['idxs']))
+            for idx, point in enumerate(labels['idxs']):
+                corners[0, idx] = point['x']
+                corners[1, idx] = point['y']
+                ids[idx] = point['id']
+
+            labels['corners'] = corners
+            labels['ids'] = ids
 
         collection['tf_tree'] = tree
 
@@ -302,7 +321,18 @@ def main():
     opt.addDataModel('pattern', pattern)
 
     if pattern['fixed']:
-        parameters['pattern'] = Transform.from_position_euler(*pattern['origin']).position_quaternion
+        # *Automatic* first guess..
+        found = False
+        for idx, collection in collections.items():
+            for sensor_name, labels in collection['labels'].items():
+                if not labels['detected'] or sensors[sensor_name]['msg_type'] != 'Image':
+                    continue
+                parameters['pattern'] = getPatternPose(collection['tf_tree'], pattern['parent_link'],
+                                                       sensors[sensor_name], pattern, labels)
+                found = True
+            if found:
+                break
+
         opt.pushParamVector(group_name='L_pattern_', data_key='parameters',
                             getter=partial(getPose, name='pattern'),
                             setter=partial(setPose, name='pattern'),
@@ -321,7 +351,7 @@ def main():
                                     setter=partial(setPose, name='pattern', idx=idx),
                                     suffix=['x', 'y', 'z', 'rx', 'ry', 'rz'])
 
-                break
+                break  # only one image is necessary
 
     # Declare residuals
     for idx, collection in collections.items():
@@ -330,32 +360,58 @@ def main():
                 continue
 
             params = opt.getParamsContainingPattern('S_' + sensor_name)
-            if pattern['fixed']:
-                params.extend(opt.getParamsContainingPattern('L_'))
-            else:
-                params.extend(opt.getParamsContainingPattern('L_' + idx))
+            pprefix = 'L_' if pattern['fixed'] else 'L_' + idx
+            params.extend(opt.getParamsContainingPattern(pprefix))
 
             if sensors[sensor_name]['msg_type'] == 'Image':
                 nr = len(labels['idxs'])
                 for i in range(0, nr):
                     opt.pushResidual(name=idx + '_' + sensor_name + '_' + str(i), params=params)
 
+                opt.pushResidual(name= idx + '_' + sensor_name + '_AXZB', params=params)
+
+
     opt.computeSparseMatrix()
     opt.setObjectiveFunction(objectiveFunction)
 
-    # Start optimization
-    options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '3-point', 'x_scale': 'jac'}
-    opt.startOptimization(options)
+    options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '2-point', 'x_scale': 'jac'}
 
+    start = timer()
+    try:
+        opt.startOptimization(options)
+    except KeyboardInterrupt as e:
+        args['error'] = False
+        print('Terminated by user. Note: no error file will be saved')
+    end = timer()
+
+    print(end - start)
+
+    # print(opt.result.grad)
+    # print(opt.result.jac)
+
+    me = np.mean(objectiveFunction(opt.data_models))
     rmse = np.sqrt(np.mean(np.array(objectiveFunction(opt.data_models)) ** 2))
     print("RMSE {}".format(rmse))
+    print("ME {}".format(me))
 
     if args['error']:
         # Build summary.
-        summary = {'collections': {k: {kk: vv['error'] for kk, vv in v['labels'].items() if vv['detected']} for k, v in
-                                   collections.items()}}
+        summary= {'collections': {k: {kk: {'errors': vv['error'], 'init_errors': vv['init_error'] } for kk, vv in v['labels'].items() if vv['detected']} for k, v in collections.items()}}
         ## remove empty collections
         summary['collections'] = {k: v for k, v in summary['collections'].items() if len(v) > 0}
+
+        # summary['transforms'] = {}
+        for key, collection in collections.items():
+            tree = collection['tf_tree']
+
+            for sensor_name, labels in collection['labels'].items():
+                if not labels['detected']:
+                    continue
+
+                summary['collections'][key][sensor_name]['A'] = getPatternPose(tree, sensors[sensor_name]['calibration_child'], sensors[sensor_name], pattern, labels)
+                summary['collections'][key][sensor_name]['X'] = tree.lookup_transform(config['world_link'] , pattern['link']).position_quaternion
+                summary['collections'][key][sensor_name]['Z'] = tree.lookup_transform(sensors[sensor_name]['calibration_parent'], sensors[sensor_name]['calibration_child']).position_quaternion
+                summary['collections'][key][sensor_name]['B'] = tree.lookup_transform(config['world_link'] , sensors[sensor_name]['calibration_parent']).position_quaternion
 
         with open(args['error'], 'w') as f:
             print >> f, json.dumps(summary, indent=2, sort_keys=True, separators=(',', ': '))
@@ -370,6 +426,9 @@ def main():
 
         print('\nExtrinsics')
         print('----------')
+
+        if pattern['fixed']:
+            printOriginTag('pattern', parameters['pattern'])
         for name in sensors.keys():
             printOriginTag(name, parameters[name])
 

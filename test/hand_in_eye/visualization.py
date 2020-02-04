@@ -71,7 +71,7 @@ def setupVisualization(dataset, args):
         # rgba[3] = 0.3 # change the alpha
         m = urdfToMarkerArray(xml_robot, frame_id_prefix='c' + collection_key + '_', namespace=collection_key,
                               rgba=rgba)
-
+        markers.markers.extend(m.markers)
 
 
     # Draw the chessboard

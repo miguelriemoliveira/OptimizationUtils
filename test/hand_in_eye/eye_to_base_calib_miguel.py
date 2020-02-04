@@ -348,10 +348,24 @@ def main():
         child = dataset['calibration_config']['calibration_pattern']['link']
         transform_key = utilities.generateKey(parent, child)
 
-        # TODO origin is used as a first guess when the pattern is fixed, right? Why not use the getFirstGuessPose as bellow?
-        trans = dataset['calibration_config']['calibration_pattern']['origin'][0:3]
-        rpy = dataset['calibration_config']['calibration_pattern']['origin'][3:]
-        quat = transformations.quaternion_from_euler(rpy[0], rpy[1], rpy[2])
+        found = False
+        for collection_key, collection in dataset['collections'].items():
+            for sensor_name, labels in collection['labels'].items():
+                if not labels['detected'] or not dataset['sensors'][sensor_name]['msg_type'] == 'Image':
+                    continue
+                pose = getPatternFirstGuessPose(collection['tf_tree'], parent, dataset['sensors'][sensor_name], pattern, labels)
+                trans = pose[0:3]
+                quat = pose[3:]
+
+                found = True
+
+            if found:
+                break
+
+        if not found:
+            trans = dataset['calibration_config']['calibration_pattern']['origin'][0:3]
+            rpy = dataset['calibration_config']['calibration_pattern']['origin'][3:]
+            quat = transformations.quaternion_from_euler(rpy[0], rpy[1], rpy[2])
 
         # The pattern is fixed but we have a transform for each collection (although they are all the same)
         for collection_key, collection in dataset['collections'].items():
