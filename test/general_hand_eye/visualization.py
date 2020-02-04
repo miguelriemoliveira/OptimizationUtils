@@ -49,7 +49,6 @@ def setupVisualization(dataset, args):
     rospy.loginfo('Reading xml xacro file ...')
     xml_robot = URDF.from_parameter_server()
 
-
     pattern = dataset['calibration_config']['calibration_pattern']
     graphics['pattern']['colormap'] = cm.plasma(
         np.linspace(0, 1, pattern['dimension']['x'] * pattern['dimension']['y']))
@@ -68,16 +67,18 @@ def setupVisualization(dataset, args):
     for collection_key, collection in dataset['collections'].items():
         print("Collection : " + str(collection_key))
         rgba = graphics['collections'][collection_key]['color']
-        # rgba[3] = 0.3 # change the alpha
+        rgba[3] = 0.4 # change the alpha
+        rgba = [.5,.5,.5,0.7]
         m = urdfToMarkerArray(xml_robot, frame_id_prefix='c' + collection_key + '_', namespace=collection_key,
                               rgba=rgba)
         markers.markers.extend(m.markers)
 
-
     # Draw the chessboard
-    for collection_key, collection in dataset['collections'].items():
+    for idx, (collection_key, collection) in enumerate(dataset['collections'].items()):
+        rgba = graphics['collections'][collection_key]['color']
+        # color = ColorRGBA(r=rgba[0], g=rgba[1], b=rgba[2], a=1))
         m = Marker(header=Header(frame_id='c' + collection_key + '_chessboard_link', stamp=rospy.Time.now()),
-                   ns='c' + collection_key + '_', id=999, frame_locked=True,
+                   ns=collection_key, id=idx+1000, frame_locked=True,
                    type=Marker.MESH_RESOURCE, action=Marker.ADD, lifetime=rospy.Duration(0),
                    pose=Pose(position=Point(x=0, y=0, z=0),
                              orientation=Quaternion(x=0, y=0, z=0, w=1)),
@@ -86,7 +87,9 @@ def setupVisualization(dataset, args):
         m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5x5.dae'
         m.mesh_use_embedded_materials = True
         markers.markers.append(m)
-        break
+
+        if args['single_pattern']:  # Only draw one pattern if args say so.
+            break
 
     graphics['ros']['robot_mesh_markers'] = markers
 
@@ -195,19 +198,3 @@ def visualizationFunction(models):
             else:
                 raise ValueError("Unknown sensor msg_type")
 
-    # color_collection = color_map_collections[idx, :]
-    # # Draw chessboard poses
-    # for idx, (_collection_key, _collection) in enumerate(_dataset_chessboard['collections'].items()):
-    #     root_T_chessboard = utilities.translationQuaternionToTransform(_collection['trans'], _collection['quat'])
-    #     color_collection = color_map_collections[idx, :]
-    #     utilities.drawChessBoard(ax, root_T_chessboard, chessboard_points, 'C' + _collection_key,
-    #                              chess_num_x=args['chess_num_x'], chess_num_y=args['chess_num_y'],
-    #                              color=color_collection, axis_scale=0.3, line_width=2,
-    #                              handles=dataset_graphics['collections'][_collection_key]['handle'])
-    #
-    #     # Transform limit points to root
-    #     pts_l_chess_root = np.dot(root_T_chessboard, pts_l_chess)
-    #
-    #     utilities.drawPoints3D(ax, None, pts_l_chess_root, line_width=1.0,
-    #                            handles=
-    #                            dataset_graphics['collections'][_collection_key]['limit_handle'])

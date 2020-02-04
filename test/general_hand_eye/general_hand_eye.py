@@ -269,6 +269,7 @@ def main():
     ap.add_argument("-e", "--error", help="Final errors output file. (JSON format)", type=str)
     ap.add_argument("-rv", "--ros_visualization", help="Publish ros visualization markers.", action='store_true')
     ap.add_argument("-si", "--show_images", help="shows images for each camera", action='store_true', default=False)
+    ap.add_argument("-sp", "--single_pattern", help="show a single pattern instead of one per collection.", action='store_true', default=False)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
     def create_lambda_with_globals(s):
@@ -461,6 +462,9 @@ def main():
     # Visualization
     if args['view_optimization']:
         opt.setInternalVisualization(True)
+    else:
+        opt.setInternalVisualization(False)
+
 
     if args['ros_visualization']:
         print("Configuring visualization ... ")
