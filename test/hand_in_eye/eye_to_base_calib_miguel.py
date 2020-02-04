@@ -161,6 +161,9 @@ def objectiveFunction(models):
             diff = projected - corners
             error = np.apply_along_axis(np.linalg.norm, 0, diff)
 
+            if not labels.has_key('error'):
+                labels['init_error'] = diff.tolist()
+
             labels['error'] = diff.tolist()
 
             # Required by the visualization function to publish annotated images
@@ -174,6 +177,19 @@ def objectiveFunction(models):
                     collection['labels'][sensor_name]['idxs_initial'] = deepcopy(idxs_projected)
 
             residuals.extend(error.tolist())
+
+            ## ---
+            # A = Transform(*pparam)
+            # A = Transform(*getPatternFirstGuessPose(tree, sensors[sensor_name]['calibration_child'], sensors[sensor_name], pattern, labels))
+            # X = tree.lookup_transform(config['world_link'] , config['calibration_pattern']['link'])
+            # Z = tree.lookup_transform(sensors[sensor_name]['calibration_parent'], sensors[sensor_name]['calibration_child'])
+            # B = tree.lookup_transform(config['world_link'] , sensors[sensor_name]['calibration_parent'])
+
+            # diff = np.dot(A.matrix, X.matrix) - np.dot(Z.matrix, B.matrix)
+            # err = np.linalg.norm(diff, ord='fro')
+
+            # residual.append(float(err)*100)
+            ## ---
 
     return residuals
 
@@ -433,6 +449,8 @@ def main():
                 for i in range(0, len(labels['idxs'])):
                     opt.pushResidual(name='c' + collection_key + '_' + sensor_name + '_' + str(i), params=params)
 
+                # opt.pushResidual(name='c' + collection_key + '_' + sensor_name + '_AXZB', params=params)
+
     opt.computeSparseMatrix()
     opt.setObjectiveFunction(objectiveFunction)
 
@@ -451,7 +469,7 @@ def main():
         opt.setVisualizationFunction(visualizationFunction, args['ros_visualization'], niterations=1, figures=[])
 
     # Start optimization
-    options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '3-point', 'x_scale': 'jac'}
+    options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '2-point', 'x_scale': 'jac'}
     opt.startOptimization(options)
 
     rmse = np.sqrt(np.mean(np.array(objectiveFunction(opt.data_models)) ** 2))
@@ -459,10 +477,25 @@ def main():
 
     if args['error']:
         # Build summary.
-        summary = {'collections': {k: {kk: vv['error'] for kk, vv in v['labels'].items() if vv['detected']} for k, v in
-                                   dataset['collections'].items()}}
+        summary= {'collections': {k: {kk: {'errors': vv['error'], 'init_errors': vv['init_error'] }
+                                  for kk, vv in v['labels'].items() if vv['detected']} for k, v in dataset['collections'].items()}}
         ## remove empty collections
         summary['collections'] = {k: v for k, v in summary['collections'].items() if len(v) > 0}
+
+        for key, collection in dataset['collections'].items():
+            tree = collection['tf_tree']
+
+            for sensor_name, labels in collection['labels'].items():
+                if not labels['detected']:
+                    continue
+
+                summary['collections'][key][sensor_name]['A'] = getPatternFirstGuessPose(tree, dataset['sensors'][sensor_name]['calibration_child'],
+                                                                                         dataset['sensors'][sensor_name], pattern, labels)
+                summary['collections'][key][sensor_name]['X'] = tree.lookup_transform(dataset['calibration_config']['world_link'] ,
+                                                                                      dataset['calibration_config']['calibration_pattern']['link']).position_quaternion
+                summary['collections'][key][sensor_name]['Z'] = tree.lookup_transform(dataset['sensors'][sensor_name]['calibration_parent'],
+                                                                                      dataset['sensors'][sensor_name]['calibration_child']).position_quaternion
+                summary['collections'][key][sensor_name]['B'] = tree.lookup_transform(dataset['calibration_config']['world_link'] , dataset['sensors'][sensor_name]['calibration_parent']).position_quaternion
 
         with open(args['error'], 'w') as f:
             print >> f, json.dumps(summary, indent=2, sort_keys=True, separators=(',', ': '))
