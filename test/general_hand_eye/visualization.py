@@ -67,8 +67,8 @@ def setupVisualization(dataset, args):
     for collection_key, collection in dataset['collections'].items():
         print("Collection : " + str(collection_key))
         rgba = graphics['collections'][collection_key]['color']
-        rgba[3] = 0.4 # change the alpha
-        rgba = [.5,.5,.5,0.7]
+        rgba[3] = 0.4  # change the alpha
+        rgba = [.5, .5, .5, 0.7] # best color we could find
         m = urdfToMarkerArray(xml_robot, frame_id_prefix='c' + collection_key + '_', namespace=collection_key,
                               rgba=rgba)
         markers.markers.extend(m.markers)
@@ -78,7 +78,7 @@ def setupVisualization(dataset, args):
         rgba = graphics['collections'][collection_key]['color']
         # color = ColorRGBA(r=rgba[0], g=rgba[1], b=rgba[2], a=1))
         m = Marker(header=Header(frame_id='c' + collection_key + '_chessboard_link', stamp=rospy.Time.now()),
-                   ns=collection_key, id=idx+1000, frame_locked=True,
+                   ns=collection_key, id=idx + 1000, frame_locked=True,
                    type=Marker.MESH_RESOURCE, action=Marker.ADD, lifetime=rospy.Duration(0),
                    pose=Pose(position=Point(x=0, y=0, z=0),
                              orientation=Quaternion(x=0, y=0, z=0, w=1)),
@@ -197,4 +197,3 @@ def visualizationFunction(models):
                         camera_info_msg)
             else:
                 raise ValueError("Unknown sensor msg_type")
-
