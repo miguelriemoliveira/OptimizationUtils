@@ -416,9 +416,9 @@ def main():
 
                 opt.pushParamVector(group_name='c' + collection_key + '_' + transform_key, data_key='dataset',
                                     getter=partial(getterTransform, transform_key=transform_key,
-                                                   collection_name=selected_collection_key),
+                                                   collection_name=collection_key),
                                     setter=partial(setterTransform, transform_key=transform_key,
-                                                   collection_name=selected_collection_key),
+                                                   collection_name=collection_key),
                                     suffix=['_x', '_y', '_z', '_r1', '_r2', '_r3'])
 
                 break  # only need one first guess of the pattern pose, even if there are more sensors
@@ -433,8 +433,9 @@ def main():
                 continue
 
             # Params related to the sensor. Parameter name is the transform_key of the sensors optimized transform
-            params = opt.getParamsContainingPattern(utilities.generateKey(sensor['calibration_parent'],
-                                                                          sensor['calibration_child']))
+            params = opt.getParamsContainingPattern(utilities.generateKey(dataset['sensors'][sensor_name]['calibration_parent'],
+                                                                          dataset['sensors'][sensor_name]['calibration_child']))
+
             params.extend(opt.getParamsContainingPattern(sensor_name))  # intrinsics have the sensor name
 
             # Params related to the pattern
@@ -473,7 +474,7 @@ def main():
         opt.setVisualizationFunction(visualizationFunction, args['ros_visualization'], niterations=1, figures=[])
 
     # Start optimization
-    options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '2-point', 'x_scale': 'jac'}
+    options = {'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-4, 'diff_step': None, 'jac': '2-point'}
     opt.startOptimization(options)
 
     rmse = np.sqrt(np.mean(np.array(objectiveFunction(opt.data_models)) ** 2))
