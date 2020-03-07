@@ -70,7 +70,15 @@ def setterCameraIntrinsics(dataset, value, sensor_name):
     dataset['sensors'][sensor_name]['camera_info']['D'] = value[4:]
 
 
-def printOriginTag(name, pose):
+def printOriginTag(name, sensor, transforms):
+    parent_sensor = sensor['calibration_parent']
+    child_sensor = sensor['calibration_child']
+    transform_key = utilities.generateKey(parent_sensor, child_sensor)
+
+    trans = transforms[transform_key]['trans']
+    quat = transforms[transform_key]['quat']
+    pose = np.array(trans).tolist() + np.array(quat).tolist()
+
     xform = Transform(*pose)
     t = [str(x) for x in list(xform.position)]
     r = [str(x) for x in list(xform.euler)]
@@ -159,7 +167,8 @@ def objectiveFunction(models):
 
             projected, _, _ = utilities.projectToCamera(K, D, width, height, np.dot(sTc, pattern['grid'].T[ids].T))
             diff = projected - corners
-            error = np.apply_along_axis(np.linalg.norm, 0, diff)
+            # error = np.apply_along_axis(np.linalg.norm, 0, diff)
+            error = np.sum(diff*diff, 0) # big boost
 
             if not labels.has_key('error'):
                 labels['init_error'] = diff.tolist()
@@ -474,10 +483,10 @@ def main():
         opt.setVisualizationFunction(visualizationFunction, args['ros_visualization'], niterations=1, figures=[])
 
     # Start optimization
-    options = {'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-4, 'diff_step': None, 'jac': '2-point'}
+    options = {'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': None, 'jac': '2-point', 'x_scale': 'jac'}
     opt.startOptimization(options)
 
-    rmse = np.sqrt(np.mean(np.array(objectiveFunction(opt.data_models)) ** 2))
+    rmse = np.sqrt(np.mean(np.array(objectiveFunction(opt.data_models))))
     print("RMSE {}".format(rmse))
 
     if args['error']:
@@ -494,13 +503,14 @@ def main():
                 if not labels['detected']:
                     continue
 
-                summary['collections'][key][sensor_name]['A'] = getPatternFirstGuessPose(tree, dataset['sensors'][sensor_name]['calibration_child'],
+                summary['collections'][key][sensor_name]['B'] = getPatternFirstGuessPose(tree, dataset['sensors'][sensor_name]['calibration_child'],
                                                                                          dataset['sensors'][sensor_name], pattern, labels)
-                summary['collections'][key][sensor_name]['X'] = tree.lookup_transform(dataset['calibration_config']['world_link'] ,
-                                                                                      dataset['calibration_config']['calibration_pattern']['link']).position_quaternion
-                summary['collections'][key][sensor_name]['Z'] = tree.lookup_transform(dataset['sensors'][sensor_name]['calibration_parent'],
-                                                                                      dataset['sensors'][sensor_name]['calibration_child']).position_quaternion
-                summary['collections'][key][sensor_name]['B'] = tree.lookup_transform(dataset['calibration_config']['world_link'] , dataset['sensors'][sensor_name]['calibration_parent']).position_quaternion
+                summary['collections'][key][sensor_name]['X'] = tree.lookup_transform(dataset['calibration_config']['calibration_pattern']['link'],
+                                                                                      dataset['calibration_config']['world_link']).position_quaternion
+                summary['collections'][key][sensor_name]['Z'] = tree.lookup_transform(dataset['sensors'][sensor_name]['calibration_child'],
+                                                                                      dataset['sensors'][sensor_name]['calibration_parent']).position_quaternion
+                summary['collections'][key][sensor_name]['A'] = tree.lookup_transform(dataset['calibration_config']['world_link'] ,
+                                                                                      dataset['sensors'][sensor_name]['calibration_parent']).position_quaternion
 
         with open(args['error'], 'w') as f:
             print >> f, json.dumps(summary, indent=2, sort_keys=True, separators=(',', ': '))
@@ -511,12 +521,12 @@ def main():
             print('----------')
             for sensor_name, sensor in dataset['sensors'].items():
                 print(sensor_name)
-                print(getterCameraIntrinsics(dataset['sensors'], sensor_name))
+                print(getterCameraIntrinsics(dataset, sensor_name))
 
         print('\nExtrinsics')
         print('----------')
-        # for sensor_name in dataset['sensors'].keys():
-        #     printOriginTag(sensor_name, parameters[sensor_name])
+        for sensor_name , sensor in dataset['sensors'].items():
+            printOriginTag(sensor_name, sensor, dataset['collections'][selected_collection_key]['transforms'])
 
         # printOriginTag('pattern', parameters['pattern'])
 
