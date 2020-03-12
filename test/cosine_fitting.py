@@ -35,6 +35,7 @@ class Polynomial:
         self.param1 = 0
         self.param2 = 0
         self.params_3_and_4 = [0, 0]
+        self.some_unused_variable = ""
 
 
 
@@ -102,9 +103,9 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
     # ---------------------------------------
-    def objectiveFunction(model):
+    def objectiveFunction(models):
 
-        polynomial = model['polynomial']
+        polynomial = models['polynomial']
 
         def pol(u):
             y = polynomial.param0[0] + (polynomial.param1[0] * u) + (polynomial.param2[0] * u ** 2) + (
@@ -129,8 +130,7 @@ if __name__ == "__main__":
     print('residuals = ' + str(opt.residuals))
 
     opt.computeSparseMatrix()
-
-
+    opt.printSparseMatrix()
 
     # ---------------------------------------
     # --- Define THE VISUALIZATION FUNCTION
