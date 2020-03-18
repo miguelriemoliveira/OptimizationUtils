@@ -58,12 +58,12 @@ if __name__ == "__main__":
     # read and Show original point cloud
     # point cloud 1
     print("Read the point cloud")
-    #pcd1 = o3d.io.read_point_cloud("./test/cow.ply") # Read the point cloud
-    pcd1 = o3d.io.read_point_cloud("./little_cow.ply") # Read the point cloud
+    pcd1 = o3d.io.read_point_cloud("./test/point_cloud_to_point_cloud/cow.ply") # Read the point cloud
+    #pcd1 = o3d.io.read_point_cloud("./test/point_cloud_to_point_cloud/little_cow.ply") # Read the point cloud
     pcd1.paint_uniform_color([1, 0, 0])
 
-    #pcd2 = o3d.io.read_point_cloud("./test/cow.ply") # Read the point cloud
-    pcd2 = o3d.io.read_point_cloud("./little_cow.ply") # Read the point cloud
+    pcd2 = o3d.io.read_point_cloud("./test/point_cloud_to_point_cloud/cow.ply") # Read the point cloud
+    #pcd2 = o3d.io.read_point_cloud("./test/point_cloud_to_point_cloud/little_cow.ply") # Read the point cloud
 
     # pc2 is pc1 transformed
     # trans_init = np.asarray([[0.862, 0.011, -0.507, 2],
@@ -234,15 +234,15 @@ if __name__ == "__main__":
     # fig = plt.figure()
     # # ax = fig.add_subplot(111)
 
-    # Visualize initial and final cloud
-    # vis = o3d.Visualizer()
-    # vis.create_window()
-    # vis.add_geometry(pcd1)
-    # noisy_cloud.paint_uniform_color([0, 1, 0])
-    # vis.add_geometry(noisy_cloud)
-    # vis.update_renderer()
-    # print("Lock in open3D windows (vis)")
-    # vis.run()
+    #Visualize initial and final cloud
+    vis = o3d.Visualizer()
+    vis.create_window()
+    vis.add_geometry(pcd1)
+    noisy_cloud.paint_uniform_color([0, 1, 0])
+    vis.add_geometry(noisy_cloud)
+    vis.update_renderer()
+    print("Lock in open3D windows (vis)")
+    vis.run()
 
 
     # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
@@ -274,10 +274,10 @@ if __name__ == "__main__":
 
         y = noisy_cloud.transform(Mv)
         
-        # y.paint_uniform_color([0, 0, 1])
-        # vis.add_geometry(y)
-        # vis.update_renderer()
-        # vis.run()
+        y.paint_uniform_color([0, 0, 1])
+        vis.add_geometry(y)
+        vis.update_renderer()
+        vis.run()
 
         # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
         # if wm.waitForKey(0.01, verbose=False):
@@ -300,12 +300,16 @@ if __name__ == "__main__":
 
     opt.printParameters()
     # opt.printResiduals()
-    opt.printSparseMatrix()
+    # opt.printSparseMatrix()
     # exit(0)
 
     print("\n\nStarting optimization")
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-3})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': 1e-4})
+
+
+    vis.update_renderer()
+    vis.run()
 
     wm = KeyPressManager.KeyPressManager.WindowManager()
     if wm.waitForKey():
