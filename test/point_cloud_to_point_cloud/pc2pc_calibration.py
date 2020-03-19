@@ -21,7 +21,7 @@ import OptimizationUtils.OptimizationUtils as OptimizationUtils
 import OptimizationUtils.transformations as tf
 
 #  Constants
-RANDOM_ERROR = 0.4
+RANDOM_ERROR = 0.01
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
@@ -38,7 +38,7 @@ class SensorTransforms:
 
     def __init__(self):
         self.t = np.array([0.0, 0.0, 0.0])
-        # self.r = np.array([0.0, 0.0, 0.0])
+        self.r = np.array([0.0, 0.0, 0.0])
 
 ######################################
 # function to subsample a pointcloud #
@@ -106,10 +106,10 @@ if __name__ == "__main__":
     pcd1.paint_uniform_color([1, 0, 0])
 
     #smaller version of cow
-    pcd1 = subSamplePointCloud(5,pcd1)
+    # pcd1 = subSamplePointCloud(5,pcd1)
     
     # pcd2 = o3d.io.read_point_cloud("./test/point_cloud_to_point_cloud/cow.ply") # Read the point cloud
-    # pcd2 = subSamplePointCloud(5,pcd2)
+    pcd1 = subSamplePointCloud(5,pcd1)
     pcd2 = cp.deepcopy(pcd1)
     #downpcd = pcd.voxel_down_sample(voxel_size=0.05)
     
@@ -149,12 +149,12 @@ if __name__ == "__main__":
             sensorTransforms.t[1] = np.array(value)
         elif i == 2:
             sensorTransforms.t[2] = np.array(value)
-        # elif i == 3:
-        #     sensorTransforms.r[0] = np.array(value)
-        # elif i == 4:
-        #     sensorTransforms.r[1] = np.array(value)
-        # elif i == 5:
-        #     sensorTransforms.r[2] = np.array(value)
+        elif i == 3:
+            sensorTransforms.r[0] = np.array(value)
+        elif i == 4:
+            sensorTransforms.r[1] = np.array(value)
+        elif i == 5:
+            sensorTransforms.r[2] = np.array(value)
 
 
     def getter(sensorTransforms, i):
@@ -164,21 +164,29 @@ if __name__ == "__main__":
             return [sensorTransforms.t[1]]
         elif i == 2:
             return [sensorTransforms.t[2]]
-        # elif i == 3:
-        #     return [sensorTransforms.r[0]]
-        # elif i == 4:
-        #     return [sensorTransforms.r[1]]
-        # elif i == 5:
-        #     return [sensorTransforms.r[2]]
+        elif i == 3:
+            return [sensorTransforms.r[0]]
+        elif i == 4:
+            return [sensorTransforms.r[1]]
+        elif i == 5:
+            return [sensorTransforms.r[2]]
 
 
     def getterTranslation(sensorTransforms):
         return sensorTransforms.t.tolist()
 
+    def getterRotation(sensorTransforms):
+        return sensorTransforms.r.tolist()
+
     def setterTranslation(sensorTransforms, values):
        sensorTransforms.t[0] = values[0]
        sensorTransforms.t[1] = values[1]
        sensorTransforms.t[2] = values[2]
+
+    def setterRotation(sensorTransforms, values):
+       sensorTransforms.r[0] = values[0]
+       sensorTransforms.r[1] = values[1]
+       sensorTransforms.r[2] = values[2]
 
     # for idx in range(0, 6):
     #     opt.pushParamScalar(group_name='p' + str(idx), data_key='sensorTransforms', getter=partial(getter, i=idx),
@@ -192,6 +200,10 @@ if __name__ == "__main__":
                         getter=partial(getterTranslation),
                         setter=partial(setterTranslation),
                         suffix=['x', 'y', 'z'])
+    opt.pushParamVector(group_name='r', data_key='sensorTransforms',
+                        getter=partial(getterRotation),
+                        setter=partial(setterRotation),
+                        suffix=['x', 'y', 'z'])
 
 
     # ---------------------------------------
@@ -204,16 +216,17 @@ if __name__ == "__main__":
         error = []
         err = 0
 
-        print('sensorTransforms = ' + str(sensorTransforms.t))
+        print('sensorTransforms = ' + str(sensorTransforms.t) + ',' +  str(sensorTransforms.r) )
        
         # transformMatrix remember to initialize at identity
         # Check if data type is needed
         # ang_loop = np.array(sensorTransforms.r, dtype=np.float64)
         # tr_loop = np.array(sensorTransforms.t, dtype=np.float64)
+        angle_loop = np.array([sensorTransforms.r[0],sensorTransforms.r[1],sensorTransforms.r[2]])
         tr_loop = np.array([sensorTransforms.t[0],sensorTransforms.t[1],sensorTransforms.t[2]])
-
+        
         # otf = tf.compose_matrix(scale=None, shear=None, angles=ang_loop, translate=tr_loop, perspective=None)
-        otf = tf.compose_matrix(scale=None, shear=None, angles=None, translate=tr_loop, perspective=None)
+        otf = tf.compose_matrix(scale=None, shear=None, angles=angle_loop, translate=tr_loop, perspective=None)
         
         y = cp.deepcopy(noisy_cloud)
         y = y.transform(otf)
@@ -251,7 +264,7 @@ if __name__ == "__main__":
     # ---------------------------------------
     for a in range(0, len(noisy_points)):
         # opt.pushResidual(name='pts' + str(a), params=['t', 'r'])
-        opt.pushResidual(name='r' + str(a), params=['tx', 'ty', 'tz'])
+        opt.pushResidual(name='r' + str(a), params=['tx', 'ty', 'tz', 'rx', 'ry', 'rz'])
     # for a in range(0, 1):
     #     opt.pushResidual(name='cloud' + str(a), params=['t', 'r'])
 
@@ -294,23 +307,26 @@ if __name__ == "__main__":
 
         # handle_plot[0].set_ydata(y)
 
-        # ang = np.array([sensorTransforms.r[0],sensorTransforms.r[1],sensorTransforms.r[2]])
+        ang = np.array([sensorTransforms.r[0],sensorTransforms.r[1],sensorTransforms.r[2]])
         tr = np.array([sensorTransforms.t[0],sensorTransforms.t[1],sensorTransforms.t[2]])
         # print("Translation:")
         # print(tr)
 
-        Mv = tf.compose_matrix(scale=None, shear=None, angles=None, translate=tr, perspective=None)
-        # Mv = tf.compose_matrix(scale=None, shear=None, angles=ang, translate=tr, perspective=None)
+        # Mv = tf.compose_matrix(scale=None, shear=None, angles=None, translate=tr, perspective=None)
+        Mv = tf.compose_matrix(scale=None, shear=None, angles=ang, translate=tr, perspective=None)
     
         # print("Transformation Matrix: ") 
         # print(Mv)
-        y = cp.deepcopy(noisy_cloud)
-        y = y.transform(Mv)
+        v = cp.deepcopy(noisy_cloud)
+        # y = (noisy_cloud)
+        v.transform(Mv)
+
+        y.points = v.points
         
-        y.paint_uniform_color([0, 0, 1])
         # vis.add_geometry(y)
+        vis.update_geometry()
+        vis.poll_events()
         vis.update_renderer()
-        vis.run()
 
         # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
         # if wm.waitForKey(0.01, verbose=False):
@@ -345,10 +361,10 @@ if __name__ == "__main__":
     vis.add_geometry(pcd1)
     pcd1.paint_uniform_color([1, 0, 0])
 
-
+    ang = np.array([sensorTransforms.r[0],sensorTransforms.r[1],sensorTransforms.r[2]])
     tr = np.array([sensorTransforms.t[0],sensorTransforms.t[1],sensorTransforms.t[2]])
   
-    Mv = tf.compose_matrix(scale=None, shear=None, angles=None, translate=tr, perspective=None)
+    Mv = tf.compose_matrix(scale=None, shear=None, angles=ang, translate=tr, perspective=None)
     
     y = cp.deepcopy(noisy_cloud)
     y = y.transform(Mv)
