@@ -21,7 +21,9 @@ import OptimizationUtils.OptimizationUtils as OptimizationUtils
 import OptimizationUtils.transformations as tf
 
 #  Constants
-RANDOM_ERROR = 0.01
+RANDOM_ERROR = 0.05
+MAX_ROT_ERROR = np.pi
+MAX_TRANS_ERROR = 0.3
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
@@ -83,6 +85,34 @@ def addNoise(max_error, cloud):
 
     return noisy_points
 
+#################################
+# Add axes to the visualization #
+#################################
+def drawAxes(vis):
+    arrow_x = o3d.geometry.create_mesh_arrow(cylinder_radius=0.1, cone_radius=0.2, cylinder_height=1.0, cone_height=0.2, resolution=20, cylinder_split=4, cone_split=1)
+    arrow_x.paint_uniform_color([1, 0, 0])
+    a = np.array([np.pi/2, 0, 0])
+    t = np.array([0, 0, 0])
+    tm = tf.compose_matrix(angles = a, translate = t)
+    arrow_x.transform(tm)
+    vis.add_geometry(arrow_x)
+   
+    arrow_y = o3d.geometry.create_mesh_arrow(cylinder_radius=0.1, cone_radius=0.2, cylinder_height=1.0, cone_height=0.2, resolution=20, cylinder_split=4, cone_split=1)
+    arrow_y.paint_uniform_color([0, 1, 0])
+    a = np.array([0, np.pi/2, 0])
+    t = np.array([0, 0, 0])
+    tm = tf.compose_matrix(angles = a, translate = t)
+    arrow_y.transform(tm)
+    vis.add_geometry(arrow_y)
+    
+    arrow_z = o3d.geometry.create_mesh_arrow(cylinder_radius=0.1, cone_radius=0.2, cylinder_height=1.0, cone_height=0.2, resolution=20, cylinder_split=4, cone_split=1)
+    arrow_z.paint_uniform_color([0, 0, 1])
+    a = np.array([0, 0, np.pi/2])
+    t = np.array([0, 0, 0])
+    tm = tf.compose_matrix(angles = a, translate = t)
+    arrow_z.transform(tm)
+    vis.add_geometry(arrow_z)
+
 
 if __name__ == "__main__":
 
@@ -103,21 +133,17 @@ if __name__ == "__main__":
     # point cloud 1
     print("Read the point cloud")
     pcd1 = o3d.io.read_point_cloud("./test/point_cloud_to_point_cloud/cow.ply") # Read the point cloud
-    pcd1.paint_uniform_color([1, 0, 0])
-
-    #smaller version of cow
-    # pcd1 = subSamplePointCloud(5,pcd1)
-    
-    # pcd2 = o3d.io.read_point_cloud("./test/point_cloud_to_point_cloud/cow.ply") # Read the point cloud
-    pcd1 = subSamplePointCloud(5,pcd1)
+   
+    # subsampled  version of cow
+    pcd1 = subSamplePointCloud(10,pcd1)
     pcd2 = cp.deepcopy(pcd1)
     #downpcd = pcd.voxel_down_sample(voxel_size=0.05)
     
-    trans_init = np.asarray([[0.862, 0.011, -0.507, 0.2],
-                             [-0.139, 0.967, -0.215, 0.1],
-                             [0.487, 0.255, 0.835, 0.2], 
-                             [0.0, 0.0, 0.0, 1.0]])
-
+    # Apply random rotation and translation to second cloud
+    ang   = np.random.random_sample( (3, ) ) * MAX_ROT_ERROR
+    trans = np.random.random_sample( (3, ) ) * MAX_TRANS_ERROR
+    trans_init = tf.compose_matrix(angles = ang, translate = trans)
+    
     # random noise in pc2    
     pcd2.transform(trans_init)
     noisy_points = addNoise(RANDOM_ERROR,pcd2)
@@ -282,12 +308,17 @@ if __name__ == "__main__":
     #Visualize initial and final cloud
     vis = o3d.Visualizer()
     vis.create_window()
+    drawAxes(vis)
+
+    pcd1.paint_uniform_color([1, 0, 0])
     vis.add_geometry(pcd1)
+
     y = cp.deepcopy(noisy_cloud)
     y.paint_uniform_color([0, 1, 0])
     vis.add_geometry(y)
+
     vis.update_renderer()
-    print("Lock in open3D windows (vis)")
+    print("Lock in open3D windows (vis) - press q to continue")
     vis.run()
 
 
@@ -371,8 +402,9 @@ if __name__ == "__main__":
         
     y.paint_uniform_color([0, 1, 0])
     o3d.visualization.draw_geometries([pcd1, y])
-    # vis.update_renderer()
-    # vis.run()
+    vis.update_renderer()
+    print("Interact with o3d window and press q to quit ")
+    vis.run()
 
     # wm = KeyPressManager.KeyPressManager.WindowManager()
     # if wm.waitForKey():
