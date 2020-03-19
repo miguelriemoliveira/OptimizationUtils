@@ -14,6 +14,7 @@ import math
 import numpy as np
 import copy as cp
 from functools import partial
+from itertools import combinations 
 import matplotlib.pyplot as plt
 import open3d as o3d
 import KeyPressManager.KeyPressManager
@@ -24,6 +25,7 @@ import OptimizationUtils.transformations as tf
 RANDOM_ERROR = 0.05
 MAX_ROT_ERROR = np.pi
 MAX_TRANS_ERROR = 0.3
+NUM_MODELS = 2
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
@@ -126,9 +128,9 @@ if __name__ == "__main__":
     print(args)
 
 
-    # ---------------------------------------
-    # --- CREATE 2 POINT CLOUDS FOR TEST
-    # ---------------------------------------
+    # -----------------------------------------
+    # --- CREATE SEVERAL POINT CLOUDS FOR TEST
+    # -----------------------------------------
     # read and Show original point cloud
     # point cloud 1
     print("Read the point cloud")
@@ -136,28 +138,32 @@ if __name__ == "__main__":
    
     # subsampled  version of cow
     pcd1 = subSamplePointCloud(10,pcd1)
-    pcd2 = cp.deepcopy(pcd1)
-    #downpcd = pcd.voxel_down_sample(voxel_size=0.05)
-    
-    # Apply random rotation and translation to second cloud
-    ang   = np.random.random_sample( (3, ) ) * MAX_ROT_ERROR
-    trans = np.random.random_sample( (3, ) ) * MAX_TRANS_ERROR
-    trans_init = tf.compose_matrix(angles = ang, translate = trans)
-    
-    # random noise in pc2    
-    pcd2.transform(trans_init)
-    noisy_points = addNoise(RANDOM_ERROR,pcd2)
+    models = []
+    models.append(pcd1)
 
-    noisy_cloud = o3d.PointCloud()
-    noisy_cloud.points = o3d.Vector3dVector(noisy_points)
-
+    # create other models
+    for i in np.arange(0,NUM_MODELS-1):
+        pcd = []
+        pcd = cp.deepcopy(pcd1)
+   
+        # Apply random rotation and translation to second cloud
+        ang   = np.random.random_sample( (3, ) ) * MAX_ROT_ERROR
+        trans = np.random.random_sample( (3, ) ) * MAX_TRANS_ERROR
+        trans_init = tf.compose_matrix(angles = ang, translate = trans)
     
+        # random noise in pc2    
+        pcd.transform(trans_init)
+        noisy_points = addNoise(RANDOM_ERROR,pcd)
+
+        noisy_cloud = o3d.PointCloud()
+        noisy_cloud.points = o3d.Vector3dVector(noisy_points)
+
+        models.append(noisy_cloud)
    
     # ---------------------------------------
     # --- INITIALIZATION
     # ---------------------------------------
     sensorTransforms = SensorTransforms()
-
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -214,23 +220,19 @@ if __name__ == "__main__":
        sensorTransforms.r[1] = values[1]
        sensorTransforms.r[2] = values[2]
 
-    # for idx in range(0, 6):
-    #     opt.pushParamScalar(group_name='p' + str(idx), data_key='sensorTransforms', getter=partial(getter, i=idx),
-    #                         setter=partial(setter, i=idx))
-
-    # for idx in range(0, 3):
-    #     opt.pushParamScalar(group_name='p' + str(idx), data_key='sensorTransforms', getter=partial(getter, i=idx),
-    #                         setter=partial(setter, i=idx))
-
-    opt.pushParamVector(group_name='t', data_key='sensorTransforms',
-                        getter=partial(getterTranslation),
-                        setter=partial(setterTranslation),
-                        suffix=['x', 'y', 'z'])
-    opt.pushParamVector(group_name='r', data_key='sensorTransforms',
-                        getter=partial(getterRotation),
-                        setter=partial(setterRotation),
-                        suffix=['x', 'y', 'z'])
-
+    # Push parameters to optimization
+    comb = combinations(np.arange(0,len(models)), 2) 
+    for c in comb:
+        g_name = 't' + str(c[0]) + str(c[1])
+        opt.pushParamVector(group_name=g_name, data_key='sensorTransforms',
+                            getter=partial(getterTranslation),
+                            setter=partial(setterTranslation),
+                            suffix=['x', 'y', 'z'])
+        g_name = 'r' + str(c[0]) + str(c[1])
+        opt.pushParamVector(group_name=g_name, data_key='sensorTransforms',
+                            getter=partial(getterRotation),
+                            setter=partial(setterRotation),
+                            suffix=['x', 'y', 'z'])
 
     # ---------------------------------------
     # --- Define THE OBJECTIVE FUNCTION
@@ -242,43 +244,68 @@ if __name__ == "__main__":
         error = []
         err = 0
 
-        print('sensorTransforms = ' + str(sensorTransforms.t) + ',' +  str(sensorTransforms.r) )
-       
-        # transformMatrix remember to initialize at identity
-        # Check if data type is needed
-        # ang_loop = np.array(sensorTransforms.r, dtype=np.float64)
-        # tr_loop = np.array(sensorTransforms.t, dtype=np.float64)
-        angle_loop = np.array([sensorTransforms.r[0],sensorTransforms.r[1],sensorTransforms.r[2]])
-        tr_loop = np.array([sensorTransforms.t[0],sensorTransforms.t[1],sensorTransforms.t[2]])
+
+        # comb = combinations(np.arange(0,len(models)), 2) 
+        # for c in comb:
+        #     t_pattern = g_name = 't' + str(c[0]) + str(c[1])
+        #     tra = opt.getParamsContainingPattern(t_pattern)
+        x=[]
+        # opt.fromDataToX(x)
+        # print(x)
         
-        # otf = tf.compose_matrix(scale=None, shear=None, angles=ang_loop, translate=tr_loop, perspective=None)
-        otf = tf.compose_matrix(scale=None, shear=None, angles=angle_loop, translate=tr_loop, perspective=None)
+        for group in opt.groups.items():
+            print(group[0].getter(['t01']))
+            print("ole")
+        # print(opt.groups['r01'])
+        # print('ole')
+        # for i in np.arange(0,NUM_MODELS-1):
+        # for i in np.arange(0,len(x),6)
+            # print("Translation" + str(x[i]) + ";" + str(x[i+1]) + ";" + str(x[i+2])
+            # print("Rotation" + str(x[i+3]) + ";" + str(x[i+4]) + ";" + str(x[i+5])
+
+            # values_in_data = group.
+            # print(values_in_data)
+
+            # opt.pushParamVector(group_name=g_name, data_key='sensorTransforms',
+            #                 getter=partial(getterTranslation),
+            #                 setter=partial(setterTranslation),
+            #                 suffix=['x', 'y', 'z'])
+
+            # opt.groups.getter(t_pattern.x)
+
+            # values_in_data = group.getter(self.data_models[group.data_key])
+
+            # r_pattern = g_name = 't' + str(c[0]) + str(c[1])
+            # rot = opt.getParamsContainingPattern(r_pattern)
+
+            # print('sensorTransforms = '+ str(c[0]) + str(c[1]) + str(tra) + ',' +  str(rot))
+
+            
         
-        y = cp.deepcopy(noisy_cloud)
-        y = y.transform(otf)
+            #varname = str("sensorTransforms.r" + str(c[0]) + str(c[1])
+            # angle_loop = np.array([sensorTransforms.r[0],sensorTransforms.r[1],sensorTransforms.r[2]])
+            # tr_loop = np.array([sensorTransforms.t[0],sensorTransforms.t[1],sensorTransforms.t[2]])
+            
+            # angle_loop = np.array([dict_trans["r01"][0],[dict_trans["r01"][1],[dict_trans["r01"][2]])
+            # tr_loop = np.array([dict_trans["t01"][0],[dict_trans["t01"][1],[dict_trans["t01"][2]])
+            
+            # # otf = tf.compose_matrix(scale=None, shear=None, angles=ang_loop, translate=tr_loop, perspective=None)
+            # otf = tf.compose_matrix(scale=None, shear=None, angles=angle_loop, translate=tr_loop, perspective=None)
+            
+            # y = cp.deepcopy(models[c[1]])
+            # y = y.transform(otf)
 
-        sourcepts = np.array(y.points)
-        targetpts = np.array(pcd1.points)
+            # # sourcepts = np.array(y.points)
+            # # targetpts = np.array(pcd1.points)
+            # sourcepts = np.array(y)
+            # sourcepts = np.array(models[c[0]].points)
 
-        #compute error between points in transformed target and source (append or add!?)
-        for i in np.arange(0,len(sourcepts)):
-            error.append( (sourcepts[i][0] - targetpts[i][0]) * (sourcepts[i][0] - targetpts[i][0])
-                        + (sourcepts[i][1] - targetpts[i][1]) * (sourcepts[i][1] - targetpts[i][1])
-                        + (sourcepts[i][2] - targetpts[i][2]) * (sourcepts[i][2] - targetpts[i][2]))
+            # #compute error between points in transformed target and source (append or add!?)
+            # for i in np.arange(0,len(sourcepts)):
+            #     error.append( (sourcepts[i][0] - targetpts[i][0]) * (sourcepts[i][0] - targetpts[i][0])
+            #                 + (sourcepts[i][1] - targetpts[i][1]) * (sourcepts[i][1] - targetpts[i][1])
+            #                 + (sourcepts[i][2] - targetpts[i][2]) * (sourcepts[i][2] - targetpts[i][2]))
 
-        # for i in np.arange(0,len(sourcepts)):
-        #     err = err + ( (sourcepts[i][0] - targetpts[i][0]) * (sourcepts[i][0] - targetpts[i][0])
-        #                     + (sourcepts[i][1] - targetpts[i][1]) * (sourcepts[i][1] - targetpts[i][1])
-        #                     + (sourcepts[i][2] - targetpts[i][2]) * (sourcepts[i][2] - targetpts[i][2]))
-
-
-        # Para usar todas as combinações 2 a 2 de uma lista
-        # for cam_a, cam_b in combinations(dataset.cameras, 2):
-        #     error.append(abs(cam_a.rgb.avg_changed - cam_b.rgb.avg_changed))
-        #
-
-
-        # error.append(err)
         # print("first 5 errors = " + str(error[0:5]))
         return error
 
@@ -288,14 +315,21 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Define THE RESIDUALS
     # ---------------------------------------
-    for a in range(0, len(noisy_points)):
-        # opt.pushResidual(name='pts' + str(a), params=['t', 'r'])
-        opt.pushResidual(name='r' + str(a), params=['tx', 'ty', 'tz', 'rx', 'ry', 'rz'])
-    # for a in range(0, 1):
-    #     opt.pushResidual(name='cloud' + str(a), params=['t', 'r'])
+    comb = combinations(np.arange(0,len(models)), 2) 
+    for c in comb:
+        # for a in range(0, len(models[c[0]])):
+        for a in range(0, len(models[c[0]].points)):
+            # opt.pushResidual(name='pts' + str(a), params=['t', 'r'])
+            opt.pushResidual(name='r' + str(c[0]) + str(c[1]) + str("_") +str(a), params=['t' + str(c[0]) + str(c[1]) + 'x', 
+                                                                                          't' + str(c[0]) + str(c[1]) + 'y',
+                                                                                          't' + str(c[0]) + str(c[1]) + 'z',
+                                                                                          'r' + str(c[0]) + str(c[1]) + 'x',
+                                                                                          'r' + str(c[0]) + str(c[1]) + 'y',
+                                                                                          'r' + str(c[0]) + str(c[1]) + 'z'])
+        # for a in range(0, 1):
+        #     opt.pushResidual(name='cloud' + str(a), params=['t', 'r'])
 
-    # print('residuals = ' + str(opt.residuals))
-
+    print('residuals = ' + str(opt.residuals))
     opt.computeSparseMatrix()
 
     # ---------------------------------------
@@ -306,64 +340,71 @@ if __name__ == "__main__":
     # # ax = fig.add_subplot(111)
 
     #Visualize initial and final cloud
-    vis = o3d.Visualizer()
-    vis.create_window()
-    drawAxes(vis)
+    # vis = o3d.Visualizer()
+    # vis.create_window()
+    # drawAxes(vis)
 
-    pcd1.paint_uniform_color([1, 0, 0])
-    vis.add_geometry(pcd1)
+    # pcd1.paint_uniform_color([1, 0, 0])
+    # vis.add_geometry(pcd1)
 
-    y = cp.deepcopy(noisy_cloud)
-    y.paint_uniform_color([0, 1, 0])
-    vis.add_geometry(y)
+    # y = cp.deepcopy(noisy_cloud)
+    # y.paint_uniform_color([0, 1, 0])
+    # vis.add_geometry(y)
 
-    vis.update_renderer()
-    print("Lock in open3D windows (vis) - press q to continue")
-    vis.run()
+    # vis.update_renderer()
+    # print("Lock in open3D windows (vis) - press q to continue")
+    # vis.run()
 
 
-    # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
-    # if wm.waitForKey(0., verbose=False):
-    #     exit(0)
+    # # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    # # if wm.waitForKey(0., verbose=False):
+    # #     exit(0)
 
-    def visualizationFunction(model):
+    # def visualizationFunction(model):
 
-        sensorTransforms = model['sensorTransforms']
+    #     sensorTransforms = model['sensorTransforms']
 
-        # y = polynomial.param0[0] + \
-        #     np.multiply(polynomial.param1[0], np.power(x, 1)) + \
-        #     np.multiply(polynomial.param2[0], np.power(x, 2)) + \
-        #     np.multiply(polynomial.params_3_and_4[0][0], np.power(x, 3)) + \
-        #     np.multiply(polynomial.params_3_and_4[1][0], np.power(x, 4))
+    #     # y = polynomial.param0[0] + \
+    #     #     np.multiply(polynomial.param1[0], np.power(x, 1)) + \
+    #     #     np.multiply(polynomial.param2[0], np.power(x, 2)) + \
+    #     #     np.multiply(polynomial.params_3_and_4[0][0], np.power(x, 3)) + \
+    #     #     np.multiply(polynomial.params_3_and_4[1][0], np.power(x, 4))
 
-        # handle_plot[0].set_ydata(y)
+    #     # handle_plot[0].set_ydata(y)
 
-        ang = np.array([sensorTransforms.r[0],sensorTransforms.r[1],sensorTransforms.r[2]])
-        tr = np.array([sensorTransforms.t[0],sensorTransforms.t[1],sensorTransforms.t[2]])
-        # print("Translation:")
-        # print(tr)
+    #     g_name = 't' + str(c[0]) + str(c[1])
+    #     opt.getParameters()
+    #     opt.pushParamVector(group_name=g_name, data_key='sensorTransforms',
+    #                         getter=partial(getterTranslation),
+    #                         setter=partial(setterTranslation),
+    #                         suffix=['x', 'y', 'z'])
 
-        # Mv = tf.compose_matrix(scale=None, shear=None, angles=None, translate=tr, perspective=None)
-        Mv = tf.compose_matrix(scale=None, shear=None, angles=ang, translate=tr, perspective=None)
+    #     ang = np.array([sensorTransforms.r[0],sensorTransforms.r[1],sensorTransforms.r[2]])
+    #     tr = np.array([sensorTransforms.t[0],sensorTransforms.t[1],sensorTransforms.t[2]])
+    #     # print("Translation:")
+    #     # print(tr)
+
+    #     # Mv = tf.compose_matrix(scale=None, shear=None, angles=None, translate=tr, perspective=None)
+    #     Mv = tf.compose_matrix(scale=None, shear=None, angles=ang, translate=tr, perspective=None)
     
-        # print("Transformation Matrix: ") 
-        # print(Mv)
-        v = cp.deepcopy(noisy_cloud)
-        # y = (noisy_cloud)
-        v.transform(Mv)
+    #     # print("Transformation Matrix: ") 
+    #     # print(Mv)
+    #     v = cp.deepcopy(noisy_cloud)
+    #     # y = (noisy_cloud)
+    #     v.transform(Mv)
 
-        y.points = v.points
+    #     y.points = v.points
         
-        # vis.add_geometry(y)
-        vis.update_geometry()
-        vis.poll_events()
-        vis.update_renderer()
+    #     # vis.add_geometry(y)
+    #     vis.update_geometry()
+    #     vis.poll_events()
+    #     vis.update_renderer()
 
-        # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
-        # if wm.waitForKey(0.01, verbose=False):
-        #     exit(0)
+    #     # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    #     # if wm.waitForKey(0.01, verbose=False):
+    #     #     exit(0)
 
-    opt.setVisualizationFunction(visualizationFunction, True)
+    # opt.setVisualizationFunction(visualizationFunction, True)
 
     # ---------------------------------------
     # --- Create X0 (First Guess)
