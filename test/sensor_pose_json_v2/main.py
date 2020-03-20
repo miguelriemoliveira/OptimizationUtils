@@ -17,7 +17,7 @@ import rospkg
 from urdf_parser_py.urdf import URDF
 
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
-from getter_and_setters import *
+from getters_and_setters import *
 from objective_function import *
 from test.sensor_pose_json_v2.chessboard import createChessBoardData
 from test.sensor_pose_json_v2.visualization import *

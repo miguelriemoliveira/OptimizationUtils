@@ -56,3 +56,7 @@ matlab/*
 
 #idea files
 .idea/*
+
+
+.vscode/*
+*/.vscode/*

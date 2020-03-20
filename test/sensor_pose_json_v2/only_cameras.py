@@ -19,7 +19,7 @@ from objective_function import *
 import math
 from open3d import *
 
-from getter_and_setters import *
+from getters_and_setters import *
 
 
 if __name__ == "__main__":
