@@ -355,7 +355,7 @@ if __name__ == "__main__":
                             + (sourcepts[i][2] - targetpts[i][2]) * (sourcepts[i][2] - targetpts[i][2]))
 
         print("first 5 errors = " + str(error[0:5]))
-        return error
+        return error   
 
 
     opt.setObjectiveFunction(objectiveFunction)
