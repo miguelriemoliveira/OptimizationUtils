@@ -359,8 +359,8 @@ def objectiveFunction(data):
 
     per_msg_type = {'Image': {'avg': mean([r[k] for k in r.keys() if 'camera' in k]),
                               'navg': mean([rn[k] for k in rn.keys() if 'camera' in k])},
-                    'LaserScan': {'avg': mean([r[k] for k in r.keys() if 'laser' in k]),
-                                  'navg': mean([rn[k] for k in rn.keys() if 'laser' in k])}
+                    # 'LaserScan': {'avg': mean([r[k] for k in r.keys() if 'laser' in k]),
+                    #               'navg': mean([rn[k] for k in rn.keys() if 'laser' in k])}
                     }
     # report = {'0-per_col_sensor': per_col_sensor, '1-per_sensor': per_sensor, '2-per_msg_type': per_msg_type}
     report = {'1-per_sensor': per_sensor, '2-per_msg_type': per_msg_type}
