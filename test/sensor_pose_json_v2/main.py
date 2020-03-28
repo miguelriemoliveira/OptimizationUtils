@@ -336,7 +336,7 @@ def main():
         # pp.pprint(dataset_graphics)
         opt.addDataModel('dataset_graphics', dataset_graphics)
 
-    opt.setVisualizationFunction(visualizationFunction, args['view_optimization'], niterations=1, figures=[])
+    opt.setVisualizationFunction(visualizationFunction, False, niterations=1, figures=[])
 
     # ---------------------------------------
     # --- Start Optimization
