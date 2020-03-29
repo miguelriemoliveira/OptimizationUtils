@@ -119,12 +119,19 @@ Calibrating using openCV calibrate camera (https://docs.opencv.org/2.4/modules/c
 ```bash
 test/sensor_pose_json_v2/calibcamera.py -json ~/datasets/calib_complete_fg_v2/data_collected.json -cradius .5 -csize 0.101 -cnumx 9 -cnumy 6 -fs top_left_camera -ss top_right_camera 
 ```
+
+Transforming the kabir2 calibration txt file in a equal json format than the previous mentioned procedures (the original json and the kalibr txt files are required):
+```bash
+test/sensor_pose_json_v2/kalibr2_txt_to_json.py -json ~/datasets/dataset_23_dez_2019/original.json -kalibr ~/datasets/dataset_23_dez_2019/results-cam-for_kalibr2.txt -cnumx 9 -cnumy 6 -csize 0.101 
+```
+
+
 In order to see the difference between the image points and the reprojected points (for each collection, for each procedure) you must run the following:
 
 ```bash
-test/sensor_pose_json_v2/results_visualization.py -json_opt test/sensor_pose_json_v2/results/dataset_sensors_results.json -json_stereo test/sensor_pose_json_v2/results/opencv_stereocalib.json -json_calibcam test/sensor_pose_json_v2/results/opencv_calibcamera.json -fs top_left_camera -ss top_right_camera
+test/sensor_pose_json_v2/results_visualization.py -json_opt_left test/sensor_pose_json_v2/results/dataset_sensors_results_top_left_camera.json -json_opt_right test/sensor_pose_json_v2/results/dataset_sensors_results_top_right_camera.json -json_stereo test/sensor_pose_json_v2/results/opencv_stereocalib.json -json_calibcam test/sensor_pose_json_v2/results/opencv_calibcamera.json -json_kalibr test/sensor_pose_json_v2/results/kalibr2_calib.json -fs top_left_camera -ss top_right_camera
 
 ```
-You should give the augmented json (final json of the calibration) 
+You should give the final json of each one of the distinct calibration procedures. 
 Beside this, you must choose wich one is the first sensor (fs) and the second sensor (ss). 
-The points will be projected from the first sensor image (pixs) to the second sensor image (pixs).
+The points will be projected from the first sensor image (pixs) to the second sensor image (pixs), where the difference between the points will be measured.
