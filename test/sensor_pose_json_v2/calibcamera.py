@@ -68,9 +68,9 @@ def main():
     ap.add_argument("-json", "--json_file", help="Json file containing input dataset.", type=str, required=True)
     ap.add_argument("-csize", "--chess_size", help="Size in meters of the side of the chessboard's squares.",
                     type=float, required=True)
-    ap.add_argument("-cradius", "--chess_radius",
-                    help="Radius in meters of the maximum side of the chessboard calibration pattern.",
-                    type=float, required=True)
+    # ap.add_argument("-cradius", "--chess_radius",
+    #                 help="Radius in meters of the maximum side of the chessboard calibration pattern.",
+    #                 type=float, required=True)
     ap.add_argument("-cnumx", "--chess_num_x", help="Chessboard's number of corners in horizontal dimension.",
                     type = int, required=True)
     ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of corners in vertical dimension.",

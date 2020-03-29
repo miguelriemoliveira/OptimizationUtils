@@ -97,8 +97,8 @@ def main():
     # ---------------------------------------
     # --- Reading robot description file from param /robot_description
     # ---------------------------------------
-    rospy.loginfo('Reading /robot_description ros param')
-    xml_robot = URDF.from_parameter_server()  # needed to create the optimized xacro at the end of the optimization
+    # rospy.loginfo('Reading /robot_description ros param')
+    # xml_robot = URDF.from_parameter_server()  # needed to create the optimized xacro at the end of the optimization
 
     # ---------------------------------------
     # --- INITIALIZATION Read data from file
@@ -361,43 +361,43 @@ def main():
     createJSONFile('test/sensor_pose_json_v2/results/dataset_sensors_results.json', dataset_sensors)
     print('File saved.')
 
-    # ---------------------------------------
-    # --- Save updated xacro
-    # ---------------------------------------
-    # Cycle all sensors in calibration config, and for each replace the optimized transform in the original xacro
-    print('Save updated xacro file ...')
-    for sensor_key in dataset_sensors['calibration_config']['sensors']:
-        child = dataset_sensors['calibration_config']['sensors'][sensor_key]['child_link']
-        parent = dataset_sensors['calibration_config']['sensors'][sensor_key]['parent_link']
-        transform_key = parent + '-' + child
-
-        trans = list(dataset_sensors['collections'][selected_collection_key]['transforms'][transform_key]['trans'])
-        quat = list(dataset_sensors['collections'][selected_collection_key]['transforms'][transform_key]['quat'])
-        found = False
-
-        for joint in xml_robot.joints:
-            if joint.parent == parent and joint.child == child:
-                found = True
-                print('Found joint: ' + str(joint.name))
-
-                print('Replacing xyz = ' + str(joint.origin.xyz) + ' by ' + str(trans))
-                joint.origin.xyz = trans
-
-                rpy = list(tf.transformations.euler_from_quaternion(quat, axes='sxyz'))
-                print('Replacing rpy = ' + str(joint.origin.rpy) + ' by ' + str(rpy))
-                joint.origin.rpy = rpy
-                break
-
-        if not found:
-            raise ValueError('Could not find transform ' + str(transform_key) + ' in /robot_description')
-
-    # TODO remove hardcoded xacro name
-    outfile = rospkg.RosPack().get_path('interactive_calibration') + '/calibrations/atlascar2/optimized.urdf.xacro'
-    with open(outfile, 'w') as out:
-        print("Writing optimized urdf to " + str(outfile))
-        out.write(URDF.to_xml_string(xml_robot))
-
-    print('Xacro file saved.')
+    # # ---------------------------------------
+    # # --- Save updated xacro
+    # # ---------------------------------------
+    # # Cycle all sensors in calibration config, and for each replace the optimized transform in the original xacro
+    # print('Save updated xacro file ...')
+    # for sensor_key in dataset_sensors['calibration_config']['sensors']:
+    #     child = dataset_sensors['calibration_config']['sensors'][sensor_key]['child_link']
+    #     parent = dataset_sensors['calibration_config']['sensors'][sensor_key]['parent_link']
+    #     transform_key = parent + '-' + child
+    #
+    #     trans = list(dataset_sensors['collections'][selected_collection_key]['transforms'][transform_key]['trans'])
+    #     quat = list(dataset_sensors['collections'][selected_collection_key]['transforms'][transform_key]['quat'])
+    #     found = False
+    #
+    #     for joint in xml_robot.joints:
+    #         if joint.parent == parent and joint.child == child:
+    #             found = True
+    #             print('Found joint: ' + str(joint.name))
+    #
+    #             print('Replacing xyz = ' + str(joint.origin.xyz) + ' by ' + str(trans))
+    #             joint.origin.xyz = trans
+    #
+    #             rpy = list(tf.transformations.euler_from_quaternion(quat, axes='sxyz'))
+    #             print('Replacing rpy = ' + str(joint.origin.rpy) + ' by ' + str(rpy))
+    #             joint.origin.rpy = rpy
+    #             break
+    #
+    #     if not found:
+    #         raise ValueError('Could not find transform ' + str(transform_key) + ' in /robot_description')
+    #
+    # # TODO remove hardcoded xacro name
+    # outfile = rospkg.RosPack().get_path('interactive_calibration') + '/calibrations/atlascar2/optimized.urdf.xacro'
+    # with open(outfile, 'w') as out:
+    #     print("Writing optimized urdf to " + str(outfile))
+    #     out.write(URDF.to_xml_string(xml_robot))
+    #
+    # print('Xacro file saved.')
 
 
 if __name__ == "__main__":

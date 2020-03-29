@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """
-Reads a set of data and labels from a group of sensors in a json file and calibrates the poses of these sensors.
+Reads a set of data and labels from a group of sensors in a json file.
 """
 
 # -------------------------------------------------------------------------------
 # --- IMPORTS
 # -------------------------------------------------------------------------------
+
 from copy import deepcopy
 import json
 import cv2
@@ -65,6 +66,7 @@ def main():
     # ---------------------------------------
     ap = argparse.ArgumentParser()
     ap.add_argument("-json", "--json_file", help="Json file containing input dataset.", type=str, required=True)
+    ap.add_argument("-kalibr", "--kalibr_file", help="kalibr txt file containing calibration results.", type=str, required=True)
     ap.add_argument("-csize", "--chess_size", help="Size in meters of the side of the chessboard's squares.",
                     type=float, required=True)
     # ap.add_argument("-cradius", "--chess_radius",
@@ -74,10 +76,10 @@ def main():
                     type=int, required=True)
     ap.add_argument("-cnumy", "--chess_num_y", help="Chessboard's number of corners in vertical dimension.",
                     type=int, required=True)
-    ap.add_argument("-fs", "--first_sensor", help="First Sensor: his evaluation points will be projected to the second "
-                                                  "sensor data.", type=str, required=True)
-    ap.add_argument("-ss", "--second_sensor", help="Second Sensor: his evaluation points will be compared with the "
-                                                   "projected ones from the first sensor.", type=str, required=True)
+    # ap.add_argument("-fs", "--first_sensor", help="First Sensor: his evaluation points will be projected to the second "
+    #                                               "sensor data.", type=str, required=True)
+    # ap.add_argument("-ss", "--second_sensor", help="Second Sensor: his evaluation points will be compared with the "
+    #                                                "projected ones from the first sensor.", type=str, required=True)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
     def create_lambda_with_globals(s):
@@ -99,11 +101,12 @@ def main():
     f = open(args['json_file'], 'r')
     dataset_sensors = json.load(f)
 
-    sensor_1 = args['first_sensor']
-    sensor_2 = args['second_sensor']
+    sensor_1 = 'top_left_camera'
+    sensor_2 = 'top_right_camera'
     chess_size = args['chess_size']
     num_x = args['chess_num_x']
     num_y = args['chess_num_y']
+    kalibr_file = args['kalibr_file']
     n_points = num_x * num_y
     s1 = str(sensor_1)
     s2 = str(sensor_2)
@@ -165,139 +168,64 @@ def main():
         print(collection_key)
 
     # -------------------------------------------------------------------
-    # ------ INTRINSICS MATRIX
+    # ------ READ INFORMATION FROM KALIBR TXT FILE
     # -------------------------------------------------------------------
 
-    K_1 = np.zeros((3, 3), np.float32)
-    K_2 = np.zeros((3, 3), np.float32)
+    distortion_s1 = np.zeros((1, 5))
+    distortion_s2 = np.zeros((1, 5))
+    projection_s1 = np.zeros((1, 4))
+    projection_s2 = np.zeros((1, 4))
+    q_s2_to_s1 = np.zeros((1, 4))
+    t_s2_to_s1 = np.zeros((1, 3))
 
-    K_1[0, :] = dataset_sensors['sensors'][sensor_1]['camera_info']['K'][0:3]
-    K_1[1, :] = dataset_sensors['sensors'][sensor_1]['camera_info']['K'][3:6]
-    K_1[2, :] = dataset_sensors['sensors'][sensor_1]['camera_info']['K'][6:9]
+    file = open(kalibr_file)
+    lines = file.readlines()
+    for n in range(0, 4):
+        distortion_s1[0, n] = (float(lines[6 + n]))
 
-    K_2[0, :] = dataset_sensors['sensors'][sensor_2]['camera_info']['K'][0:3]
-    K_2[1, :] = dataset_sensors['sensors'][sensor_2]['camera_info']['K'][3:6]
-    K_2[2, :] = dataset_sensors['sensors'][sensor_2]['camera_info']['K'][6:9]
+    for n in range(0, 4):
+        projection_s1[0, n] = (float(lines[13 + n]))
 
-    # -------------------------------------------------------------------
-    # ------ DISTORTION PARAMETERS
-    # -------------------------------------------------------------------
+    for n in range(0, 4):
+        distortion_s2[0, n] = (float(lines[24 + n]))
 
-    D_1 = np.zeros((5, 1), np.float32)
-    D_2 = np.zeros((5, 1), np.float32)
+    for n in range(0, 4):
+        projection_s2[0, n] = (float(lines[30 + n]))
 
-    D_1[:, 0] = dataset_sensors['sensors'][sensor_1]['camera_info']['D'][0:5]
+    for n in range(0, 4):
+        q_s2_to_s1[0, n] = (float(lines[39 + n]))
 
-    D_2[:, 0] = dataset_sensors['sensors'][sensor_2]['camera_info']['D'][0:5]
+    for n in range(0, 3):
+        t_s2_to_s1[0, n] = (float(lines[45 + n]))
 
-    # Arrays to store object points and image points from all the images.
-    objpoints = []  # 3d point in real world space
-    imgpoints_1 = []  # 2d points in image plane.
-    imgpoints_2 = []  # 2d points in image plane.
+    print('distortion_s1:\n')
+    print(distortion_s1)
+    print('projection_s1:\n')
+    print(projection_s1)
+    print('distortion_s2:\n')
+    print(distortion_s2)
+    print('projection_s2:\n')
+    print(projection_s2)
+    print ('q\n')
+    print(q_s2_to_s1)
+    print ('t\n')
+    print(t_s2_to_s1)
 
-    for collection_key, collection in dataset_sensors['collections'].items():
 
-        if not (collection['labels'][sensor_2]['detected'] and collection['labels'][sensor_1]['detected']):
-            continue
-        else:
-            # -------------------------------------------------------------------
-            # ------ Image Points
-            # -------------------------------------------------------------------
-            image_points_1 = np.ones((n_points, 2), np.float32)
-            image_points_2 = np.ones((n_points, 2), np.float32)
+    dataset_sensors['sensors'][sensor_2]['camera_info']['K'][0:3] = [projection_s2[0,0], 0, projection_s2[0,2]]
+    dataset_sensors['sensors'][sensor_2]['camera_info']['K'][3:6] = [0, projection_s2[0,1], projection_s2[0,3]]
+    dataset_sensors['sensors'][sensor_2]['camera_info']['K'][6:9] = [0, 0, 1]
 
-            for idx, point in enumerate(dataset_sensors['collections'][collection_key]['labels'][sensor_2]['idxs']):
-                image_points_2[idx, 0] = point['x']
-                image_points_2[idx, 1] = point['y']
+    dataset_sensors['sensors'][sensor_1]['camera_info']['K'][0:3] = [projection_s1[0,0], 0, projection_s1[0,2]]
+    dataset_sensors['sensors'][sensor_1]['camera_info']['K'][3:6] = [0, projection_s1[0,1], projection_s1[0,3]]
+    dataset_sensors['sensors'][sensor_1]['camera_info']['K'][6:9] = [0, 0, 1]
 
-            for idx, point in enumerate(dataset_sensors['collections'][collection_key]['labels'][sensor_1]['idxs']):
-                image_points_1[idx, 0] = point['x']
-                image_points_1[idx, 1] = point['y']
-
-            # -------------------------------------------------------------------
-            # ------ Object Points
-            # -------------------------------------------------------------------
-            factor = round(1.)
-            object_points = np.zeros((n_points, 3), np.float32)
-            step_x = num_x * chess_size / (num_x * factor)
-            step_y = num_y * chess_size / (num_y * factor)
-
-            counter = 0
-
-            for idx_y in range(0, int(num_y * factor)):
-                y = idx_y * step_y
-                for idx_x in range(0, int(num_x * factor)):
-                    x = idx_x * step_x
-                    object_points[counter, 0] = x
-                    object_points[counter, 1] = y
-                    object_points[counter, 2] = 0
-                    counter += 1
-
-            # If found, add object points, image points (after refining them)
-            objpoints.append(object_points)
-            imgpoints_1.append(image_points_1)
-            imgpoints_2.append(image_points_2)
-
-    height = dataset_sensors['sensors'][sensor_1]['camera_info']['height']
-    width = dataset_sensors['sensors'][sensor_1]['camera_info']['width']
-    image_size = (height, width)
-
-    # print("\n K_1: ")
-    # print (K_1)
-    # print("\n K_2: ")
-    # print (K_2)
-    # print("\n D_1: ")
-    # print (D_1)
-    # print("\n D_2: ")
-    # print (D_2)
-    # print("\n image_size: ")
-    # print (image_size)
-
-    # flags = 0
-    # flags |= cv2.CALIB_FIX_INTRINSIC
-    # # flags |= cv2.CALIB_FIX_PRINCIPAL_POINT
-    # flags |= cv2.CALIB_USE_INTRINSIC_GUESS
-    # flags |= cv2.CALIB_FIX_FOCAL_LENGTH
-    # # flags |= cv2.CALIB_FIX_ASPECT_RATIO
-    # flags |= cv2.CALIB_ZERO_TANGENT_DIST
-    # # flags |= cv2.CALIB_RATIONAL_MODEL
-    # # flags |= cv2.CALIB_SAME_FOCAL_LENGTH
-    # # flags |= cv2.CALIB_FIX_K3
-    # # flags |= cv2.CALIB_FIX_K4
-    # # flags |= cv2.CALIB_FIX_K5
-
-    stereocalib_criteria = (cv2.TERM_CRITERIA_MAX_ITER + cv2.TERM_CRITERIA_EPS, 100, 1e-5)
-    ret, M1, d1, M2, d2, R, T, E, F = cv2.stereoCalibrate(objpoints, imgpoints_1, imgpoints_2, K_1, D_1, K_2, D_2,
-                                                          image_size, criteria=stereocalib_criteria)   # , flags=flags)
-
-    # print('Intrinsic_mtx_1', M1)
-    # print('dist_1', d1)
-    # print('Intrinsic_mtx_2', M2)
-    # print('dist_2', d2)
-    # print('R', R)
-    # print('T', T)
-    # print('E', E)
-    # print('F', F)
-
-    dataset_sensors['sensors'][sensor_2]['camera_info']['K'][0:3] = M2[0, :]
-    dataset_sensors['sensors'][sensor_2]['camera_info']['K'][3:6] = M2[1, :]
-    dataset_sensors['sensors'][sensor_2]['camera_info']['K'][6:9] = M2[2, :]
-
-    dataset_sensors['sensors'][sensor_1]['camera_info']['K'][0:3] = M1[0, :]
-    dataset_sensors['sensors'][sensor_1]['camera_info']['K'][3:6] = M1[1, :]
-    dataset_sensors['sensors'][sensor_1]['camera_info']['K'][6:9] = M1[2, :]
-
-    dataset_sensors['sensors'][sensor_2]['camera_info']['D'][0:5] = d2[:, 0]
-    dataset_sensors['sensors'][sensor_1]['camera_info']['D'][0:5] = d1[:, 0]
-
-    # dataset_sensors['transforms'].update({str(s2) + '-' + str(s1): {}})
+    dataset_sensors['sensors'][sensor_2]['camera_info']['D'][0:5] = distortion_s2[0, :]
+    dataset_sensors['sensors'][sensor_1]['camera_info']['D'][0:5] = distortion_s1[0, :]
 
     d1 = {}
-    d1['trans'] = [float(T[0]), float(T[1]), float(T[2])]
-    T1 = np.zeros((4, 4), np.float32)
-    T1[3, 3] = 1
-    T1[0:3, 0:3] = R
-    d1['quat'] = transformations.quaternion_from_matrix(T1).tolist()
+    d1['trans'] = t_s2_to_s1[0, :]
+    d1['quat'] = q_s2_to_s1[0, :]
 
     for collection_key, collection in dataset_sensors['collections'].items():
         collection['transforms'][str(s2) + '-' + str(s1)] = d1
@@ -306,7 +234,7 @@ def main():
     # --- Save Results
     # ---------------------------------------
     # Write json file with updated dataset_sensors
-    createJSONFile('test/sensor_pose_json_v2/results/opencv_stereocalib.json', dataset_sensors)
+    createJSONFile('test/sensor_pose_json_v2/results/kalibr2_calib.json', dataset_sensors)
 
 
 if __name__ == "__main__":
