@@ -344,7 +344,7 @@ def main():
     print('Initializing optimization ...')
     # opt.startOptimization(optimization_options={'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': 1e-4,
     #                                             'x_scale': 'jac'})
-    opt.startOptimization(optimization_options={'ftol': 1e-3, 'xtol': 1e-3, 'gtol': 1e-3, 'diff_step': 1e-2,
+    opt.startOptimization(optimization_options={'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4,
                                                 'x_scale': 'jac'})
     #TODO dif step as None
 

@@ -260,7 +260,8 @@ def createChessBoardData(args, dataset_sensors):
                 continue
 
             # change accordingly to the first camera to give chessboard first poses
-            if (sensor['msg_type'] == 'Image' and sensor_key == 'top_right_camera'):
+            # if (sensor['msg_type'] == 'Image' and sensor_key == 'top_right_camera'):
+            if (sensor['msg_type'] == 'Image' and sensor_key == 'top_left_camera'):
 
                 K = np.ndarray((3, 3), dtype=np.float, buffer=np.array(sensor['camera_info']['K']))
                 D = np.ndarray((5, 1), dtype=np.float, buffer=np.array(sensor['camera_info']['D']))
