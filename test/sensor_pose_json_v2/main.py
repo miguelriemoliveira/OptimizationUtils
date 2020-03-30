@@ -346,7 +346,7 @@ def main():
     #                                             'x_scale': 'jac'})
     opt.startOptimization(optimization_options={'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4,
                                                 'x_scale': 'jac'})
-    #TODO dif step as None
+    #TODO diff step as None
 
     # print('\n-----------------')
     # opt.printParameters(opt.x0, text='Initial parameters')
