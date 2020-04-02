@@ -372,6 +372,32 @@ def translationQuaternionToTransform(trans, quat):
     # print(str(matrix))
     return matrix
 
+def translationQuaternionToTransform2(trans, quat):
+    "Uses a convention of the translation first, then the rotation"
+    matrix_rot = transformations.quaternion_matrix(quat)
+
+    matrix_trans = deepcopy(matrix_rot)
+    matrix_trans[0, 3] = trans[0]
+    matrix_trans[1, 3] = trans[1]
+    matrix_trans[2, 3] = trans[2]
+    matrix_trans[3, 3] = 1
+
+    matrix_trans[0, 0] = 1
+    matrix_trans[0, 1] = 0
+    matrix_trans[0, 2] = 0
+
+    matrix_trans[1, 0] = 0
+    matrix_trans[1, 1] = 1
+    matrix_trans[1, 2] = 0
+
+    matrix_trans[2, 0] = 0
+    matrix_trans[2, 1] = 0
+    matrix_trans[2, 2] = 1
+
+    matrix = np.dot(matrix_rot, matrix_trans)
+
+    # print(str(matrix))
+    return matrix
 
 def generateKey(parent, child, suffix=''):
     return parent + '-' + child + suffix
