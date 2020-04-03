@@ -15,6 +15,7 @@ from numpy.linalg import inv
 import argparse
 import cv2
 
+
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
@@ -27,7 +28,6 @@ def detect_pose(obj_pts, corners, camera_matrix, distortion_vector):
 
 
 def matlab_stereo(data_model, sensor1, sensor2, collection_key_):
-
     # Intrinsics matrix:
 
     K_1_model = np.zeros((3, 3), np.float32)
@@ -88,9 +88,11 @@ if __name__ == "__main__":
                     help="Json file containing the dataset that will be used to test all calibration approaches results.",
                     type=str, required=True)
     ap.add_argument("-json_opt_left", "--json_file_opt_left",
-                    help="Json file containing input dataset from optimization procedure, using the top_left_camera to set the chessboard first guess.", type=str, required=True)
+                    help="Json file containing input dataset from optimization procedure, using the top_left_camera to set the chessboard first guess.",
+                    type=str, required=True)
     ap.add_argument("-json_opt_right", "--json_file_opt_right",
-                    help="Json file containing input dataset from optimization procedure, using the top_right_camera to set the chessboard first guess.", type=str, required=True)
+                    help="Json file containing input dataset from optimization procedure, using the top_right_camera to set the chessboard first guess.",
+                    type=str, required=True)
     ap.add_argument("-json_stereo", "--json_file_stereo",
                     help="Json file containing input dataset from opencv stereo calibration.", type=str, required=True)
     # ap.add_argument("-json_calibcam", "--json_file_calibcam",
@@ -128,7 +130,8 @@ if __name__ == "__main__":
     # collection = str(args['collection_choosed'])
     input_sensors = {'first_sensor': sensor_1, 'second_sensor': sensor_2}
     # input_datas = {'data_test': data_test, 'data_opt_left': data_opt_left, 'data_opt_right': data_opt_right, 'data_stereo': data_stereo, 'data_cc': data_cc, 'data_kalibr': data_kalibr}
-    input_datas = {'data_test': data_test, 'data_opt_left': data_opt_left, 'data_opt_right': data_opt_right, 'data_stereo': data_stereo, 'data_kalibr': data_kalibr}
+    input_datas = {'data_test': data_test, 'data_opt_left': data_opt_left, 'data_opt_right': data_opt_right,
+                   'data_stereo': data_stereo, 'data_kalibr': data_kalibr}
 
     n_sensors = 0
     for sensor_key in data_test['sensors'].keys():
@@ -141,13 +144,13 @@ if __name__ == "__main__":
             if i_sensor == sensor['_name']:
                 break
             elif a == n_sensors:
-                print("ERROR: " + i_sensor + " doesn't exist on the input sensors list from the test dataset json file.")
+                print(
+                            "ERROR: " + i_sensor + " doesn't exist on the input sensors list from the test dataset json file.")
                 exit(0)
 
     n_collections = 0
     for collection_key in data_test['collections'].items():
         n_collections += 1
-
 
     num_x = int(data_test['calibration_config']['calibration_pattern']['dimension']['x'])
     num_y = int(data_test['calibration_config']['calibration_pattern']['dimension']['y'])
@@ -216,6 +219,11 @@ if __name__ == "__main__":
             K_2_kalibr = K_2
             D_1_kalibr = D_1
             D_2_kalibr = D_2
+        elif data_key == 'data_test':
+            K_1_td = K_1
+            K_2_td = K_2
+            D_1_td = D_1
+            D_2_td = D_2
 
     tf_sensors_1t2 = str(sensor_1 + '-' + sensor_2)
     tf_sensors_2t1 = str(sensor_2 + '-' + sensor_1)
@@ -276,6 +284,7 @@ if __name__ == "__main__":
                 if data_key == 'data_opt_left':  # ---------------------OPTIMIZATION (LEFT CAMERA)---------------------
 
                     # Finding transform from sensor 1 to chessboard:
+                    # ret, rvecs, tvecs = cv2.solvePnP(object_points, img_points_1, K_1_opt_left, D_1_opt_left)
                     ret, rvecs, tvecs = cv2.solvePnP(object_points, img_points_1, K_1_opt_left, D_1_opt_left)
                     if not ret:
                         print ("ERROR: Chessboard wasn't found on collection" + str(collection_key))
@@ -288,7 +297,8 @@ if __name__ == "__main__":
                     selected_collection_key_opt_left = data_opt_left['collections'].keys()[0]
 
                     root_T_s2 = utilities.getAggregateTransform(
-                        data_opt_left['sensors'][sensor_2]['chain'], data_opt_left['collections'][selected_collection_key_opt_left]['transforms'])
+                        data_opt_left['sensors'][sensor_2]['chain'],
+                        data_opt_left['collections'][selected_collection_key_opt_left]['transforms'])
 
                     root_T_s1 = utilities.getAggregateTransform(
                         data_opt_left['sensors'][sensor_1]['chain'],
@@ -311,7 +321,7 @@ if __name__ == "__main__":
                     s2_T_chess_opt_left[:, 2] = s2_T_chess_h_opt_left[0:3, 3]
 
 
-                elif data_key == 'data_opt_right': # ---------------OPTIMIZATION (RIGHT CAMERA)------------------------
+                elif data_key == 'data_opt_right':  # ---------------OPTIMIZATION (RIGHT CAMERA)------------------------
 
                     # Finding transform from sensor 1 to chessboard:
                     ret, rvecs, tvecs = cv2.solvePnP(object_points, img_points_1, K_1_opt_right, D_1_opt_right)
@@ -326,7 +336,8 @@ if __name__ == "__main__":
                     selected_collection_key_opt_right = data_opt_right['collections'].keys()[0]
 
                     root_T_s2 = utilities.getAggregateTransform(
-                        data_opt_right['sensors'][sensor_2]['chain'], data_opt_right['collections'][selected_collection_key_opt_right]['transforms'])
+                        data_opt_right['sensors'][sensor_2]['chain'],
+                        data_opt_right['collections'][selected_collection_key_opt_right]['transforms'])
 
                     root_T_s1 = utilities.getAggregateTransform(
                         data_opt_right['sensors'][sensor_1]['chain'],
@@ -412,7 +423,21 @@ if __name__ == "__main__":
                 elif data_key == 'data_kalibr':  # ---------------------------KALIBR-----------------------------------
 
                     # Finding transform from sensor 1 to chessboard:
+                    delta_k = 100
+                    # K_1_kalibr[0, 2] = K_1_stereo[0, 2]  # cx
+                    # K_1_kalibr[1, 2] = K_1_stereo[1, 2]  # cy
+                    # K_2_kalibr[0, 2] = K_2_stereo[0, 2]  # cx
+                    # K_2_kalibr[1, 2] = K_2_stereo[1, 2]  # cy
+
+                    # K_2_kalibr = K_2_stereo
+
+                    # K_1_kalibr[0, 2] -= delta_k
+                    # K_2_kalibr[0, 2] = K_2_stereo[0, 2]  # cx
+                    # K_1_kalibr[1, 2] = K_1_stereo[1, 2]  # cy
+                    # K_2_kalibr[1, 2] = K_2_stereo[1, 2]  # cy
+
                     ret, rvecs, tvecs = cv2.solvePnP(object_points, img_points_1, K_1_kalibr, D_1_kalibr)
+                    # ret, rvecs, tvecs = cv2.solvePnP(object_points, img_points_1, K_1_stereo, D_1_stereo)
                     if not ret:
                         print ("ERROR: Chessboard wasn't found on collection" + str(collection_key))
                         exit(0)
@@ -426,9 +451,16 @@ if __name__ == "__main__":
 
                     for tf_key, tf in data_kalibr['collections'][selected_collection_key_kalibr]['transforms'].items():
                         if tf_key == tf_sensors_1t2:
+                            print("Nao Inverteu")
                             s1_T_s2_h_kalibr = utilities.translationQuaternionToTransform(tf['trans'], tf['quat'])
                         elif tf_key == tf_sensors_2t1:
+                            print("Inverteu")
                             s1_T_s2_h_kalibr = inv(utilities.translationQuaternionToTransform(tf['trans'], tf['quat']))
+
+                    print("s1_T_s2\n")
+                    print(s1_T_s2_h_kalibr)
+                    # print()
+                    # exit(0)
 
                     s2_T_chess_h_kalibr = np.dot(inv(s1_T_s2_h_kalibr), s1_T_chess_h_kalibr)
 
@@ -505,6 +537,11 @@ if __name__ == "__main__":
             C5 = np.dot(B5, inv(K_1_kalibr))
             homography_matrix_kalibr = C5
 
+            # A5 = np.dot(K_2_stereo, s2_T_chess_kalibr)
+            # B5 = np.dot(A5, inv(s1_T_chess_kalibr))
+            # C5 = np.dot(B5, inv(K_1_stereo))
+            # homography_matrix_kalibr = C5
+
             print("\n K_1: (OPT_LEFT)")
             print(K_1_opt_left)
             print("\n K_1: (OPT_RIGHT)")
@@ -561,28 +598,38 @@ if __name__ == "__main__":
             s_idx_s2_proj_opt_left = np.dot(homography_matrix_opt_left, idx_s1_gt)
             soma_opt_left = 0
             for i in range(0, n_points):
-                soma_opt_left += s_idx_s2_proj_opt_left[2, i]
-            media_opt_left = soma_opt_left / n_points
-            s_opt_left = 1 / media_opt_left
-            idx_s2_proj_opt_left = s_opt_left * s_idx_s2_proj_opt_left  # (*s_opt)
+                s_idx_s2_proj_opt_left[0, i] = s_idx_s2_proj_opt_left[0, i] / s_idx_s2_proj_opt_left[2, i]
+                s_idx_s2_proj_opt_left[1, i] = s_idx_s2_proj_opt_left[1, i] / s_idx_s2_proj_opt_left[2, i]
+            #     soma_opt_left += s_idx_s2_proj_opt_left[2, i]
+            # media_opt_left = soma_opt_left / n_points
+            # s_opt_left = 1 / media_opt_left
+            # idx_s2_proj_opt_left = s_opt_left * s_idx_s2_proj_opt_left  # (*s_opt)
+            idx_s2_proj_opt_left = s_idx_s2_proj_opt_left  # (*s_opt)
 
             # OPTIMIZATION_RIGHT:
             s_idx_s2_proj_opt_right = np.dot(homography_matrix_opt_right, idx_s1_gt)
             soma_opt_right = 0
             for ii in range(0, n_points):
-                soma_opt_right += s_idx_s2_proj_opt_right[2, ii]
-            media_opt_right = soma_opt_right / n_points
-            s_opt_right = 1 / media_opt_right
-            idx_s2_proj_opt_right = s_opt_right * s_idx_s2_proj_opt_right  # (*s_opt)
+                s_idx_s2_proj_opt_right[0, ii] = s_idx_s2_proj_opt_right[0, ii] / s_idx_s2_proj_opt_right[2, ii]
+                s_idx_s2_proj_opt_right[1, ii] = s_idx_s2_proj_opt_right[1, ii] / s_idx_s2_proj_opt_right[2, ii]
+
+            #     soma_opt_right += s_idx_s2_proj_opt_right[2, ii]
+            # media_opt_right = soma_opt_right / n_points
+            # s_opt_right = 1 / media_opt_right
+            # idx_s2_proj_opt_right = s_opt_right * s_idx_s2_proj_opt_right  # (*s_opt)
+            idx_s2_proj_opt_right = s_idx_s2_proj_opt_right  # (*s_opt)
 
             # STEREO CALIBRATION:
             s_idx_s2_proj_stereo = np.dot(homography_matrix_stereo, idx_s1_gt)
             soma_stereo = 0
             for iii in range(0, n_points):
-                soma_stereo += s_idx_s2_proj_stereo[2, iii]
-            media_stereo = soma_stereo / n_points
-            s_stereo = 1 / media_stereo
-            idx_s2_proj_stereo = s_stereo * s_idx_s2_proj_stereo  # s_stereo *
+                s_idx_s2_proj_stereo[0, iii] = s_idx_s2_proj_stereo[0, iii] / s_idx_s2_proj_stereo[2, iii]
+                s_idx_s2_proj_stereo[1, iii] = s_idx_s2_proj_stereo[1, iii] / s_idx_s2_proj_stereo[2, iii]
+            #     soma_stereo += s_idx_s2_proj_stereo[2, iii]
+            # media_stereo = soma_stereo / n_points
+            # s_stereo = 1 / media_stereo
+            # idx_s2_proj_stereo = s_stereo * s_idx_s2_proj_stereo  # s_stereo *
+            idx_s2_proj_stereo = s_idx_s2_proj_stereo  # s_stereo *
 
             # CAMERA CALIBRATION:
             # s_idx_s2_proj_cc = np.dot(homography_matrix_cc, idx_s1_gt)
@@ -597,10 +644,13 @@ if __name__ == "__main__":
             s_idx_s2_proj_kalibr = np.dot(homography_matrix_kalibr, idx_s1_gt)
             soma_kalibr = 0
             for v in range(0, n_points):
-                soma_kalibr += s_idx_s2_proj_kalibr[2, v]
-            media_kalibr = soma_kalibr / n_points
-            s_kalibr = 1 / media_kalibr
-            idx_s2_proj_kalibr = s_kalibr * s_idx_s2_proj_kalibr  # s_kalibr *
+                s_idx_s2_proj_kalibr[0, v] = s_idx_s2_proj_kalibr[0, v] / s_idx_s2_proj_kalibr[2, v]
+                s_idx_s2_proj_kalibr[1, v] = s_idx_s2_proj_kalibr[1, v] / s_idx_s2_proj_kalibr[2, v]
+            #     soma_kalibr += s_idx_s2_proj_kalibr[2, v]
+            # media_kalibr = soma_kalibr / n_points
+            # s_kalibr = 1 / media_kalibr
+            # idx_s2_proj_kalibr = s_kalibr * s_idx_s2_proj_kalibr  # s_kalibr *
+            idx_s2_proj_kalibr = s_idx_s2_proj_kalibr  # s_kalibr *
 
             print("\n re-projected idx (without s): (OPT_LEFT)")
             print(s_idx_s2_proj_opt_left[:, 0:3])
@@ -649,10 +699,10 @@ if __name__ == "__main__":
             accepted_collections += 1
             leg.append(str(collection_key))
 
-            for n in range(0, n_points+1):
-                points_opt_left = np.append(points_opt_left, points_opt_left_[:, n:n+1], 1)
-                points_opt_right = np.append(points_opt_right, points_opt_right_[:, n:n+1], 1)
-                points_stereo = np.append(points_stereo, points_stereo_[:, n:n+1], 1)
+            for n in range(0, n_points + 1):
+                points_opt_left = np.append(points_opt_left, points_opt_left_[:, n:n + 1], 1)
+                points_opt_right = np.append(points_opt_right, points_opt_right_[:, n:n + 1], 1)
+                points_stereo = np.append(points_stereo, points_stereo_[:, n:n + 1], 1)
                 # points_cc = np.append(points_cc, points_cc_[:, n:n+1], 1)
                 points_kalibr = np.append(points_kalibr, points_kalibr_[:, n:n + 1], 1)
 
@@ -660,7 +710,7 @@ if __name__ == "__main__":
     print('\nTotal studied points (for each procedure): ')
     print(total_points)
 
-    avg_error_x_opt_left = np.sum(np.abs(points_opt_left[0, :]))/total_points
+    avg_error_x_opt_left = np.sum(np.abs(points_opt_left[0, :])) / total_points
     avg_error_y_opt_left = np.sum(np.abs(points_opt_left[1, :])) / total_points
     avg_error_x_opt_right = np.sum(np.abs(points_opt_right[0, :])) / total_points
     avg_error_y_opt_right = np.sum(np.abs(points_opt_right[1, :])) / total_points
@@ -716,7 +766,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------
     # ------ SEE THE DIFFERENCE IN A SCATTER PLOT
     # -------------------------------------------------------------------
-    colors = cm.tab20b(np.linspace(0, 1, (points_opt_left.shape[1]/n_points)))
+    colors = cm.tab20b(np.linspace(0, 1, (points_opt_left.shape[1] / n_points)))
 
     fig, ax = plt.subplots()
     plt.xlabel('x error (pixels)')
@@ -732,8 +782,8 @@ if __name__ == "__main__":
     y_max = np.amax(np.absolute(
         [points_opt_left[1, :], points_opt_right[1, :], points_stereo[1, :], points_kalibr[1, :]]))
     delta = 0.5
-    ax.set_xlim(-22, x_max+delta)
-    ax.set_ylim(-18, y_max+delta)
+    ax.set_xlim(-22, x_max + delta)
+    ax.set_ylim(-18, y_max + delta)
     # print '\nCOLORS:\n'
     # print(colors)
     scatter_points = []
