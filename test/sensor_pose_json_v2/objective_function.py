@@ -369,4 +369,4 @@ def objectiveFunction(data):
     pp.pprint(report)
 
     # return rn  # Return the residuals
-    return rn  # Return the normalized residuals
+

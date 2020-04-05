@@ -145,7 +145,7 @@ if __name__ == "__main__":
                 break
             elif a == n_sensors:
                 print(
-                            "ERROR: " + i_sensor + " doesn't exist on the input sensors list from the test dataset json file.")
+                        "ERROR: " + i_sensor + " doesn't exist on the input sensors list from the test dataset json file.")
                 exit(0)
 
     n_collections = 0
@@ -590,13 +590,34 @@ if __name__ == "__main__":
                 idx_s1_gt[0, idx] = point['x']
                 idx_s1_gt[1, idx] = point['y']
 
+
             # -------------------------------------------------------------------
             # ------ COMPARISON BETWEEN THE ERROR OF ALL CALIBRATION PROCEDURES
             # -------------------------------------------------------------------
 
+            def undistortCorners(corners, distortion):
+                # from https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
+                # where it says x'' = ... x'o
+                k1, k2, p1, p2, k3 = distortion
+
+                xl = corners[0, :]
+                yl = corners[1, :]
+                r2 = xl ** 2 + yl ** 2  # r square (used multiple times bellow)
+                xll = xl * (1 + k1 * r2 + k2 * r2 ** 2 + k3 * r2 ** 3) + 2 * p1 * xl * yl + p2 * (r2 + 2 * xl ** 2)
+                yll = yl * (1 + k1 * r2 + k2 * r2 ** 2 + k3 * r2 ** 3) + p1 * (r2 + 2 * yl ** 2) + 2 * p2 * xl * yl
+
+                h, w = corners.shape()
+                undistorted_corners = np.ones((3, w), np.float32)
+                undistorted_corners[0, :] = xll
+                undistorted_corners[1, :] = yll
+                return undistorted_corners
+
+
             # OPTIMIZATION_LEFT:
-            s_idx_s2_proj_opt_left = np.dot(homography_matrix_opt_left, idx_s1_gt)
-            soma_opt_left = 0
+
+            # s_idx_s2_proj_opt_left = np.dot(homography_matrix_opt_left, idx_s1_gt)
+            s_idx_s2_proj_opt_left = np.dot(homography_matrix_opt_left, undistortCorners(idx_s1_gt, D_1_opt_left))
+            # soma_opt_left = 0
             for i in range(0, n_points):
                 s_idx_s2_proj_opt_left[0, i] = s_idx_s2_proj_opt_left[0, i] / s_idx_s2_proj_opt_left[2, i]
                 s_idx_s2_proj_opt_left[1, i] = s_idx_s2_proj_opt_left[1, i] / s_idx_s2_proj_opt_left[2, i]
@@ -607,7 +628,8 @@ if __name__ == "__main__":
             idx_s2_proj_opt_left = s_idx_s2_proj_opt_left  # (*s_opt)
 
             # OPTIMIZATION_RIGHT:
-            s_idx_s2_proj_opt_right = np.dot(homography_matrix_opt_right, idx_s1_gt)
+            # s_idx_s2_proj_opt_right = np.dot(homography_matrix_opt_right, idx_s1_gt)
+            s_idx_s2_proj_opt_right = np.dot(homography_matrix_opt_right, undistortCorners(idx_s1_gt, D_1_opt_right))
             soma_opt_right = 0
             for ii in range(0, n_points):
                 s_idx_s2_proj_opt_right[0, ii] = s_idx_s2_proj_opt_right[0, ii] / s_idx_s2_proj_opt_right[2, ii]
@@ -620,7 +642,8 @@ if __name__ == "__main__":
             idx_s2_proj_opt_right = s_idx_s2_proj_opt_right  # (*s_opt)
 
             # STEREO CALIBRATION:
-            s_idx_s2_proj_stereo = np.dot(homography_matrix_stereo, idx_s1_gt)
+            # s_idx_s2_proj_stereo = np.dot(homography_matrix_stereo, idx_s1_gt)
+            s_idx_s2_proj_stereo = np.dot(homography_matrix_stereo, undistortCorners(idx_s1_gt, D_1_stereo))
             soma_stereo = 0
             for iii in range(0, n_points):
                 s_idx_s2_proj_stereo[0, iii] = s_idx_s2_proj_stereo[0, iii] / s_idx_s2_proj_stereo[2, iii]
@@ -641,8 +664,9 @@ if __name__ == "__main__":
             # idx_s2_proj_cc = s_cc * s_idx_s2_proj_cc  # s_cc *
 
             # KALIBR CALIBRATION:
-            s_idx_s2_proj_kalibr = np.dot(homography_matrix_kalibr, idx_s1_gt)
-            soma_kalibr = 0
+            # s_idx_s2_proj_kalibr = np.dot(homography_matrix_kalibr, idx_s1_gt)
+            s_idx_s2_proj_kalibr = np.dot(homography_matrix_kalibr, undistortCorners(idx_s1_gt, D_1_kalibr))
+            # soma_kalibr = 0
             for v in range(0, n_points):
                 s_idx_s2_proj_kalibr[0, v] = s_idx_s2_proj_kalibr[0, v] / s_idx_s2_proj_kalibr[2, v]
                 s_idx_s2_proj_kalibr[1, v] = s_idx_s2_proj_kalibr[1, v] / s_idx_s2_proj_kalibr[2, v]
@@ -665,11 +689,17 @@ if __name__ == "__main__":
             # -------------------------------------------------------------------
             # ------ ERROR!!!
 
-            points_opt_left_ = idx_s2_proj_opt_left[0:2, :] - idx_s2_gt[0:2, :]
-            points_opt_right_ = idx_s2_proj_opt_right[0:2, :] - idx_s2_gt[0:2, :]
-            points_stereo_ = idx_s2_proj_stereo[0:2, :] - idx_s2_gt[0:2, :]
+            # points_opt_left_ = idx_s2_proj_opt_left[0:2, :] - idx_s2_gt[0:2, :]
+            # points_opt_right_ = idx_s2_proj_opt_right[0:2, :] - idx_s2_gt[0:2, :]
+            # points_stereo_ = idx_s2_proj_stereo[0:2, :] - idx_s2_gt[0:2, :]
+            # # points_cc_ = idx_s2_proj_cc[0:2, :] - idx_s2_gt[0:2, :]
+            # points_kalibr_ = idx_s2_proj_kalibr[0:2, :] - idx_s2_gt[0:2, :]
+
+            points_opt_left_ = idx_s2_proj_opt_left[0:2, :] - undistortCorners(idx_s2_gt, D_2_opt_left)[0:2, :]
+            points_opt_right_ = idx_s2_proj_opt_right[0:2, :] - undistortCorners(idx_s2_gt, D_2_opt_right)[0:2, :]
+            points_stereo_ = idx_s2_proj_stereo[0:2, :] - undistortCorners(idx_s2_gt, D_2_stereo)[0:2, :]
             # points_cc_ = idx_s2_proj_cc[0:2, :] - idx_s2_gt[0:2, :]
-            points_kalibr_ = idx_s2_proj_kalibr[0:2, :] - idx_s2_gt[0:2, :]
+            points_kalibr_ = idx_s2_proj_kalibr[0:2, :] - undistortCorners(idx_s2_gt, D_2_kalibr)[0:2, :]
             # -------------------------------------------------------------------
 
             x_max_opt_left = np.amax(np.abs(points_opt_left_[0, :]))
