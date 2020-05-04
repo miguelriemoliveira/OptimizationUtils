@@ -296,6 +296,12 @@ def objectiveFunction(data):
                         marker.points.append(deepcopy(rviz_p0_in_laser))
                         marker.points.append(Point(pt_intersection[0], pt_intersection[1], pt_intersection[2]))
 
+            elif sensor['msg_type'] == 'PointCloud2':
+                print('This is Andre')
+
+                for idx in range(0, len(collection['labels'][sensor_key]['idxs'])):
+                    rname = collection_key + '_' + sensor_key + '_oe_' + str(idx)
+                    r[rname] = 0.1  # compute the error here
             else:
                 raise ValueError("Unknown sensor msg_type")
 
@@ -338,7 +344,6 @@ def objectiveFunction(data):
                 beam_keys = [k for k in pair_keys if '_beam' in k]
                 rn.update({k: 0.5 / len(beam_keys) * rn[k] for k in beam_keys})
 
-
     # for collection_key, collection in dataset_sensors['collections'].items():
     #     for sensor_key, sensor in dataset_sensors['sensors'].items():
     #         pair_keys = [k for k in rn.keys() if collection_key == k.split('_')[0] and sensor_key in k]
@@ -368,5 +373,4 @@ def objectiveFunction(data):
     pp = pprint.PrettyPrinter(indent=2)
     pp.pprint(report)
 
-    # return rn  # Return the residuals
-
+    return rn  # Return the residuals
