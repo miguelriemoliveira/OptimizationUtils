@@ -14,6 +14,7 @@ from rospy_message_converter import message_converter
 from scipy.spatial import distance
 from sensor_msgs.msg import CameraInfo
 from visualization_msgs.msg import MarkerArray, Marker
+import ros_numpy  # Added by Andre Aguiar (it that ok?) - i think this on have to be added to the requirements.txt
 
 import OptimizationUtils.utilities as utilities
 
@@ -297,9 +298,21 @@ def objectiveFunction(data):
                         marker.points.append(Point(pt_intersection[0], pt_intersection[1], pt_intersection[2]))
 
             elif sensor['msg_type'] == 'PointCloud2':
-                print('This is Andre')
+                from rospy_message_converter import message_converter
 
-                for idx in range(0, len(collection['labels'][sensor_key]['idxs'])):
+                # Convert velodyne data on .json dictionary to ROS message type
+                cloud_msg = message_converter.convert_dictionary_to_ros_message("sensor_msgs/PointCloud2",
+                                                                                collection['data'][sensor_key])
+
+                # Get LiDAR points that belong to the chessboard
+                idxs = collection['labels'][sensor_key]['idxs']
+                pc = ros_numpy.numpify(cloud_msg)[idx]
+                points = np.zeros((pc.shape[0], 3))
+                points[:, 0] = pc['x']
+                points[:, 1] = pc['y']
+                points[:, 2] = pc['z']
+
+                for idx in range(0, len(points)):
                     rname = collection_key + '_' + sensor_key + '_oe_' + str(idx)
                     r[rname] = 0.1  # compute the error here
             else:
