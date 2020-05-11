@@ -305,12 +305,17 @@ def objectiveFunction(data):
                                                                                 collection['data'][sensor_key])
 
                 # Get LiDAR points that belong to the chessboard
+
                 idxs = collection['labels'][sensor_key]['idxs']
+                # print(idxs)
+                print(len(idxs))
                 pc = ros_numpy.numpify(cloud_msg)[idx]
-                points = np.zeros((pc.shape[0], 3))
-                points[:, 0] = pc['x']
-                points[:, 1] = pc['y']
-                points[:, 2] = pc['z']
+                #TODO André, this returns shape == ()
+                print(pc.shape)
+                # points = np.zeros((pc.shape[0], 3))
+                # points[:, 0] = pc['x']
+                # points[:, 1] = pc['y']
+                # points[:, 2] = pc['z']
 
                 for idx in range(0, len(points)):
                     rname = collection_key + '_' + sensor_key + '_oe_' + str(idx)

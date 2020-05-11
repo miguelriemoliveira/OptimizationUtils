@@ -342,7 +342,11 @@ def main():
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    # if args['view_optimization']:
+    if args['view_optimization']:
+        opt.setInternalVisualization(True)
+    else:
+        opt.setInternalVisualization(False)
+
     if args['ros_visualization']:
         print("Configuring visualization ... ")
         graphics = setupVisualization(dataset_sensors, args)

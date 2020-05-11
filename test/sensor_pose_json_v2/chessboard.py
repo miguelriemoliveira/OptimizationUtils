@@ -267,8 +267,7 @@ def createChessBoardData(args, dataset_sensors):
 
                 # TODO should we not read these from the dictionary?
                 objp = np.zeros((num_x * num_y, 3), np.float32)
-                objp[:, :2] = square * np.mgrid[0:num_x, 0:num_y].T.reshape(-1,
-                                                                            2)
+                objp[:, :2] = square * np.mgrid[0:num_x, 0:num_y].T.reshape(-1,2)
                 # Build a numpy array with the chessboard corners
                 corners = np.zeros((len(collection['labels'][sensor_key]['idxs']), 1, 2), dtype=np.float)
                 for idx, point in enumerate(collection['labels'][sensor_key]['idxs']):
