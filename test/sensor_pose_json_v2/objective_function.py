@@ -310,7 +310,7 @@ def objectiveFunction(data):
                 # print(idxs)
                 print(len(idxs))
                 pc = ros_numpy.numpify(cloud_msg)[idx]
-                #TODO André, this returns shape == ()
+                #TODO Andre, this returns shape == ()
                 print(pc.shape)
                 # points = np.zeros((pc.shape[0], 3))
                 # points[:, 0] = pc['x']
