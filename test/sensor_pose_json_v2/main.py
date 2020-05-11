@@ -73,7 +73,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap = OptimizationUtils.addArguments(ap)  # OptimizationUtils arguments
     ap.add_argument("-json", "--json_file", help="Json file containing input dataset.", type=str, required=True)
+    ap.add_argument("-rv", "--ros_visualization", help="Publish ros visualization markers.", action='store_true')
     ap.add_argument("-si", "--show_images", help="shows images for each camera", action='store_true', default=False)
+    ap.add_argument("-sp", "--single_pattern", help="show a single pattern instead of one per collection.", action='store_true', default=False)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
     def create_lambda_with_globals(s):
@@ -335,14 +337,16 @@ def main():
     # ---------------------------------------
     # --- DEFINE THE VISUALIZATION FUNCTION
     # ---------------------------------------
-    if args['view_optimization']:
+    # if args['view_optimization']:
+    if args['ros_visualization']:
         print("Configuring visualization ... ")
-        dataset_graphics = setupVisualization(dataset_sensors, args)
+        graphics = setupVisualization(dataset_sensors, args)
         # pp = pprint.PrettyPrinter(indent=4)
         # pp.pprint(dataset_graphics)
-        opt.addDataModel('dataset_graphics', dataset_graphics)
+        opt.addDataModel('graphics', graphics)
 
-    opt.setVisualizationFunction(visualizationFunction, False, niterations=1, figures=[])
+    # opt.setVisualizationFunction(visualizationFunction, False, niterations=1, figures=[])
+    opt.setVisualizationFunction(visualizationFunction, args['ros_visualization'], niterations=1, figures=[])
 
     # ---------------------------------------
     # --- Start Optimization
