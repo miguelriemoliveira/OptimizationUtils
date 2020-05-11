@@ -77,6 +77,8 @@ def main():
     ap.add_argument("-si", "--show_images", help="shows images for each camera", action='store_true', default=False)
     ap.add_argument("-sp", "--single_pattern", help="show a single pattern instead of one per collection.",
                     action='store_true', default=False)
+    ap.add_argument("-uic", "--use_incomplete_collections", help="Remove any collection which does not have a detection for all sensors.",
+                    action='store_true', default=False)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
     def create_lambda_with_globals(s):
@@ -128,17 +130,18 @@ def main():
                 del dataset_sensors['collections'][collection_key]
         print("Deleted collections: " + str(deleted))
 
-    # TODO In the future this should not be needed
-    # Deleting collections where the chessboard was not found by both cameras:
-    for collection_key, collection in dataset_sensors['collections'].items():
-        for sensor_key, sensor in dataset_sensors['sensors'].items():
-            if not collection['labels'][sensor_key]['detected']:
-                print(Fore.RED + "Removing collection " + collection_key + ' -> pattern was not found in sensor ' +
-                      sensor_key + ' (must be found in all sensors).' + Style.RESET_ALL)
-                del dataset_sensors['collections'][collection_key]
-                break
+    if not args['use_incomplete_collections']:
+        # Deleting collections where the chessboard was not found by both cameras:
+        for collection_key, collection in dataset_sensors['collections'].items():
+            for sensor_key, sensor in dataset_sensors['sensors'].items():
+                if not collection['labels'][sensor_key]['detected']:
+                    print(Fore.RED + "Removing collection " + collection_key + ' -> pattern was not found in sensor ' +
+                          sensor_key + ' (must be found in all sensors).' + Style.RESET_ALL)
+                    del dataset_sensors['collections'][collection_key]
+                    break
 
     print("\nCollections studied:\n " + str(dataset_sensors['collections'].keys()))
+    exit(0)
 
     # ---------------------------------------
     # --- CREATE CHESSBOARD DATASET
