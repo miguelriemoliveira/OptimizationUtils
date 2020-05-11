@@ -75,7 +75,8 @@ def main():
     ap.add_argument("-json", "--json_file", help="Json file containing input dataset.", type=str, required=True)
     ap.add_argument("-rv", "--ros_visualization", help="Publish ros visualization markers.", action='store_true')
     ap.add_argument("-si", "--show_images", help="shows images for each camera", action='store_true', default=False)
-    ap.add_argument("-sp", "--single_pattern", help="show a single pattern instead of one per collection.", action='store_true', default=False)
+    ap.add_argument("-sp", "--single_pattern", help="show a single pattern instead of one per collection.",
+                    action='store_true', default=False)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
     def create_lambda_with_globals(s):
@@ -132,6 +133,8 @@ def main():
     for collection_key, collection in dataset_sensors['collections'].items():
         for sensor_key, sensor in dataset_sensors['sensors'].items():
             if not collection['labels'][sensor_key]['detected']:
+                print(Fore.RED + "Removing collection " + collection_key + ' -> pattern was not found in sensor ' +
+                      sensor_key + ' (must be found in all sensors).' + Style.RESET_ALL)
                 del dataset_sensors['collections'][collection_key]
                 break
 
@@ -251,9 +254,9 @@ def main():
             #                     setter=partial(setterCameraIntrinsics, sensor_key=sensor_key),
             #                     suffix=['fx', 'fy', 'cx', 'cy', 'd0', 'd1', 'd2', 'd3', 'd4'])
             opt.pushParamVector(group_name='S_' + sensor_key + '_P_', data_key='dataset_sensors',
-                            getter=partial(getterCameraPMatrix, sensor_key=sensor_key),
-                            setter=partial(setterCameraPMatrix, sensor_key=sensor_key),
-                            suffix=['fx_p', 'fy_p', 'cx_p', 'cy_p'])
+                                getter=partial(getterCameraPMatrix, sensor_key=sensor_key),
+                                setter=partial(setterCameraPMatrix, sensor_key=sensor_key),
+                                suffix=['fx_p', 'fy_p', 'cx_p', 'cy_p'])
 
     # ------------  Chessboard -----------------
     # Each Chessboard will have the position (tx,ty,tz) and rotation (r1,r2,r3)
@@ -345,8 +348,8 @@ def main():
         # pp.pprint(dataset_graphics)
         opt.addDataModel('graphics', graphics)
 
-    # opt.setVisualizationFunction(visualizationFunction, False, niterations=1, figures=[])
-    opt.setVisualizationFunction(visualizationFunction, args['ros_visualization'], niterations=1, figures=[])
+        # opt.setVisualizationFunction(visualizationFunction, False, niterations=1, figures=[])
+        opt.setVisualizationFunction(visualizationFunction, args['ros_visualization'], niterations=1, figures=[])
 
     # ---------------------------------------
     # --- Start Optimization
@@ -356,7 +359,7 @@ def main():
     #                                             'x_scale': 'jac'})
     opt.startOptimization(optimization_options={'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8, 'diff_step': 1e-4,
                                                 'x_scale': 'jac'})
-    #TODO diff step as None
+    # TODO diff step as None
 
     # print('\n-----------------')
     # opt.printParameters(opt.x0, text='Initial parameters')
