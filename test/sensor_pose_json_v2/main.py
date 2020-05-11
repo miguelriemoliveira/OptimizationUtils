@@ -141,7 +141,6 @@ def main():
                     break
 
     print("\nCollections studied:\n " + str(dataset_sensors['collections'].keys()))
-    exit(0)
 
     # ---------------------------------------
     # --- CREATE CHESSBOARD DATASET
