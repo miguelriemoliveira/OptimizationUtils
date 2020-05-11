@@ -496,7 +496,7 @@ def main():
         summary = {'collections': {k: {kk: {'errors': vv['error'], 'init_errors': vv['init_error']}
                                        for kk, vv in v['labels'].items() if vv['detected']} for k, v in
                                    dataset['collections'].items()}}
-        ## remove empty collections
+        # remove empty collections
         summary['collections'] = {k: v for k, v in summary['collections'].items() if len(v) > 0}
 
         for key, collection in dataset['collections'].items():

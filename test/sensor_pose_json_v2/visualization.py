@@ -12,6 +12,7 @@ import math
 import os
 import pprint
 
+import ros_numpy
 import rospy
 from rospy_message_converter import message_converter
 from rospy_urdf_to_rviz_converter.rospy_urdf_to_rviz_converter import urdfToMarkerArray
@@ -30,6 +31,7 @@ from open3d import *
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
 from OptimizationUtils import utilities
+
 
 def setupVisualization(dataset, args):
     """
@@ -69,7 +71,7 @@ def setupVisualization(dataset, args):
         print("Collection : " + str(collection_key))
         rgba = graphics['collections'][collection_key]['color']
         rgba[3] = 0.4  # change the alpha
-        rgba = [.5, .5, .5, 0.7] # best color we could find
+        rgba = [.5, .5, .5, 0.7]  # best color we could find
         m = urdfToMarkerArray(xml_robot, frame_id_prefix='c' + collection_key + '_', namespace=collection_key,
                               rgba=rgba)
         markers.markers.extend(m.markers)
@@ -112,6 +114,49 @@ def setupVisualization(dataset, args):
                 graphics['collections'][collection_key][str(sensor_key)]['publisher_camera_info'] = \
                     rospy.Publisher(topic_name, msg_type, queue_size=0, latch=True)
 
+    # Create PointCloud2 publishers ----------------------------------------------------------
+    markers = MarkerArray()
+    for collection_key, collection in dataset['collections'].items():
+        for sensor_key, sensor in dataset['sensors'].items():
+            if not collection['labels'][str(sensor_key)]['detected']:  # not detected by sensor in collection
+                continue
+
+            if sensor['msg_type'] == 'PointCloud2':
+                # Convert velodyne data on .json dictionary to ROS message type
+                cloud_msg = message_converter.convert_dictionary_to_ros_message("sensor_msgs/PointCloud2",
+                                                                                collection['data'][sensor_key])
+
+                # Get LiDAR points that belong to the pattern
+                idxs = collection['labels'][sensor_key]['idxs']
+                pc = ros_numpy.numpify(cloud_msg)[idxs]
+                points = np.zeros((pc.shape[0], 3))
+                points[:, 0] = pc['x']
+                points[:, 1] = pc['y']
+                points[:, 2] = pc['z']
+
+                frame_id = 'c' + str(collection_key) + '_' + collection['data'][sensor_key]['header']['frame_id']
+                marker = Marker(header=Header(frame_id=frame_id, stamp=rospy.Time.now()),
+                                ns=str(collection_key) + '-' + str(sensor_key), id=0, frame_locked=True,
+                                type=Marker.POINTS, action=Marker.ADD, lifetime=rospy.Duration(0),
+                                pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                                scale=Vector3(x=0.03, y=0.03, z=0),
+                                color=ColorRGBA(r=graphics['collections'][collection_key]['color'][0],
+                                                g=graphics['collections'][collection_key]['color'][1],
+                                                b=graphics['collections'][collection_key]['color'][2], a=0.4)
+                                )
+
+                for idx in range(0, len(points)):
+                    p = Point()
+                    p.x = points[idx, 0]
+                    p.y = points[idx, 1]
+                    p.z = points[idx, 2]
+                    marker.points.append(p)
+
+                markers.markers.append(copy.deepcopy(marker))
+
+    graphics['ros']['MarkersPointCloud2'] = markers
+    graphics['ros']['PubPointCloud2'] = rospy.Publisher('PointCloud2', MarkerArray, queue_size=0, latch=True)
+
     return graphics
 
 
@@ -149,6 +194,13 @@ def visualizationFunction(models):
 
     # Publish the models
     graphics['ros']['publisher_models'].publish(graphics['ros']['robot_mesh_markers'])
+
+    # Publish Laser Scans
+    for marker in graphics['ros']['MarkersPointCloud2'].markers:
+        marker.header.stamp = now
+    graphics['ros']['PubPointCloud2'].publish(graphics['ros']['MarkersPointCloud2'])
+    # graphics['ros']['PubPointCloud2'].publish(graphics['ros']['MarkersPointCloud2'])
+
 
     # Publish Annotated images
     for collection_key, collection in collections.items():
@@ -204,7 +256,6 @@ def visualizationFunction(models):
                 pass
             else:
                 raise ValueError("Unknown sensor msg_type")
-
 
 # Copied from the hand_eye visualization, since it shows generic robot model. Need to integrate old functionalities such as displaying laser scan data.
 # Old code for integration below.
