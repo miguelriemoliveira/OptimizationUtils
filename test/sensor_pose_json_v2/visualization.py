@@ -118,7 +118,6 @@ def setupVisualization(dataset, args):
 def visualizationFunction(models):
     # Get the data from the models
     args = models['args']
-    print(models['dataset_sensors'].keys())
     collections = models['dataset_sensors']['collections']
     sensors = models['dataset_sensors']['sensors']
     # pattern = models['dataset_sensors']['pattern']
