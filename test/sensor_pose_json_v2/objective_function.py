@@ -307,10 +307,11 @@ def objectiveFunction(data):
                 # Get LiDAR points that belong to the chessboard on LiDAR's reference frame
                 idxs = collection['labels'][sensor_key]['idxs']
                 pc = ros_numpy.numpify(cloud_msg)[idxs]
-                points = np.zeros((pc.shape[0], 3))
+                points = np.zeros((pc.shape[0], 4))
                 points[:, 0] = pc['x']
                 points[:, 1] = pc['y']
                 points[:, 2] = pc['z']
+                points[:, 3] = 1
 
                 # --- Residuals: Distance from 3D range sensor point to chessboard plan
                 # For computing the intersection we need:
@@ -346,6 +347,8 @@ def objectiveFunction(data):
                 # chessboard plane in the loop
                 p0_in_lidar = np.array([[0], [0], [0], [1], np.float])
                 for idx in range(0, len(points)):
+                    # Compute the interception between the chessboard plane into the 3D sensor reference frame, and the
+                    # line that goes through the sensor origin to the measured point in the chessboard plane
                     p1_in_lidar = points[idx, :]
                     pt_intersection = isect_line_plane_v3(p0_in_lidar, p1_in_lidar, p_co_in_lidar, p_no_in_lidar)
 
@@ -353,8 +356,11 @@ def objectiveFunction(data):
                         raise ValueError('Error: chessboard is almost parallel to the lidar beam! Please delete the '
                                          'collections in question.')
 
+                    # Compute the residual: distance from sensor origin from the interception minus the actual range
+                    # measure
                     rname = collection_key + '_' + sensor_key + '_oe_' + str(idx)
-                    r[rname] = abs(distance_two_3D_points(p0_in_lidar, pt_intersection))
+                    rho = np.sqrt(p1_in_lidar[0] ** 2 + p1_in_lidar[1] ** 2 + p1_in_lidar[2] ** 2)
+                    r[rname] = abs(distance_two_3D_points(p0_in_lidar, pt_intersection) - rho)
             else:
                 raise ValueError("Unknown sensor msg_type")
 
