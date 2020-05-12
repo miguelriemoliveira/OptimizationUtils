@@ -300,12 +300,11 @@ def objectiveFunction(data):
             elif sensor['msg_type'] == 'PointCloud2':
                 from rospy_message_converter import message_converter
 
-                # Convert velodyne data on .json dictionary to ROS message type
+                # Convert 3D cloud data on .json dictionary to ROS message type
                 cloud_msg = message_converter.convert_dictionary_to_ros_message("sensor_msgs/PointCloud2",
                                                                                 collection['data'][sensor_key])
 
-                # Get LiDAR points that belong to the chessboard
-
+                # Get LiDAR points that belong to the chessboard on LiDAR's reference frame
                 idxs = collection['labels'][sensor_key]['idxs']
                 pc = ros_numpy.numpify(cloud_msg)[idxs]
                 points = np.zeros((pc.shape[0], 3))
@@ -313,9 +312,49 @@ def objectiveFunction(data):
                 points[:, 1] = pc['y']
                 points[:, 2] = pc['z']
 
+                # --- Residuals: Distance from 3D range sensor point to chessboard plan
+                # For computing the intersection we need:
+                # p0, p1: Define the line.
+                # p_co, p_no: define the plane:
+                # p_co Is a point on the plane (plane coordinate).
+                # p_no Is a normal vector defining the plane direction (does not need to be normalized).
+
+                # Compute the homogeneous transformation from the root base_link to the sensor's reference frame
+                root_to_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+
+                # Compute p_co. It can be any point in the chessboard plane. Lets transform the origin of the
+                # chessboard to the 3D cloud reference frame
+                trans = dataset_chessboards['collections'][collection_key]['trans']
+                quat = dataset_chessboards['collections'][collection_key]['quat']
+                root_to_chessboard = utilities.translationQuaternionToTransform(trans, quat)
+                lidar_to_chessboard = np.dot(np.linalg.inv(root_to_sensor), root_to_chessboard)
+
+                # Origin of the chessboard (0, 0, 0, 1) homogenized to the 3D range sensor reference frame
+                p_co_in_chessboard = np.array([[0], [0], [0], [1]], np.float)
+                p_co_in_lidar = np.dot(lidar_to_chessboard, p_co_in_chessboard)
+
+                # Compute p_no. First compute an aux point (p_caux) and then use the normal vector from p_co to p_caux.
+                p_caux_in_chessboard = np.array([[0], [0], [1], [1]], np.float)  # along the zz axis (plane normal)
+                p_caux_in_lidar = np.dot(lidar_to_chessboard, p_caux_in_chessboard)
+
+                p_no_in_lidar = np.array([[p_caux_in_lidar[0] - p_co_in_lidar[0]],
+                                          [p_caux_in_lidar[1] - p_co_in_lidar[1]],
+                                          [p_caux_in_lidar[2] - p_co_in_lidar[2]],
+                                          [1]], np.float)  # plane normal
+
+                # Define p0 - the origin of 3D range sensor reference frame - to compute the line that intercepts the
+                # chessboard plane in the loop
+                p0_in_lidar = np.array([[0], [0], [0], [1], np.float])
                 for idx in range(0, len(points)):
+                    p1_in_lidar = points[idx, :]
+                    pt_intersection = isect_line_plane_v3(p0_in_lidar, p1_in_lidar, p_co_in_lidar, p_no_in_lidar)
+
+                    if pt_intersection is None:
+                        raise ValueError('Error: chessboard is almost parallel to the lidar beam! Please delete the '
+                                         'collections in question.')
+
                     rname = collection_key + '_' + sensor_key + '_oe_' + str(idx)
-                    r[rname] = 0.1  # compute the error here
+                    r[rname] = abs(distance_two_3D_points(p0_in_lidar, pt_intersection))
             else:
                 raise ValueError("Unknown sensor msg_type")
 
