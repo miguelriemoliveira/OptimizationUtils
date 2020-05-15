@@ -33,6 +33,11 @@ from open3d import *
 from OptimizationUtils import utilities
 
 
+def addCollectionPrefix(collection_key, string):
+    """" Standarized form of deriving a name with a collection related prefix. """
+    return 'c' + collection_key + '_' + string
+
+
 def setupVisualization(dataset, args):
     """
     Creates the necessary variables in a dictionary "dataset_graphics", which will be passed onto the visualization
@@ -80,7 +85,7 @@ def setupVisualization(dataset, args):
     for idx, (collection_key, collection) in enumerate(dataset['collections'].items()):
         rgba = graphics['collections'][collection_key]['color']
         # color = ColorRGBA(r=rgba[0], g=rgba[1], b=rgba[2], a=1))
-        m = Marker(header=Header(frame_id='c' + collection_key + '_chessboard_link', stamp=rospy.Time.now()),
+        m = Marker(header=Header(frame_id=addCollectionPrefix(collection_key, 'pattern_link'), stamp=rospy.Time.now()),
                    ns=collection_key, id=idx + 1000, frame_locked=True,
                    type=Marker.MESH_RESOURCE, action=Marker.ADD, lifetime=rospy.Duration(0),
                    pose=Pose(position=Point(x=0, y=0, z=0),
@@ -195,12 +200,18 @@ def visualizationFunction(models):
     # Publish the models
     graphics['ros']['publisher_models'].publish(graphics['ros']['robot_mesh_markers'])
 
+    # Publishes the chessboards transforms
+    for idx, (collection_chess_key, collection_chess) in enumerate(pattern['collections'].items()):
+        parent = 'base_link'
+        child = 'c' + collection_key + '_pattern_link'
+        graphics['ros']['tf_broadcaster'].sendTransform(collection_chess['trans'], collection_chess['quat'],
+                                                        now, child, parent)
+
     # Publish Laser Scans
     for marker in graphics['ros']['MarkersPointCloud2'].markers:
         marker.header.stamp = now
     graphics['ros']['PubPointCloud2'].publish(graphics['ros']['MarkersPointCloud2'])
     # graphics['ros']['PubPointCloud2'].publish(graphics['ros']['MarkersPointCloud2'])
-
 
     # Publish Annotated images
     for collection_key, collection in collections.items():
