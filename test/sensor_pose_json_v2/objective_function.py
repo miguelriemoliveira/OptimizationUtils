@@ -121,8 +121,8 @@ def objectiveFunction(data):
     dataset_chessboards = data['dataset_sensors']['chessboards']
     dataset_chessboard_points = data['dataset_chessboard_points']  # TODO should be integrated into chessboards
     args = data['args']
-    if args['view_optimization']:
-        dataset_graphics = data['dataset_graphics']
+    if args['view_optimization'] or args['ros_visualization']:
+        dataset_graphics = data['graphics']
 
     r = {}  # Initialize residuals dictionary.
     for collection_key, collection in dataset_sensors['collections'].items():
@@ -343,6 +343,12 @@ def objectiveFunction(data):
                                           [p_caux_in_lidar[2] - p_co_in_lidar[2]],
                                           [1]], np.float)  # plane normal
 
+                if args['ros_visualization']:
+                    marker = [x for x in dataset_graphics['ros']['MarkersLaserBeams'].markers if
+                              x.ns == str(collection_key) + '-' + str(sensor_key)][0]
+                    marker.points = []
+                    rviz_p0_in_laser = Point(0,0,0)
+
                 # Define p0 - the origin of 3D range sensor reference frame - to compute the line that intercepts the
                 # chessboard plane in the loop
                 p0_in_lidar = np.array([[0], [0], [0], [1], np.float])
@@ -361,6 +367,10 @@ def objectiveFunction(data):
                     rname = collection_key + '_' + sensor_key + '_oe_' + str(idx)
                     rho = np.sqrt(p1_in_lidar[0] ** 2 + p1_in_lidar[1] ** 2 + p1_in_lidar[2] ** 2)
                     r[rname] = abs(distance_two_3D_points(p0_in_lidar, pt_intersection) - rho)
+
+                    if args['ros_visualization']:
+                        marker.points.append(deepcopy(rviz_p0_in_laser))
+                        marker.points.append(Point(pt_intersection[0], pt_intersection[1], pt_intersection[2]))
             else:
                 raise ValueError("Unknown sensor msg_type")
 
