@@ -313,7 +313,9 @@ def objectiveFunction(data):
                 points[:, 2] = pc['z']
                 points[:, 3] = 1
 
-                # --- Residuals: Distance from 3D range sensor point to chessboard plan
+                # ------------------------------------------------------------------------------------------------
+                # --- Beam Distance Residuals: Distance from 3D range sensor point to chessboard plan
+                # ------------------------------------------------------------------------------------------------
                 # For computing the intersection we need:
                 # p0, p1: Define the line.
                 # p_co, p_no: define the plane:
@@ -347,7 +349,7 @@ def objectiveFunction(data):
                     marker = [x for x in dataset_graphics['ros']['MarkersLaserBeams'].markers if
                               x.ns == str(collection_key) + '-' + str(sensor_key)][0]
                     marker.points = []
-                    rviz_p0_in_laser = Point(0,0,0)
+                    rviz_p0_in_laser = Point(0, 0, 0)
 
                 # Define p0 - the origin of 3D range sensor reference frame - to compute the line that intercepts the
                 # chessboard plane in the loop
@@ -371,6 +373,32 @@ def objectiveFunction(data):
                     if args['ros_visualization']:
                         marker.points.append(deepcopy(rviz_p0_in_laser))
                         marker.points.append(Point(pt_intersection[0], pt_intersection[1], pt_intersection[2]))
+
+                # ------------------------------------------------------------------------------------------------
+                # --- Pattern Extrema Residuals: Distance the limits of the pattern and the border of the 3D cloud
+                # ------------------------------------------------------------------------------------------------
+                # First we isolate the points that belong to the border of the pattern
+                xmin = 1e6
+                ymin = 1e6
+                xmax = 0
+                ymax = 0
+                for idx in range(0, len(points)):
+                    m_pt = points[idx, :]
+                    if m_pt[0] < xmin:
+                        xmin = m_pt[0]
+                    if m_pt[1] < ymin:
+                        ymin = m_pt[1]
+                    if m_pt[0] > xmax:
+                        xmax = m_pt[0]
+                    if m_pt[1] > ymax:
+                        ymax = m_pt[1]
+                top = points[np.where(np.abs(points[:, 1] - ymin) < .1), 0:3]
+                bottom = points[np.where(np.abs(points[:, 1] - ymax) < .1), 0:3]
+                left = points[np.where(np.abs(points[:, 0] - xmin) < .1), 0:3]
+                right = points[np.where(np.abs(points[:, 0] - xmax) < .1), 0:3]
+                border_pts = [top, bottom, left, right]
+                # Then compute the difference between the matched points of the 3D cloud border and pattern limit
+
             else:
                 raise ValueError("Unknown sensor msg_type")
 
