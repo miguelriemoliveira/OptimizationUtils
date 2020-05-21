@@ -326,9 +326,12 @@ def main():
 
             elif sensor['msg_type'] == 'PointCloud2':  # if sensor is a 3D lidar add two residuals
 
-                # Orthogonal error
+                # Laser beam error
                 for idx in range(0, len(collection['labels'][sensor_key]['idxs'])):
                     opt.pushResidual(name=collection_key + '_' + sensor_key + '_oe_' + str(idx), params=params)
+                # Extrema displacement error
+                for idx in range(0, 4):
+                    opt.pushResidual(name=collection_key + '_' + sensor_key + '_cd_' + str(idx), params=params)
 
     # opt.printResiduals()
 

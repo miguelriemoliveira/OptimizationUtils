@@ -375,29 +375,49 @@ def objectiveFunction(data):
                         marker.points.append(Point(pt_intersection[0], pt_intersection[1], pt_intersection[2]))
 
                 # ------------------------------------------------------------------------------------------------
-                # --- Pattern Extrema Residuals: Distance the limits of the pattern and the border of the 3D cloud
+                # --- Pattern Extrema Residuals: Distance the corners of the pattern and the corners of the 3D cloud
+                # Compute the coordinate of the laser points in the chessboard reference frame
+                root_to_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                pts_in_root = np.dot(root_to_sensor, points.transpose())
+
+                trans = dataset_chessboards['collections'][collection_key]['trans']
+                quat = dataset_chessboards['collections'][collection_key]['quat']
+                chessboard_to_root = np.linalg.inv(utilities.translationQuaternionToTransform(trans, quat))
+                pts_in_chessboard = np.dot(chessboard_to_root, pts_in_root)
+
+                # Compute the corners of the 3D cloud
+                xmin = min(pts_in_chessboard[0, :])
+                xmax = max(pts_in_chessboard[0, :])
+                ymin = min(pts_in_chessboard[1, :])
+                ymax = max(pts_in_chessboard[1, :])
+
+                lidar_top_right = [[xmin, ymin]]
+                lidar_bottom_right = [[xmin, ymax]]
+                lidar_top_left = [[xmax, ymin]]
+                lidar_bottom_left = [[xmax, ymax]]
+
+                # Compute the corners of the chessboard
+                pts_canvas_in_chessboard = dataset_chessboards['limit_points'][0:2, :].transpose()
+                xmin = min(pts_canvas_in_chessboard[:, 0])
+                xmax = max(pts_canvas_in_chessboard[:, 0])
+                ymin = min(pts_canvas_in_chessboard[:, 1])
+                ymax = max(pts_canvas_in_chessboard[:, 1])
+
+                pattern_top_right = [[xmin, ymin]]
+                pattern_bottom_right = [[xmin, ymax]]
+                pattern_top_left = [[xmax, ymin]]
+                pattern_bottom_left = [[xmax, ymax]]
+
+                # Save residuals
+                rname = collection_key + '_' + sensor_key + '_cd_' + str(0)
+                r[rname] = abs(distance.cdist(lidar_top_right, pattern_top_right, 'euclidean')[0,0])
+                rname = collection_key + '_' + sensor_key + '_cd_' + str(1)
+                r[rname] = abs(distance.cdist(lidar_bottom_right, pattern_bottom_right, 'euclidean')[0,0])
+                rname = collection_key + '_' + sensor_key + '_cd_' + str(2)
+                r[rname] = abs(distance.cdist(lidar_top_left, pattern_top_left, 'euclidean')[0,0])
+                rname = collection_key + '_' + sensor_key + '_cd_' + str(3)
+                r[rname] = abs(distance.cdist(lidar_bottom_left, pattern_bottom_left, 'euclidean')[0,0])
                 # ------------------------------------------------------------------------------------------------
-                # First we isolate the points that belong to the border of the pattern
-                xmin = 1e6
-                ymin = 1e6
-                xmax = 0
-                ymax = 0
-                for idx in range(0, len(points)):
-                    m_pt = points[idx, :]
-                    if m_pt[0] < xmin:
-                        xmin = m_pt[0]
-                    if m_pt[1] < ymin:
-                        ymin = m_pt[1]
-                    if m_pt[0] > xmax:
-                        xmax = m_pt[0]
-                    if m_pt[1] > ymax:
-                        ymax = m_pt[1]
-                top = points[np.where(np.abs(points[:, 1] - ymin) < .1), 0:3]
-                bottom = points[np.where(np.abs(points[:, 1] - ymax) < .1), 0:3]
-                left = points[np.where(np.abs(points[:, 0] - xmin) < .1), 0:3]
-                right = points[np.where(np.abs(points[:, 0] - xmax) < .1), 0:3]
-                border_pts = [top, bottom, left, right]
-                # Then compute the difference between the matched points of the 3D cloud border and pattern limit
 
             else:
                 raise ValueError("Unknown sensor msg_type")

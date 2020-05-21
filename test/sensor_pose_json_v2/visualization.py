@@ -209,6 +209,16 @@ def setupVisualization(dataset, args):
 
                 markers.markers.append(copy.deepcopy(marker))
 
+                # Visualize LiDAR points on pattern border
+                border_marker = Marker(header=Header(frame_id=frame_id, stamp=now),
+                                       ns=str(collection_key) + '-' + str(sensor_key), id=0, frame_locked=True,
+                                       type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
+                                       pose=Pose(position=Point(x=0, y=0, z=0),
+                                                 orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                                       scale=Vector3(x=0.02, y=0.02, z=0.02),
+                                       color=ColorRGBA(255., 0., 0., 0.4)
+                                       )
+
     graphics['ros']['MarkersLabelledData'] = markers
     graphics['ros']['PubLabelledData'] = rospy.Publisher('~LabelledData', MarkerArray, queue_size=0, latch=True)
 
