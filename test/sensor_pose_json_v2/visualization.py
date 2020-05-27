@@ -82,6 +82,7 @@ def setupVisualization(dataset, args):
                               rgba=rgba)
         markers.markers.extend(m.markers)
 
+    markers.markers = []
     # Draw the chessboard
     for idx, (collection_key, collection) in enumerate(dataset['collections'].items()):
         rgba = graphics['collections'][collection_key]['color']
@@ -93,7 +94,10 @@ def setupVisualization(dataset, args):
                              orientation=Quaternion(x=0, y=0, z=0, w=1)),
                    scale=Vector3(x=1.0, y=1.0, z=1.0),
                    color=ColorRGBA(r=1, g=1, b=1, a=1))
-        m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5X5_800x600.dae'
+
+        # TODO If no mesh is given, or if mesh_file does not exist, issue a warning and create a drawing of the
+        #  pattern with lines m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5x5.dae'
+        m.mesh_resource = 'file://' + dataset['calibration_config']['calibration_pattern']['mesh_file']
         m.mesh_use_embedded_materials = True
         markers.markers.append(m)
 
