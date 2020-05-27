@@ -93,8 +93,7 @@ def setupVisualization(dataset, args):
                              orientation=Quaternion(x=0, y=0, z=0, w=1)),
                    scale=Vector3(x=1.0, y=1.0, z=1.0),
                    color=ColorRGBA(r=1, g=1, b=1, a=1))
-        # m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5x5.dae'
-        m.mesh_resource = 'package://interactive_calibration/meshes/charuco.dae'
+        m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5X5_800x600.dae'
         m.mesh_use_embedded_materials = True
         markers.markers.append(m)
 
