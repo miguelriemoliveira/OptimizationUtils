@@ -78,17 +78,17 @@ def setupVisualization(dataset, args):
         rgba = graphics['collections'][collection_key]['color']
         rgba[3] = 0.4  # change the alpha
         rgba = [.5, .5, .5, 0.7]  # best color we could find
-        m = urdfToMarkerArray(xml_robot, frame_id_prefix= genCollectionPrefix(collection_key, ''), namespace=collection_key,
+        m = urdfToMarkerArray(xml_robot, frame_id_prefix=genCollectionPrefix(collection_key, ''),
+                              namespace=collection_key,
                               rgba=rgba)
         markers.markers.extend(m.markers)
 
-    markers.markers = []
     # Draw the chessboard
     for idx, (collection_key, collection) in enumerate(dataset['collections'].items()):
         rgba = graphics['collections'][collection_key]['color']
         # color = ColorRGBA(r=rgba[0], g=rgba[1], b=rgba[2], a=1))
         m = Marker(header=Header(frame_id=genCollectionPrefix(collection_key, 'pattern_link'), stamp=now),
-                   ns=collection_key, id=idx + 1000, frame_locked=True,
+                   ns=str(collection_key), id=idx + 5000, frame_locked=True,
                    type=Marker.MESH_RESOURCE, action=Marker.ADD, lifetime=rospy.Duration(0),
                    pose=Pose(position=Point(x=0, y=0, z=0),
                              orientation=Quaternion(x=0, y=0, z=0, w=1)),
@@ -126,6 +126,7 @@ def setupVisualization(dataset, args):
 
     # Create LabelledData publishers ----------------------------------------------------------
     markers = MarkerArray()
+    id = 0
     for collection_key, collection in dataset['collections'].items():
         for sensor_key, sensor in dataset['sensors'].items():
             if not collection['labels'][str(sensor_key)]['detected']:  # not detected by sensor in collection
@@ -134,7 +135,7 @@ def setupVisualization(dataset, args):
             if sensor['msg_type'] == 'LaserScan':
                 frame_id = genCollectionPrefix(collection_key, collection['data'][sensor_key]['header']['frame_id'])
                 marker = Marker(header=Header(frame_id=frame_id, stamp=now),
-                                ns=str(collection_key) + '-' + str(sensor_key), id=0, frame_locked=True,
+                                ns=str(collection_key) + '-' + str(sensor_key), id=id, frame_locked=True,
                                 type=Marker.POINTS, action=Marker.ADD, lifetime=rospy.Duration(0),
                                 pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
                                 scale=Vector3(x=0.03, y=0.03, z=0),
@@ -142,6 +143,7 @@ def setupVisualization(dataset, args):
                                                 g=graphics['collections'][collection_key]['color'][1],
                                                 b=graphics['collections'][collection_key]['color'][2], a=1.0)
                                 )
+                id += 1
 
                 # Get laser points that belong to the chessboard (labelled)
                 idxs = collection['labels'][sensor_key]['idxs']
@@ -199,7 +201,7 @@ def setupVisualization(dataset, args):
 
                 frame_id = genCollectionPrefix(collection_key, collection['data'][sensor_key]['header']['frame_id'])
                 marker = Marker(header=Header(frame_id=frame_id, stamp=now),
-                                ns=str(collection_key) + '-' + str(sensor_key), id=0, frame_locked=True,
+                                ns=str(collection_key) + '-' + str(sensor_key), id=id, frame_locked=True,
                                 type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
                                 pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
                                 scale=Vector3(x=0.02, y=0.02, z=0.02),
@@ -207,21 +209,42 @@ def setupVisualization(dataset, args):
                                                 g=graphics['collections'][collection_key]['color'][1],
                                                 b=graphics['collections'][collection_key]['color'][2], a=0.4)
                                 )
+                id += 1
 
                 for idx in range(0, len(points)):
-                    marker.points.append(Point(x= points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
+                    marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
 
                 markers.markers.append(copy.deepcopy(marker))
 
-                # Visualize LiDAR points on pattern border
-                border_marker = Marker(header=Header(frame_id=frame_id, stamp=now),
-                                       ns=str(collection_key) + '-' + str(sensor_key), id=0, frame_locked=True,
-                                       type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
-                                       pose=Pose(position=Point(x=0, y=0, z=0),
-                                                 orientation=Quaternion(x=0, y=0, z=0, w=1)),
-                                       scale=Vector3(x=0.02, y=0.02, z=0.02),
-                                       color=ColorRGBA(255., 0., 0., 0.4)
-                                       )
+                # Visualize LiDAR corner points
+                marker = Marker(header=Header(frame_id=frame_id, stamp=now),
+                                ns=str(collection_key) + '-' + str(sensor_key), id=id, frame_locked=True,
+                                type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
+                                pose=Pose(position=Point(x=0, y=0, z=0),
+                                          orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                                scale=Vector3(x=0.07, y=0.07, z=0.07),
+                                color=ColorRGBA(r=graphics['collections'][collection_key]['color'][0],
+                                                g=graphics['collections'][collection_key]['color'][1],
+                                                b=graphics['collections'][collection_key]['color'][2], a=0.4)
+                                )
+
+                pc = ros_numpy.numpify(cloud_msg)
+                points = np.zeros((pc.shape[0], 3))
+                points[:, 0] = pc['x']
+                points[:, 1] = pc['y']
+                points[:, 2] = pc['z']
+                idx = collection['labels'][sensor_key]['idx_top_left']
+                marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
+                idx = collection['labels'][sensor_key]['idx_top_right']
+                marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
+                idx = collection['labels'][sensor_key]['idx_bottom_right']
+                marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
+                idx = collection['labels'][sensor_key]['idx_bottom_left']
+                marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
+
+                id += 1
+
+                markers.markers.append(copy.deepcopy(marker))
 
     graphics['ros']['MarkersLabelledData'] = markers
     graphics['ros']['PubLabelledData'] = rospy.Publisher('~LabelledData', MarkerArray, queue_size=0, latch=True)
@@ -235,9 +258,8 @@ def setupVisualization(dataset, args):
             if not collection['labels'][sensor_key]['detected']:  # chess not detected by sensor in collection
                 continue
             if sensor['msg_type'] == 'LaserScan' or sensor['msg_type'] == 'PointCloud2':
-
                 frame_id = genCollectionPrefix(collection_key, collection['data'][sensor_key]['header']['frame_id'])
-                marker = Marker(header=Header(frame_id= frame_id, stamp=rospy.Time.now()),
+                marker = Marker(header=Header(frame_id=frame_id, stamp=rospy.Time.now()),
                                 ns=str(collection_key) + '-' + str(sensor_key), id=0, frame_locked=True,
                                 type=Marker.LINE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
                                 pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
@@ -251,7 +273,6 @@ def setupVisualization(dataset, args):
     graphics['ros']['MarkersLaserBeams'] = markers
     graphics['ros']['PubLaserBeams'] = rospy.Publisher('~LaserBeams', MarkerArray, queue_size=0, latch=True)
 
-
     # Create Miscellaneous MarkerArray -----------------------------------------------------------
     markers = MarkerArray()
 
@@ -263,7 +284,7 @@ def setupVisualization(dataset, args):
                             type=Marker.TEXT_VIEW_FACING, action=Marker.ADD, lifetime=rospy.Duration(0),
                             pose=Pose(position=Point(x=0, y=0, z=0.2), orientation=Quaternion(x=0, y=0, z=0, w=1)),
                             scale=Vector3(x=0.0, y=0.0, z=0.1),
-                            color=ColorRGBA(r=0.6, g=0.6, b=0.6,a=1.0), text='Anchored')
+                            color=ColorRGBA(r=0.6, g=0.6, b=0.6, a=1.0), text='Anchored')
 
             markers.markers.append(marker)
 
@@ -271,7 +292,6 @@ def setupVisualization(dataset, args):
     graphics['ros']['PubMiscellaneous'] = rospy.Publisher('~Miscellaneous', MarkerArray, queue_size=0, latch=True)
     # Publish only once in latched mode
     graphics['ros']['PubMiscellaneous'].publish(graphics['ros']['MarkersMiscellaneous'])
-
 
     return graphics
 
@@ -314,7 +334,7 @@ def visualizationFunction(models):
     # Publishes the chessboards transforms
     for idx, (collection_chess_key, collection_chess) in enumerate(pattern['collections'].items()):
         parent = 'base_link'
-        child = 'c' + collection_key + '_pattern_link'
+        child = 'c' + collection_chess_key + '_pattern_link'
         graphics['ros']['tf_broadcaster'].sendTransform(collection_chess['trans'], collection_chess['quat'],
                                                         now, child, parent)
 

@@ -77,7 +77,8 @@ def main():
     ap.add_argument("-si", "--show_images", help="shows images for each camera", action='store_true', default=False)
     ap.add_argument("-sp", "--single_pattern", help="show a single pattern instead of one per collection.",
                     action='store_true', default=False)
-    ap.add_argument("-uic", "--use_incomplete_collections", help="Remove any collection which does not have a detection for all sensors.",
+    ap.add_argument("-uic", "--use_incomplete_collections",
+                    help="Remove any collection which does not have a detection for all sensors.",
                     action='store_true', default=False)
 
     # Check https://stackoverflow.com/questions/52431265/how-to-use-a-lambda-as-parameter-in-python-argparse
@@ -180,6 +181,34 @@ def main():
                 if len(edges) > 0:
                     edges.pop()  # if the index is not given, then the last element is popped out and removed.
                 collection['labels'][sensor_key]['edge_idxs'] = edges
+
+    # ---------------------------------------
+    # --- Detect corners in velodyne data
+    # ---------------------------------------
+    for sensor_key, sensor in dataset_sensors['sensors'].items():
+        if sensor['msg_type'] == 'PointCloud2':  # only for 3D Lidars and RGBD cameras
+            for collection_key, collection in dataset_sensors['collections'].items():
+                from rospy_message_converter import message_converter
+
+                # Convert 3D cloud data on .json dictionary to ROS message type
+                cloud_msg = message_converter.convert_dictionary_to_ros_message("sensor_msgs/PointCloud2",
+                                                                                collection['data'][sensor_key])
+
+                idxs = collection['labels'][sensor_key]['idxs']
+                # pc = ros_numpy.numpify(cloud_msg)[idxs]
+                # points = np.zeros((pc.shape[0], 4))
+                # points[:, 0] = pc['x']
+                # points[:, 1] = pc['y']
+                # points[:, 2] = pc['z']
+                # points[:, 3] = 1
+
+                # TODO really compute the idxs
+
+
+                collection['labels'][sensor_key]['idx_top_left'] = idxs[0]
+                collection['labels'][sensor_key]['idx_top_right'] = idxs[1]
+                collection['labels'][sensor_key]['idx_bottom_left'] = idxs[2]
+                collection['labels'][sensor_key]['idx_bottom_right'] = idxs[3]
 
     # ---------------------------------------
     # --- SETUP OPTIMIZER
