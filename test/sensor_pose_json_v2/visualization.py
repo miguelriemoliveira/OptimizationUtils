@@ -187,13 +187,16 @@ def setupVisualization(dataset, args):
                 markers.markers.append(copy.deepcopy(marker))
 
             if sensor['msg_type'] == 'PointCloud2':
+                # -----------------------------------------------------------------------------------------------------
+                # -------- Publish the velodyne data
+                # -----------------------------------------------------------------------------------------------------
                 # Convert velodyne data on .json dictionary to ROS message type
                 cloud_msg = message_converter.convert_dictionary_to_ros_message("sensor_msgs/PointCloud2",
                                                                                 collection['data'][sensor_key])
 
                 # Get LiDAR points that belong to the pattern
                 idxs = collection['labels'][sensor_key]['idxs']
-                pc = ros_numpy.numpify(cloud_msg)[idxs]
+                pc = ros_numpy.numpify(cloud_msg)
                 points = np.zeros((pc.shape[0], 3))
                 points[:, 0] = pc['x']
                 points[:, 1] = pc['y']
@@ -211,7 +214,7 @@ def setupVisualization(dataset, args):
                                 )
                 id += 1
 
-                for idx in range(0, len(points)):
+                for idx in idxs:
                     marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
 
                 markers.markers.append(copy.deepcopy(marker))
@@ -228,11 +231,6 @@ def setupVisualization(dataset, args):
                                                 b=graphics['collections'][collection_key]['color'][2], a=0.4)
                                 )
 
-                pc = ros_numpy.numpify(cloud_msg)
-                points = np.zeros((pc.shape[0], 3))
-                points[:, 0] = pc['x']
-                points[:, 1] = pc['y']
-                points[:, 2] = pc['z']
                 idx = collection['labels'][sensor_key]['idx_top_left']
                 marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
                 idx = collection['labels'][sensor_key]['idx_top_right']
@@ -245,6 +243,29 @@ def setupVisualization(dataset, args):
                 id += 1
 
                 markers.markers.append(copy.deepcopy(marker))
+
+    # -----------------------------------------------------------------------------------------------------
+    # -------- Publish the pattern data
+    # -----------------------------------------------------------------------------------------------------
+    for idx, (collection_chess_key, collection_chess) in enumerate(dataset['collections'].items()):
+        # Draw pattern limit points
+        frame_id = 'c' + collection_chess_key + '_pattern_link'
+        marker = Marker(header=Header(frame_id=frame_id, stamp=now),
+                        ns=str(collection_chess_key) + '-pattern', id=id, frame_locked=True,
+                        type=Marker.SPHERE_LIST, action=Marker.ADD, lifetime=rospy.Duration(0),
+                        pose=Pose(position=Point(x=0, y=0, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1)),
+                        scale=Vector3(x=0.015, y=0.015, z=0.015),
+                        color=ColorRGBA(r=graphics['collections'][collection_chess_key]['color'][0],
+                                        g=graphics['collections'][collection_chess_key]['color'][1],
+                                        b=graphics['collections'][collection_chess_key]['color'][2], a=1.0))
+
+        for idx in range(0, dataset['chessboards']['limit_points'].shape[1]):
+            marker.points.append(Point(x=dataset['chessboards']['limit_points'][0, idx],
+                                       y=dataset['chessboards']['limit_points'][1, idx],
+                                       z=dataset['chessboards']['limit_points'][2, idx]))
+
+        id += 1
+        markers.markers.append(marker)
 
     graphics['ros']['MarkersLabelledData'] = markers
     graphics['ros']['PubLabelledData'] = rospy.Publisher('~LabelledData', MarkerArray, queue_size=0, latch=True)
