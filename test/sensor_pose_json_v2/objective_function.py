@@ -298,19 +298,10 @@ def objectiveFunction(data):
                         marker.points.append(Point(pt_intersection[0], pt_intersection[1], pt_intersection[2]))
 
             elif sensor['msg_type'] == 'PointCloud2':
-                from rospy_message_converter import message_converter
 
-                # Convert 3D cloud data on .json dictionary to ROS message type
-                cloud_msg = message_converter.convert_dictionary_to_ros_message("sensor_msgs/PointCloud2",
-                                                                                collection['data'][sensor_key])
-
-                # Get LiDAR points that belong to the chessboard on LiDAR's reference frame
-                idxs = collection['labels'][sensor_key]['idxs']
-                pc = ros_numpy.numpify(cloud_msg)[idxs]
-                points = np.zeros((pc.shape[0], 4))
-                points[:, 0] = pc['x']
-                points[:, 1] = pc['y']
-                points[:, 2] = pc['z']
+                # Get the 3D LiDAR labelled points for the given collection
+                points = collection['labels'][sensor_key]['labelled_points']
+                # Homogenize the points
                 points[:, 3] = 1
 
                 # ------------------------------------------------------------------------------------------------
@@ -425,16 +416,16 @@ def objectiveFunction(data):
                 # Save residuals
                 print("RESIDUAL...")
                 rname = collection_key + '_' + sensor_key + '_cd_' + str(0)
-                r[rname] = abs(distance.cdist(lidar_top_right, pattern_top_right, 'euclidean')[0,0])
+                r[rname] = abs(distance.cdist(lidar_top_right, pattern_top_right, 'euclidean')[0, 0])
                 print(r[rname])
                 rname = collection_key + '_' + sensor_key + '_cd_' + str(1)
-                r[rname] = abs(distance.cdist(lidar_bottom_right, pattern_bottom_right, 'euclidean')[0,0])
+                r[rname] = abs(distance.cdist(lidar_bottom_right, pattern_bottom_right, 'euclidean')[0, 0])
                 print(r[rname])
                 rname = collection_key + '_' + sensor_key + '_cd_' + str(2)
-                r[rname] = abs(distance.cdist(lidar_top_left, pattern_top_left, 'euclidean')[0,0])
+                r[rname] = abs(distance.cdist(lidar_top_left, pattern_top_left, 'euclidean')[0, 0])
                 print(r[rname])
                 rname = collection_key + '_' + sensor_key + '_cd_' + str(3)
-                r[rname] = abs(distance.cdist(lidar_bottom_left, pattern_bottom_left, 'euclidean')[0,0])
+                r[rname] = abs(distance.cdist(lidar_bottom_left, pattern_bottom_left, 'euclidean')[0, 0])
                 print(r[rname])
                 # ------------------------------------------------------------------------------------------------
 

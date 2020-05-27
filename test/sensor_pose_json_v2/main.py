@@ -188,23 +188,24 @@ def main():
     for sensor_key, sensor in dataset_sensors['sensors'].items():
         if sensor['msg_type'] == 'PointCloud2':  # only for 3D Lidars and RGBD cameras
             for collection_key, collection in dataset_sensors['collections'].items():
+                import ros_numpy
                 from rospy_message_converter import message_converter
 
                 # Convert 3D cloud data on .json dictionary to ROS message type
                 cloud_msg = message_converter.convert_dictionary_to_ros_message("sensor_msgs/PointCloud2",
                                                                                 collection['data'][sensor_key])
 
+                # Extract the labelled LiDAR points
                 idxs = collection['labels'][sensor_key]['idxs']
-                # pc = ros_numpy.numpify(cloud_msg)[idxs]
-                # points = np.zeros((pc.shape[0], 4))
-                # points[:, 0] = pc['x']
-                # points[:, 1] = pc['y']
-                # points[:, 2] = pc['z']
-                # points[:, 3] = 1
+                pc = ros_numpy.numpify(cloud_msg)[idxs]
+                points = np.zeros((pc.shape[0], 4))
+                points[:, 0] = pc['x']
+                points[:, 1] = pc['y']
+                points[:, 2] = pc['z']
+                collection['labels'][sensor_key]['labelled_points'] = points
 
+                # Compute LiDAR points that match the pattern corners
                 # TODO really compute the idxs
-
-
                 collection['labels'][sensor_key]['idx_top_left'] = idxs[0]
                 collection['labels'][sensor_key]['idx_top_right'] = idxs[1]
                 collection['labels'][sensor_key]['idx_bottom_left'] = idxs[2]
