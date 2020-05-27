@@ -270,12 +270,18 @@ def createChessBoardData(args, dataset_sensors):
                 objp[:, :2] = square * np.mgrid[0:num_x, 0:num_y].T.reshape(-1,2)
                 # Build a numpy array with the chessboard corners
                 corners = np.zeros((len(collection['labels'][sensor_key]['idxs']), 1, 2), dtype=np.float)
+                ids = range(0, len(collection['labels'][sensor_key]['idxs']))
                 for idx, point in enumerate(collection['labels'][sensor_key]['idxs']):
                     corners[idx, 0, 0] = point['x']
                     corners[idx, 0, 1] = point['y']
+                    ids[idx] = point['id']
 
                 # Find pose of the camera w.r.t the chessboard
-                ret, rvecs, tvecs = cv2.solvePnP(objp, corners, K, D)
+                print(np.shape(objp))
+                print(np.shape(corners))
+                # projected, _, _ = utilities.projectToCamera(K, D, width, height, np.dot(sTc, pattern['grid'].T[ids].T))
+                # ret, rvecs, tvecs = cv2.solvePnP(objp, corners, K, D)
+                ret, rvecs, tvecs = cv2.solvePnP(objp[ids], np.array(corners, dtype=np.float32), K, D)
 
                 # Compute the pose of he chessboard w.r.t the base_link
                 root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])

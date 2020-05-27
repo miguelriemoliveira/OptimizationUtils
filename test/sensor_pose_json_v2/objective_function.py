@@ -384,6 +384,8 @@ def objectiveFunction(data):
                 quat = dataset_chessboards['collections'][collection_key]['quat']
                 chessboard_to_root = np.linalg.inv(utilities.translationQuaternionToTransform(trans, quat))
                 pts_in_chessboard = np.dot(chessboard_to_root, pts_in_root)
+                print(np.shape(pts_in_chessboard))
+                print(pts_in_chessboard)
 
                 # Compute the corners of the 3D cloud
                 xmin = min(pts_in_chessboard[0, :])
@@ -395,6 +397,12 @@ def objectiveFunction(data):
                 lidar_bottom_right = [[xmin, ymax]]
                 lidar_top_left = [[xmax, ymin]]
                 lidar_bottom_left = [[xmax, ymax]]
+                print("LiDAR CORNERS...")
+                print(lidar_top_right)
+                print(lidar_bottom_right)
+                print(lidar_top_left)
+                print(lidar_bottom_left)
+                print(np.array(lidar_top_right[0]) - np.array(lidar_bottom_left[0]))
 
                 # Compute the corners of the chessboard
                 pts_canvas_in_chessboard = dataset_chessboards['limit_points'][0:2, :].transpose()
@@ -407,16 +415,27 @@ def objectiveFunction(data):
                 pattern_bottom_right = [[xmin, ymax]]
                 pattern_top_left = [[xmax, ymin]]
                 pattern_bottom_left = [[xmax, ymax]]
+                print("CHESSBOARD CORNERS...")
+                print(pattern_top_right)
+                print(pattern_bottom_right)
+                print(pattern_top_left)
+                print(pattern_bottom_left)
+                print(np.array(pattern_top_right[0]) - np.array(pattern_bottom_left[0]))
 
                 # Save residuals
+                print("RESIDUAL...")
                 rname = collection_key + '_' + sensor_key + '_cd_' + str(0)
                 r[rname] = abs(distance.cdist(lidar_top_right, pattern_top_right, 'euclidean')[0,0])
+                print(r[rname])
                 rname = collection_key + '_' + sensor_key + '_cd_' + str(1)
                 r[rname] = abs(distance.cdist(lidar_bottom_right, pattern_bottom_right, 'euclidean')[0,0])
+                print(r[rname])
                 rname = collection_key + '_' + sensor_key + '_cd_' + str(2)
                 r[rname] = abs(distance.cdist(lidar_top_left, pattern_top_left, 'euclidean')[0,0])
+                print(r[rname])
                 rname = collection_key + '_' + sensor_key + '_cd_' + str(3)
                 r[rname] = abs(distance.cdist(lidar_bottom_left, pattern_bottom_left, 'euclidean')[0,0])
+                print(r[rname])
                 # ------------------------------------------------------------------------------------------------
 
             else:
