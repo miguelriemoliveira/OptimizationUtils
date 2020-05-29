@@ -31,6 +31,7 @@ from open3d import *
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
 from OptimizationUtils import utilities
+from interactive_calibration.utilities import uriReader
 
 
 def genCollectionPrefix(collection_key, string):
@@ -97,7 +98,7 @@ def setupVisualization(dataset, args):
 
         # TODO If no mesh is given, or if mesh_file does not exist, issue a warning and create a drawing of the
         #  pattern with lines m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5x5.dae'
-        m.mesh_resource = 'file://' + dataset['calibration_config']['calibration_pattern']['mesh_file']
+        m.mesh_resource = 'file://' + uriReader(dataset['calibration_config']['calibration_pattern']['mesh_file'])
         m.mesh_use_embedded_materials = True
         markers.markers.append(m)
 
