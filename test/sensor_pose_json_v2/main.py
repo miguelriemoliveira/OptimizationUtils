@@ -189,27 +189,53 @@ def main():
         if sensor['msg_type'] == 'PointCloud2':  # only for 3D Lidars and RGBD cameras
             for collection_key, collection in dataset_sensors['collections'].items():
                 import ros_numpy
+                from scipy.spatial import distance
                 from rospy_message_converter import message_converter
 
                 # Convert 3D cloud data on .json dictionary to ROS message type
                 cloud_msg = message_converter.convert_dictionary_to_ros_message("sensor_msgs/PointCloud2",
                                                                                 collection['data'][sensor_key])
 
-                # Extract the labelled LiDAR points
+                # ------------------------------------------------------------------------------------------------
+                # -------- Extract the labelled LiDAR points on the pattern
+                # ------------------------------------------------------------------------------------------------
                 idxs = collection['labels'][sensor_key]['idxs']
                 pc = ros_numpy.numpify(cloud_msg)[idxs]
                 points = np.zeros((pc.shape[0], 4))
                 points[:, 0] = pc['x']
                 points[:, 1] = pc['y']
                 points[:, 2] = pc['z']
+                points[:, 3] = 1
                 collection['labels'][sensor_key]['labelled_points'] = points
 
-                # Compute LiDAR points that match the pattern corners
-                # TODO really compute the idxs
-                collection['labels'][sensor_key]['idx_top_left'] = idxs[0]
-                collection['labels'][sensor_key]['idx_top_right'] = idxs[1]
-                collection['labels'][sensor_key]['idx_bottom_left'] = idxs[2]
-                collection['labels'][sensor_key]['idx_bottom_right'] = idxs[3]
+                # ------------------------------------------------------------------------------------------------
+                # -------- Compute LiDAR points on pattern extrema
+                # ------------------------------------------------------------------------------------------------
+                # CONFIGURATIONS
+                radius = 2.  # circle radius in meters
+                start_angle = 0.  # start angle increment in 0 radians
+                end_angle = 2. * np.pi  # end the angle increment when we complete the whole circle
+                angle_step = 0.05 * np.pi / 180.  # angle step in radians
+                # Compute a circle of points outside the pattern and find the pattern point closer to each source point
+                extrema_points = []
+                seed_point = points[np.shape(points)[0] / 2, 0:3]
+                th = start_angle
+                print('Computing 3D cloud pattern limit points for collection ' + str(collection_key))
+                while th < end_angle:
+                    # Compute the source points out of the pattern bounds
+                    source_pt = [[seed_point[0],
+                                  seed_point[1] + radius * np.cos(th),
+                                  seed_point[2] + radius * np.sin(th)]]
+                    # Compute point that is more distant from the seed point
+                    c_idx = np.argmin(distance.cdist(source_pt, points[:, 0:3], 'euclidean'))
+                    extrema_points.append(points[c_idx, 0:3])
+
+                    th += angle_step
+                    # ----------------
+
+                # Delete duplicates from extrema points array
+                unique_extrema_points = list(set(map(tuple, extrema_points)))
+                collection['labels'][sensor_key]['limit_points'] = unique_extrema_points
 
     # ---------------------------------------
     # --- SETUP OPTIMIZER
@@ -360,8 +386,8 @@ def main():
                 for idx in range(0, len(collection['labels'][sensor_key]['idxs'])):
                     opt.pushResidual(name=collection_key + '_' + sensor_key + '_oe_' + str(idx), params=params)
                 # Extrema displacement error
-                for idx in range(0, 4):
-                    opt.pushResidual(name=collection_key + '_' + sensor_key + '_cd_' + str(idx), params=params)
+                # for idx in range(0, 4):
+                #     opt.pushResidual(name=collection_key + '_' + sensor_key + '_cd_' + str(idx), params=params)
 
     # opt.printResiduals()
 

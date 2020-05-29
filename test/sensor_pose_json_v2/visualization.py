@@ -98,7 +98,7 @@ def setupVisualization(dataset, args):
 
         # TODO If no mesh is given, or if mesh_file does not exist, issue a warning and create a drawing of the
         #  pattern with lines m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5x5.dae'
-        m.mesh_resource = 'file://' + uriReader(dataset['calibration_config']['calibration_pattern']['mesh_file'])
+        m.mesh_resource = 'file://' + str(uriReader(dataset['calibration_config']['calibration_pattern']['mesh_file']))
         m.mesh_use_embedded_materials = True
         markers.markers.append(m)
 
@@ -232,14 +232,10 @@ def setupVisualization(dataset, args):
                                                 b=graphics['collections'][collection_key]['color'][2], a=0.4)
                                 )
 
-                idx = collection['labels'][sensor_key]['idx_top_left']
-                marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
-                idx = collection['labels'][sensor_key]['idx_top_right']
-                marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
-                idx = collection['labels'][sensor_key]['idx_bottom_right']
-                marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
-                idx = collection['labels'][sensor_key]['idx_bottom_left']
-                marker.points.append(Point(x=points[idx, 0], y=points[idx, 1], z=points[idx, 2]))
+                limit_points = np.array(collection['labels'][sensor_key]['limit_points'])
+                for idx in range(0, np.shape(limit_points)[0]):
+                    marker.points.append(Point(x=limit_points[idx, 0], y=limit_points[idx, 1],
+                                               z=limit_points[idx, 2]))
 
                 id += 1
 
