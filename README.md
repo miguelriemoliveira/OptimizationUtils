@@ -71,7 +71,7 @@ roslaunch interactive_calibration atlascar2_calibration.launch read_first_guess:
 and then:
 
 ```bash
-rosrun interactive_calibration collect_and_label_data.py -o ~/datasets/calib_complete_fg_v2 -s .5 -c ~/catkin_ws/src/AtlasCarCalibration/interactive_calibration/calibrations/atlascar2/atlascar2_calibration.json
+rosrun interactive_calibration collect_data.py -o ~/datasets/calib_complete_fg_v2 -s .5 -c ~/catkin_ws/src/AtlasCarCalibration/interactive_calibration/calibrations/atlascar2/atlascar2_calibration.json
 ```
 
 You can visualize the json file by copying to 
