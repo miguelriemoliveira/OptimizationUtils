@@ -470,7 +470,7 @@ def main():
     #         raise ValueError('Could not find transform ' + str(transform_key) + ' in /robot_description')
     #
     # # TODO remove hardcoded xacro name
-    # outfile = rospkg.RosPack().get_path('interactive_calibration') + '/calibrations/atlascar2/optimized.urdf.xacro'
+    # outfile = rospkg.RosPack().get_path('atom_calibration') + '/calibrations/atlascar2/optimized.urdf.xacro'
     # with open(outfile, 'w') as out:
     #     print("Writing optimized urdf to " + str(outfile))
     #     out.write(URDF.to_xml_string(xml_robot))

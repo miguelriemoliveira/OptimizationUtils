@@ -65,13 +65,13 @@ clear && test/projection_based_color_balancing_oc_dataset.py -p ~/datasets/red_b
 To generate a dataset
 
 ```bash
-roslaunch interactive_calibration atlascar2_calibration.launch read_first_guess:=true
+roslaunch atom_calibration atlascar2_calibration.launch read_first_guess:=true
 ```
 
 and then:
 
 ```bash
-rosrun interactive_calibration collect_data.py -o ~/datasets/calib_complete_fg_v2 -s .5 -c ~/catkin_ws/src/AtlasCarCalibration/interactive_calibration/calibrations/atlascar2/atlascar2_calibration.json
+rosrun atom_calibration collect_data.py -o ~/datasets/calib_complete_fg_v2 -s .5 -c ~/catkin_ws/src/AtlasCarCalibration/atom_calibration/calibrations/atlascar2/atlascar2_calibration.json
 ```
 
 You can visualize the json file by copying to 
@@ -98,7 +98,7 @@ test/sensor_pose_json_v2/main.py -json ~/datasets/calib_complete_fg_v2/data_coll
 First launch rviz. There a dedicated launch file for this.
 
 ```bash
-roslaunch interactive_calibration atlascar2_view_optimization.launch 
+roslaunch atom_calibration atlascar2_view_optimization.launch 
 ```
 
 ```bash

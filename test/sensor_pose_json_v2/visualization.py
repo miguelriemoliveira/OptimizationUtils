@@ -31,7 +31,7 @@ from open3d import *
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
 from OptimizationUtils import utilities
-from interactive_calibration.utilities import uriReader
+from atom_calibration.utilities import uriReader
 
 
 def genCollectionPrefix(collection_key, string):
@@ -97,7 +97,7 @@ def setupVisualization(dataset, args):
                    color=ColorRGBA(r=1, g=1, b=1, a=1))
 
         # TODO If no mesh is given, or if mesh_file does not exist, issue a warning and create a drawing of the
-        #  pattern with lines m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5x5.dae'
+        #  pattern with lines m.mesh_resource = 'package://atom_calibration/meshes/charuco_5x5.dae'
         m.mesh_resource = 'file://' + str(uriReader(dataset['calibration_config']['calibration_pattern']['mesh_file']))
         m.mesh_use_embedded_materials = True
         markers.markers.append(m)
@@ -498,7 +498,7 @@ def visualizationFunction(models):
 #                              orientation=Quaternion(x=0, y=0, z=0, w=1)),
 #                    scale=Vector3(x=1.0, y=1.0, z=1.0),
 #                    color=ColorRGBA(r=1, g=1, b=1, a=1))
-#         m.mesh_resource = 'package://interactive_calibration/meshes/charuco_5x5.dae'
+#         m.mesh_resource = 'package://atom_calibration/meshes/charuco_5x5.dae'
 #         m.mesh_use_embedded_materials = True
 #         markers.markers.append(m)
 #
