@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import cv2
 import KeyPressManager.KeyPressManager
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
+import json
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS
@@ -38,7 +39,7 @@ class Calibration:
         self.right_cam_image_points = []
 
 
-def generate_chessboard(size, dimensions=(9, 6)):
+def generate_chessboard(size, dimensions):
     objp = np.zeros((dimensions[0] * dimensions[1], 3), np.float32)
     objp[:, :2] = np.mgrid[0:dimensions[0], 0:dimensions[1]].T.reshape(-1, 2)
     objp = objp * size
@@ -89,37 +90,57 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap = OptimizationUtils.addArguments(ap)  # OptimizationUtils arguments
     ap.add_argument("-d", "--dataset_path", help="Path to the dataset", type=str, required=True)
+    ap.add_argument("-j", "--json_path", help="Full path to Json file", type=str, required=True)
     args = vars(ap.parse_args())
-
-    print(args)
 
     # ---------------------------------------
     # --- INITIALIZATION
     # ---------------------------------------
     calibration = Calibration()
 
+    json_file = args['json_path']
+
+    f = open(args['json_path'], 'r')
+    calibration_data = json.load(f)
+
     # Chessboard dimensions
-    dimensions = (6, 9)
-    size_board = 100
+    dimensions = calibration_data['calibration_config']['calibration_pattern']['dimension']
+    size_board = calibration_data['calibration_config']['calibration_pattern']['size']
 
     # K matrix and distortion coefficients from cameras
-    k_left = np.array([[1149.369, 0.0, 471.693], [0.0, 1153.728, 396.955], [0.0, 0.0, 1.0]])
-    dist_left = np.array([-1.65512977e-01, -2.08184195e-01, -2.17490237e-03, -5.04628479e-04, 1.18772434e+00])
+    k_left = np.zeros((3, 3), np.float32)
+    k_right = np.zeros((3, 3), np.float32)
 
-    k_right = np.array([[1135.560, 0.0, 490.807], [0.0, 1136.240, 412.468], [0.0, 0.0, 1.0]])
-    dist_right = np.array([-2.06069540e-01, -1.27768958e-01, 2.22591520e-03, 1.60327811e-03, 2.08236968e+00])
+    k_left[0, :] = calibration_data['sensors']['top_left_camera']['camera_info']['K'][0:3]
+    k_left[1, :] = calibration_data['sensors']['top_left_camera']['camera_info']['K'][3:6]
+    k_left[2, :] = calibration_data['sensors']['top_left_camera']['camera_info']['K'][6:9]
+
+    k_right[0, :] = calibration_data['sensors']['top_right_camera']['camera_info']['K'][0:3]
+    k_right[1, :] = calibration_data['sensors']['top_right_camera']['camera_info']['K'][3:6]
+    k_right[2, :] = calibration_data['sensors']['top_right_camera']['camera_info']['K'][6:9]
+
+    dist_left = np.zeros((1, 5), np.float32)
+    dist_right = np.zeros((1, 5), np.float32)
+    dist_left[:] = calibration_data['sensors']['top_left_camera']['camera_info']['D']
+    dist_right[:] = calibration_data['sensors']['top_right_camera']['camera_info']['D']
 
     # Image used
     if not args['dataset_path'][-1] == '/':  # make sure the path is correct
         args['dataset_path'] += '/'
-    name_image_left = args['dataset_path'] + 'top_left_camera_1.jpg'
-    name_image_right = args['dataset_path'] + 'top_right_camera_1.jpg'
+
+    name_image_left = []
+    name_image_right = []
+    for i in calibration_data['collections']:
+
+        name_image_left.append(args['dataset_path'] + calibration_data['collections'][str(i)]['data']['top_left_camera']['data_file'])
+        name_image_right.append(args['dataset_path'] + calibration_data['collections'][str(i)]['data']['top_right_camera']['data_file'])
+        # name_image_right.append(args['dataset_path'] + 'top_right_camera_' + str(i) + '.jpg')
 
     # termination criteria
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
     # Creating chessboard points
-    pts_chessboard = generate_chessboard(0.101, (9, 6))
+    pts_chessboard = generate_chessboard(size_board, dimensions)
 
     # ---------------------------------------
     # --- Setup Optimizer
@@ -150,7 +171,6 @@ if __name__ == "__main__":
             calibration.right_cam_translation[2] = value
         else:
             raise ValueError('Unknown i value: ' + str(idx))
-
 
     def getter(calibration, idx):
         if idx == 0:
@@ -183,54 +203,58 @@ if __name__ == "__main__":
         calibration = model['calibration']
         print("calibrations")
         print(calibration.right_cam_translation)
+        error = []
+        calibration.right_cam_image_points = []
+        for ind in range(len(name_image_right)):
+            right_cam_rotation_vector = np.zeros((1, 3), np.float32)
+            right_cam_translation = np.zeros((3), np.float32)
+            for i in range(0, 3):
+                right_cam_rotation_vector[0, i] = calibration.right_cam_rotation_vector[i][0]
+                right_cam_translation[i] = calibration.right_cam_translation[i][0]
+            # Get T from left camera to chess
+            rvec_cam_left, tvec_cam_left = find_cam_chess_realpoints(str(name_image_left[ind]), 0)
+            left_cam_T_chess = np.zeros((4, 4), np.float32)
+            left_cam_T_chess[0:3, 0:3], _ = cv2.Rodrigues(rvec_cam_left)
+            left_cam_T_chess[0:3, 3] = tvec_cam_left.T
+            left_cam_T_chess[3, :] = [0, 0, 0, 1]  # homogenize
 
-        right_cam_rotation_vector = np.zeros((1, 3), np.float32)
-        right_cam_translation = np.zeros((3), np.float32)
-        for i in range(0, 3):
-            right_cam_rotation_vector[0, i] = calibration.right_cam_rotation_vector[i][0]
-            print(calibration.right_cam_translation[i][0])
-            right_cam_translation[i] = calibration.right_cam_translation[i][0]
-        # Get T from left camera to chess
-        rvec_cam_left, tvec_cam_left = find_cam_chess_realpoints(name_image_left, 0)
-        left_cam_T_chess = np.zeros((4, 4), np.float32)
-        left_cam_T_chess[0:3, 0:3], _ = cv2.Rodrigues(rvec_cam_left)
-        left_cam_T_chess[0:3, 3] = tvec_cam_left.T
-        left_cam_T_chess[3, :] = [0, 0, 0, 1]  # homogenize
+            # Get T from left cam to right cam (based on the params being oiptimized)
+            right_cam_T_left_cam = np.zeros((4, 4), np.float32)
 
-        # Get T from left cam to right cam (based on the params being oiptimized)
-        right_cam_T_left_cam = np.zeros((4, 4), np.float32)
+            right_cam_T_left_cam[0:3, 0:3], _ = cv2.Rodrigues(right_cam_rotation_vector)
+            right_cam_T_left_cam[0:3, 3] = right_cam_translation.T
+            right_cam_T_left_cam[3, :] = [0, 0, 0, 1]  # homogenize
 
-        right_cam_T_left_cam[0:3, 0:3], _ = cv2.Rodrigues(right_cam_rotation_vector)
-        right_cam_T_left_cam[0:3, 3] = right_cam_translation.T
-        right_cam_T_left_cam[3, :] = [0, 0, 0, 1]  # homogenize
+            # Get aggregate T from cam_right to chess (optimized)
+            right_cam_T_chess_opt = np.matmul(right_cam_T_left_cam, left_cam_T_chess)
 
-        # Get aggregate T from cam_right to chess (optimized)
-        right_cam_T_chess_opt = np.matmul(right_cam_T_left_cam, left_cam_T_chess)
+            # Get T from right camera to chess (ground truth)
+            rvec_cam_right, tvec_cam_right = find_cam_chess_realpoints(str(name_image_right[ind]), 1)
+            right_cam_T_chess_ground_truth = np.zeros((3, 4), np.float32)
+            right_cam_T_chess_ground_truth[0:3, 0:3] = cv2.Rodrigues(rvec_cam_right)[0]
+            right_cam_T_chess_ground_truth[0:3, 3] = tvec_cam_right.T
 
-        # Get T from right camera to chess (ground truth)
-        rvec_cam_right, tvec_cam_right = find_cam_chess_realpoints(name_image_right, 1)
-        right_cam_T_chess_ground_truth = np.zeros((3, 4), np.float32)
-        right_cam_T_chess_ground_truth[0:3, 0:3] = cv2.Rodrigues(rvec_cam_right)[0]
-        right_cam_T_chess_ground_truth[0:3, 3] = tvec_cam_right.T
+            # Draw projection of (optimized) 3D points
+            r_cam2tochess_vector, _ = cv2.Rodrigues(right_cam_T_chess_opt[0:3, 0:3])
+            # t_cam2tochess = np.zeros((3, 1))
+            t_cam2tochess = right_cam_T_chess_opt[0:3, 3]
+            imgpoints_right_optimize = cv2.projectPoints(pts_chessboard, r_cam2tochess_vector, t_cam2tochess, k_right,
+                                                         dist_right)
 
-        # Draw projection of (optimized) 3D points
-        r_cam2tochess_vector, _ = cv2.Rodrigues(right_cam_T_chess_opt[0:3, 0:3])
-        # t_cam2tochess = np.zeros((3, 1))
-        t_cam2tochess = right_cam_T_chess_opt[0:3, 3]
-        imgpoints_right_optimize = cv2.projectPoints(pts_chessboard, r_cam2tochess_vector, t_cam2tochess, k_right,
+            calibration.right_cam_image_points.append(imgpoints_right_optimize)
+
+            imgpoints_right_real = cv2.projectPoints(pts_chessboard, rvec_cam_right, tvec_cam_right, k_right,
                                                      dist_right)
 
-        calibration.right_cam_image_points = imgpoints_right_optimize
 
-        imgpoints_right_real = cv2.projectPoints(pts_chessboard, rvec_cam_right, tvec_cam_right, k_right, dist_right)
-
-        error = []
-        for a in range(dimensions[0] * dimensions[1]):
-            error.append(math.sqrt((imgpoints_right_optimize[0][a][0][0] - imgpoints_right_real[0][a][0][0]) ** 2 + (
-                    imgpoints_right_optimize[0][a][0][1] - imgpoints_right_real[0][a][0][1]) ** 2))
+            for a in range(dimensions[0] * dimensions[1]):
+                error.append(
+                    math.sqrt((imgpoints_right_optimize[0][a][0][0] - imgpoints_right_real[0][a][0][0]) ** 2 + (
+                            imgpoints_right_optimize[0][a][0][1] - imgpoints_right_real[0][a][0][1]) ** 2))
 
 
-        print("avg error: " + str(np.mean(np.array(error))))
+
+        # print("avg error: " + str(np.mean(np.array(error))))
         return error
 
 
@@ -239,8 +263,9 @@ if __name__ == "__main__":
     # ---------------------------------------
     # --- Define THE RESIDUALS
     # ---------------------------------------
-    for a in range(0, dimensions[0] * dimensions[1]):
-        opt.pushResidual(name='r' + str(a), params=parameter_names)
+    for a1 in range(len(name_image_left)):
+        for a in range(0, dimensions[0] * dimensions[1]):
+            opt.pushResidual(name='r' + str(a) + '_c' + str(a1), params=parameter_names)
 
     print('residuals = ' + str(opt.residuals))
 
@@ -296,12 +321,12 @@ if __name__ == "__main__":
         pass
     #
         calibration = model['calibration']
-
-        img1 = cv2.imread(name_image_right)
-        img = cv2.drawChessboardCorners(img1, (9, 6), calibration.right_cam_image_points[0], True)
-        cv2.imshow('img', img)
-        cv2.waitKey(20)
-    #
+        for ind1 in range(len(name_image_right)):
+            img1 = cv2.imread(name_image_right[ind1])
+            img = cv2.drawChessboardCorners(img1, (9, 6), calibration.right_cam_image_points[ind1][0], True)
+            cv2.imshow('img', img)
+            cv2.waitKey(1)
+        #
     #     # y = calibration.param0[0] + \
     #     #     np.multiply(calibration.param1[0], np.power(x, 1)) + \
     #     #     np.multiply(calibration.param2[0], np.power(x, 2)) + \
