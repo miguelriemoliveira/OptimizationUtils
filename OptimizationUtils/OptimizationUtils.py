@@ -567,12 +567,12 @@ class Optimizer:
                                                       linestyle='solid', linewidth=2, markersize=6)
         self.ax.plot(x, [0] * len(self.errors0), color='black', linestyle='dashed', linewidth=2, markersize=6)
         self.ax.set_xticks(x, minor=False)
-        self.ax.set_xticks([], minor=True)
-        self.ax.set_xticklabels(list(self.residuals.keys()))
+        self.ax.set_xticks([], minor=False)
+        # self.ax.set_xticklabels(list(self.residuals.keys()))
 
         matplotlib.pyplot.title('Optimization Residuals')
         matplotlib.pyplot.xlabel('Residuals')
-        matplotlib.pyplot.ylabel('Values')
+        matplotlib.pyplot.ylabel('Value')
         for tick in self.ax.get_xticklabels():
             tick.set_rotation(90)
 
