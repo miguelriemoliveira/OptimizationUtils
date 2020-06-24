@@ -4,6 +4,7 @@
 import matplotlib
 import pprint
 from collections import namedtuple, OrderedDict
+from colorama import Fore
 from copy import deepcopy
 import pandas
 import cv2
@@ -43,6 +44,7 @@ def addArguments(ap):
 # -------------------------------------------------------------------------------
 
 data_models = []
+
 
 class Optimizer:
 
@@ -214,8 +216,15 @@ class Optimizer:
         :param params: parameter names which affect this residual
         :type params: list
         """
-        # TODO check if all listed params exist in the self.params
-        self.residuals[name] = params
+
+        # Check if all listed params exist in the self.params
+        existing_params = self.getParameters()
+        for param in params:
+            if param not in existing_params:
+                raise ValueError('Cannot push residual ' + name + ' because given dependency parameter ' + param +
+                                 ' has not been configured. Did you push this parameter?')
+
+        self.residuals[str(name)] = params
 
     def setObjectiveFunction(self, handle):
         # type: (function) -> object
@@ -262,8 +271,11 @@ class Optimizer:
         """
         self.x = x  # setup x parameters.
         self.fromXToData()  # Copy from parameters to data models.
-        errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
-        errors = self.errorDictToList(errors)
+        errors = self.errorDictToList(
+            self.objective_function(self.data_models))  # Call objective func. with updated data models.
+
+        # self.printParameters()
+        # self.printResiduals(errors)
 
         # Visualization: skip if counter does not exceed blackout interval
         if self.always_visualize and self.vis_counter >= self.vis_niterations:
@@ -309,8 +321,20 @@ class Optimizer:
             error_dict = errors
             error_list = []
 
-            for residual in self.residuals:  # residuals is an ordered dictionary.
+            for error_dict_key in error_dict.keys():  # Check if some of the retuned residuals are not configured.
+                if error_dict_key not in self.residuals.keys():
+                    raise ValueError('Objective function returned dictionary with residual ' + Fore.RED +
+                                     error_dict_key + Fore.RESET +
+                                     ' which does not exist. Use printResiduals to check the configured residuals')
+
+            for residual in self.residuals:  # residuals is an ordered dict to recover a correctly ordered list
+                if residual not in error_dict.keys():
+                    raise ValueError(
+                        'Objective function returned dictionary which does not contain the residual ' + Fore.RED +
+                        residual + Fore.RESET + '. This residual is mandatory.')
+
                 error_list.append(error_dict[residual])
+
         else:
             raise ValueError('errors of unknown type ' + str(type(errors)))
 
@@ -325,16 +349,14 @@ class Optimizer:
         """
         self.x0 = deepcopy(self.x)  # store current x as initial parameter values
         self.fromXToData()  # copy from x to data models
-        self.errors0 = self.objective_function(self.data_models)  # call obj. func. (once) to get initial residuals
-        self.errors0 = self.errorDictToList(self.errors0)
+        # Call objective func. to get initial residuals.
+        errors = self.errorDictToList(self.objective_function(self.data_models))
+        self.errors0 = deepcopy(errors)  # store initial residuals for future reference
 
         if not len(self.residuals.keys()) == len(self.errors0):  # check if residuals are properly configured
             raise ValueError(
                 'Number of residuals returned by the objective function (' + str(len(self.errors0)) +
                 ') is not consistent with the number of residuals configured (' + str(len(self.residuals.keys())) + ')')
-
-        errors = self.objective_function(self.data_models)  # Call objective func. with updated data models.
-        errors = self.errorDictToList(errors)
 
         # Setup boundaries for parameters
         bounds_min = []
@@ -486,6 +508,14 @@ class Optimizer:
 
         print(self.x)
 
+    def getParamNames(self):
+        params = []
+        for group_name in self.groups:
+            for param_name in self.groups[group_name].param_names:
+                params.append(param_name)
+
+        return params
+
     def printParameters(self, x=None, flg_simple=False, text=None):
         """ Prints the current values of the parameters in the parameter list as well as the corresponding data
         models.
@@ -497,6 +527,9 @@ class Optimizer:
         if x is None:
             x = self.x
 
+        if self.x0 == []:
+            self.x0 = deepcopy(x)
+
         # Build a panda data frame and then print a nice table
         rows = []  # get a list of parameters
         table = []
@@ -504,14 +537,14 @@ class Optimizer:
             values_in_data = group.getter(self.data_models[group.data_key])
             for i, param_name in enumerate(group.param_names):
                 rows.append(param_name)
-                table.append([group_name, x[group.idx[i]], values_in_data[i]])
+                table.append([group_name, self.x0[group.idx[i]], x[group.idx[i]], values_in_data[i]])
 
         if text is None:
             print('\nParameters:')
         else:
             print(text)
 
-        df = pandas.DataFrame(table, rows, ['Group', 'x', 'data'])
+        df = pandas.DataFrame(table, rows, ['Group', 'x0', 'x', 'data'])
         if flg_simple:
             # https://medium.com/dunder-data/selecting-subsets-of-data-in-pandas-6fcd0170be9c
             print(df[['x']])
