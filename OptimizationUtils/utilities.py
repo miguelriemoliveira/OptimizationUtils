@@ -372,6 +372,7 @@ def translationQuaternionToTransform(trans, quat):
     # print(str(matrix))
     return matrix
 
+
 def generateKey(parent, child, suffix=''):
     return parent + '-' + child + suffix
 
@@ -425,7 +426,7 @@ def getAggregateTransform(chain, transforms):
             quat = transforms[key]['quat']
             parent_T_child = translationQuaternionToTransform(trans, quat)
             # print(parent + '_T_' + child + ' =\n' + str(parent_T_child))
-        elif inverse_key in transforms.keys(): # the reverse transform may exist
+        elif inverse_key in transforms.keys():  # the reverse transform may exist
             trans = transforms[inverse_key]['trans']
             quat = transforms[inverse_key]['quat']
             parent_T_child = np.linalg.inv(translationQuaternionToTransform(trans, quat))
@@ -551,8 +552,6 @@ def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
     x = pts[0, :]
     y = pts[1, :]
     z = pts[2, :]
-
-
 
     dists = norm(pts[0:3, :], axis=0)  # compute distances from point to camera
     xl = np.divide(x, z)  # compute homogeneous coordinates
