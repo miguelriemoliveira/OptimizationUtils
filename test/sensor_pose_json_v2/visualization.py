@@ -31,7 +31,7 @@ from open3d import *
 # --- FUNCTIONS
 # -------------------------------------------------------------------------------
 from OptimizationUtils import utilities
-from atom_calibration.utilities import uriReader
+from atom_core.utilities import uriReader
 
 
 def genCollectionPrefix(collection_key, string):
