@@ -14,12 +14,32 @@ from scipy.sparse import lil_matrix
 import numpy as np
 import random
 import KeyPressManager.KeyPressManager
+import time
 
 # ------------------------
 # DATA STRUCTURES   ##
 # ------------------------
 ParamT = namedtuple('ParamT', 'param_names idx data_key getter setter bound_max bound_min')
 
+def tic():
+    # matlab like tic and toc functions
+    global startTime_for_tictoc
+    startTime_for_tictoc = time.time()
+
+def toc():
+    # matlab like tic and toc functions
+    if 'startTime_for_tictoc' in globals():
+        print("Elapsed time is " + str(time.time() - startTime_for_tictoc) + " seconds.")
+    else:
+        print("Toc: start time not set")
+
+def tocs():
+    # matlab like tic and toc functions
+    if 'startTime_for_tictoc' in globals():
+        return str((time.time() - startTime_for_tictoc))
+    else:
+        print("Toc: start time not set")
+        return None
 
 # ------------------------
 # FUNCTION DEFINITION
@@ -322,13 +342,15 @@ class Optimizer:
             error_list = []
 
             for error_dict_key in error_dict.keys():  # Check if some of the retuned residuals are not configured.
-                if error_dict_key not in self.residuals.keys():
-                    raise ValueError('Objective function returned dictionary with residual ' + Fore.RED +
+                # if error_dict_key not in self.residuals.keys():
+                if not self.residuals.has_key(error_dict_key):
+                        raise ValueError('Objective function returned dictionary with residual ' + Fore.RED +
                                      error_dict_key + Fore.RESET +
                                      ' which does not exist. Use printResiduals to check the configured residuals')
 
             for residual in self.residuals:  # residuals is an ordered dict to recover a correctly ordered list
-                if residual not in error_dict.keys():
+                # if residual not in error_dict.keys():
+                if not error_dict.has_key(residual):
                     raise ValueError(
                         'Objective function returned dictionary which does not contain the residual ' + Fore.RED +
                         residual + Fore.RESET + '. This residual is mandatory.')
@@ -515,6 +537,14 @@ class Optimizer:
                 params.append(param_name)
 
         return params
+
+    def getNumberOfParameters(self):
+        number_of_parameters = 0
+        for group_name, group in self.groups.items():
+            for i, param_name in enumerate(group.param_names):
+                number_of_parameters += 1
+
+        return number_of_parameters
 
     def printParameters(self, x=None, flg_simple=False, text=None):
         """ Prints the current values of the parameters in the parameter list as well as the corresponding data

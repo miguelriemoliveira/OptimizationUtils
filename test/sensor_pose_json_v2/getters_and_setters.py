@@ -20,6 +20,8 @@ import OptimizationUtils.utilities as utilities
 # ------------  Sensors -----------------
 # Each sensor will have a position (tx,ty,tz) and a rotation (r1,r2,r3)
 
+
+
 def getterSensorTranslation(data, sensor_key, collection_key):
     calibration_parent = data['sensors'][sensor_key]['calibration_parent']
     calibration_child = data['sensors'][sensor_key]['calibration_child']
