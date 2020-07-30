@@ -498,16 +498,10 @@ class Optimizer:
         self.sparse_matrix = lil_matrix((len(self.residuals), len(params)), dtype=int)
 
         for i, key in enumerate(self.residuals):
-            for param in self.residuals[key]:
-                # print("param = " + param)
-                for group_name, group in self.groups.items():
-                    if param in group.param_names:
-                        idx_in_group = group.param_names.index(param)
-                        # print("param_names = " + str(group.param_names))
-                        idx = group.idx[idx_in_group]
-                        # print("group.idx = " + str(group.idx))
-                        # print("idx_in_group = " + str(idx_in_group))
-                        # print("idx = " + str(idx))
+            for group_name, group in self.groups.items():
+                for j, param in enumerate(group.param_names):
+                    if param in self.residuals[key]:
+                        idx = group.idx[j]
                         self.sparse_matrix[i, idx] = 1
 
     # ---------------------------
