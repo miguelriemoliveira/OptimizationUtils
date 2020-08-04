@@ -8,6 +8,8 @@ UNDER CONSTRUCTION YET"""
 import json
 import os
 
+import atom_core.atom
+
 import OptimizationUtils.utilities as utilities
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -138,8 +140,8 @@ if __name__ == "__main__":
             #     root_T_chessboard = np.dot(root_T_sensor1, sensor1_T_chessboard)
             #
 
-            root_T_sensor1 = utilities.getAggregateTransform(data_opt['sensors']['top_left_camera']['chain'], collection['transforms'])
-            root_T_sensor2 = utilities.getAggregateTransform(data_opt['sensors']['top_right_camera']['chain'], collection['transforms'])
+            root_T_sensor1 = atom_core.atom.getAggregateTransform(data_opt['sensors']['top_left_camera']['chain'], collection['transforms'])
+            root_T_sensor2 = atom_core.atom.getAggregateTransform(data_opt['sensors']['top_right_camera']['chain'], collection['transforms'])
 
             root_T_chessboard = utilities.translationQuaternionToTransform(
                  data_opt['chessboards']['collections'][collection_key]['trans'],

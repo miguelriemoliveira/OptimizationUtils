@@ -9,6 +9,7 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 import numpy as np
 from copy import deepcopy
 
+import atom_core.atom
 import cv2
 from tf import transformations
 
@@ -284,7 +285,7 @@ def createChessBoardData(args, dataset_sensors):
                 ret, rvecs, tvecs = cv2.solvePnP(objp[ids], np.array(corners, dtype=np.float32), K, D)
 
                 # Compute the pose of he chessboard w.r.t the base_link
-                root_T_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                root_T_sensor = atom_core.atom.getAggregateTransform(sensor['chain'], collection['transforms'])
                 sensor_T_chessboard = utilities.traslationRodriguesToTransform(tvecs, rvecs)
                 root_T_chessboard = np.dot(root_T_sensor, sensor_T_chessboard)
                 T = deepcopy(root_T_chessboard)

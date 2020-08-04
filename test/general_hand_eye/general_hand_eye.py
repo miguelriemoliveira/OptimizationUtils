@@ -6,6 +6,7 @@ import json
 import numpy as np
 from copy import deepcopy
 
+import atom_core.atom
 import cv2
 
 from functools import partial
@@ -73,7 +74,7 @@ def setterCameraIntrinsics(dataset, value, sensor_name):
 def printOriginTag(name, sensor, transforms):
     parent_sensor = sensor['calibration_parent']
     child_sensor = sensor['calibration_child']
-    transform_key = utilities.generateKey(parent_sensor, child_sensor)
+    transform_key = atom_core.atom.generateKey(parent_sensor, child_sensor)
 
     trans = transforms[transform_key]['trans']
     quat = transforms[transform_key]['quat']
@@ -125,7 +126,7 @@ def objectiveFunction(models):
         # the optimization utils because of the parameters configuration, we don't have to worry about it.
         parent_pattern = config['calibration_pattern']['parent_link']
         child_pattern = config['calibration_pattern']['link']
-        transform_key = utilities.generateKey(parent_pattern, child_pattern)
+        transform_key = atom_core.atom.generateKey(parent_pattern, child_pattern)
         trans = collection['transforms'][transform_key]['trans']
         quat = collection['transforms'][transform_key]['quat']
         tree.add_transform(parent_pattern, child_pattern, Transform(trans[0], trans[1], trans[2],
@@ -138,7 +139,7 @@ def objectiveFunction(models):
 
             parent_sensor = sensors[sensor_name]['calibration_parent']
             child_sensor = sensors[sensor_name]['calibration_child']
-            transform_key = utilities.generateKey(parent_sensor, child_sensor)
+            transform_key = atom_core.atom.generateKey(parent_sensor, child_sensor)
 
             trans = collection['transforms'][transform_key]['trans']
             quat = collection['transforms'][transform_key]['quat']
@@ -335,7 +336,7 @@ def main():
     for sensor_name, sensor in dataset['sensors'].items():
         parent = sensor['calibration_parent']
         child = sensor['calibration_child']
-        transform_key = utilities.generateKey(parent, child)
+        transform_key = atom_core.atom.generateKey(parent, child)
         transforms_set.add(transform_key)
 
     for transform_key in transforms_set:  # push six parameters for each transform to be optimized.
@@ -373,7 +374,7 @@ def main():
 
         parent = dataset['calibration_config']['calibration_pattern']['parent_link']
         child = dataset['calibration_config']['calibration_pattern']['link']
-        transform_key = utilities.generateKey(parent, child)
+        transform_key = atom_core.atom.generateKey(parent, child)
 
         found = False
         for collection_key, collection in dataset['collections'].items():
@@ -409,7 +410,7 @@ def main():
     else:
         parent = dataset['calibration_config']['calibration_pattern']['parent_link']
         child = dataset['calibration_config']['calibration_pattern']['link']
-        transform_key = utilities.generateKey(parent, child)
+        transform_key = atom_core.atom.generateKey(parent, child)
 
         for collection_key, collection in dataset['collections'].items():
             for sensor_name, labels in collection['labels'].items():
@@ -445,14 +446,14 @@ def main():
 
             # Params related to the sensor. Parameter name is the transform_key of the sensors optimized transform
             params = opt.getParamsContainingPattern(
-                utilities.generateKey(dataset['sensors'][sensor_name]['calibration_parent'],
-                                      dataset['sensors'][sensor_name]['calibration_child']))
+                atom_core.atom.generateKey(dataset['sensors'][sensor_name]['calibration_parent'],
+                                           dataset['sensors'][sensor_name]['calibration_child']))
 
             params.extend(opt.getParamsContainingPattern(sensor_name))  # intrinsics have the sensor name
 
             # Params related to the pattern
-            transform_key = utilities.generateKey(dataset['calibration_config']['calibration_pattern']['parent_link'],
-                                                  dataset['calibration_config']['calibration_pattern']['link'])
+            transform_key = atom_core.atom.generateKey(dataset['calibration_config']['calibration_pattern']['parent_link'],
+                                                       dataset['calibration_config']['calibration_pattern']['link'])
 
             if dataset['calibration_config']['calibration_pattern']['fixed']:
                 params.extend(opt.getParamsContainingPattern(transform_key))

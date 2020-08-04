@@ -5,6 +5,8 @@ import pprint
 from copy import deepcopy
 import math
 import numpy as np
+
+import atom_core.atom
 from statistics import mean
 
 import rospy
@@ -137,8 +139,8 @@ def objectiveFunction(data):
                 root_to_chessboard = utilities.translationQuaternionToTransform(trans, quat)
                 pts_in_root = np.dot(root_to_chessboard, dataset_chessboard_points['points'])
 
-                sensor_to_root = np.linalg.inv(utilities.getAggregateTransform(sensor['chain'],
-                                                                               collection['transforms']))
+                sensor_to_root = np.linalg.inv(atom_core.atom.getAggregateTransform(sensor['chain'],
+                                                                                    collection['transforms']))
                 pts_sensor = np.dot(sensor_to_root, pts_in_root)
 
                 # K = np.ndarray((3, 3), buffer=np.array(sensor['camera_info']['K']), dtype=np.float)
@@ -210,7 +212,7 @@ def objectiveFunction(data):
                     pts_in_laser[3, idx] = 1
 
                 # Compute the coordinate of the laser points in the chessboard reference frame
-                root_to_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                root_to_sensor = atom_core.atom.getAggregateTransform(sensor['chain'], collection['transforms'])
                 pts_in_root = np.dot(root_to_sensor, pts_in_laser)
 
                 trans = dataset_chessboards['collections'][collection_key]['trans']
@@ -312,7 +314,7 @@ def objectiveFunction(data):
                 # p_no Is a normal vector defining the plane direction (does not need to be normalized).
 
                 # Compute the homogeneous transformation from the root base_link to the sensor's reference frame
-                root_to_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                root_to_sensor = atom_core.atom.getAggregateTransform(sensor['chain'], collection['transforms'])
 
                 # Compute p_co. It can be any point in the chessboard plane. Lets transform the origin of the
                 # chessboard to the 3D cloud reference frame
@@ -367,7 +369,7 @@ def objectiveFunction(data):
                 # --- Pattern Extrema Residuals: Distance from the extremas of the pattern to the corners of the cloud
                 # ------------------------------------------------------------------------------------------------
                 # Compute the coordinate of the laser points in the chessboard reference frame
-                root_to_sensor = utilities.getAggregateTransform(sensor['chain'], collection['transforms'])
+                root_to_sensor = atom_core.atom.getAggregateTransform(sensor['chain'], collection['transforms'])
                 pts_in_root = np.dot(root_to_sensor, points.transpose())
 
                 trans = dataset_chessboards['collections'][collection_key]['trans']

@@ -7,6 +7,9 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # --- IMPORTS
 # -------------------------------------------------------------------------------
 import json
+
+import atom_core.atom
+
 import OptimizationUtils.utilities as utilities
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -296,11 +299,11 @@ if __name__ == "__main__":
 
                     selected_collection_key_opt_left = data_opt_left['collections'].keys()[0]
 
-                    root_T_s2 = utilities.getAggregateTransform(
+                    root_T_s2 = atom_core.atom.getAggregateTransform(
                         data_opt_left['sensors'][sensor_2]['chain'],
                         data_opt_left['collections'][selected_collection_key_opt_left]['transforms'])
 
-                    root_T_s1 = utilities.getAggregateTransform(
+                    root_T_s1 = atom_core.atom.getAggregateTransform(
                         data_opt_left['sensors'][sensor_1]['chain'],
                         data_opt_left['collections'][selected_collection_key_opt_left]['transforms'])
 
@@ -335,11 +338,11 @@ if __name__ == "__main__":
 
                     selected_collection_key_opt_right = data_opt_right['collections'].keys()[0]
 
-                    root_T_s2 = utilities.getAggregateTransform(
+                    root_T_s2 = atom_core.atom.getAggregateTransform(
                         data_opt_right['sensors'][sensor_2]['chain'],
                         data_opt_right['collections'][selected_collection_key_opt_right]['transforms'])
 
-                    root_T_s1 = utilities.getAggregateTransform(
+                    root_T_s1 = atom_core.atom.getAggregateTransform(
                         data_opt_right['sensors'][sensor_1]['chain'],
                         data_opt_right['collections'][selected_collection_key_opt_right]['transforms'])
 

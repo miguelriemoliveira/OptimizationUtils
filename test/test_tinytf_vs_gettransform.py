@@ -5,6 +5,8 @@ import os.path
 import argparse
 import json
 import numpy as np
+
+import atom_core.atom
 import cv2
 
 from functools import partial
@@ -129,7 +131,7 @@ def main():
         print('\nT1a (using Euricos approach) =\n' + str(T1a))
 
         # Miguel's approach (first the parent, then the child)
-        T1b = utilities.getTransform(parent, child, collection['transforms'])
+        T1b = atom_core.atom.getTransform(parent, child, collection['transforms'])
         print('\nT1b (using Miguels approach)=\n' + str(T1b))
 
         tranform_key = parent + '-' + child

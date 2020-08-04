@@ -7,6 +7,9 @@ Reads a set of data and labels from a group of sensors in a json file and calibr
 # --- IMPORTS
 # -------------------------------------------------------------------------------
 import json
+
+import atom_core.atom
+
 import OptimizationUtils.utilities as utilities
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -228,8 +231,8 @@ if __name__ == "__main__":
                 # project 3D points to image plane
                 imgpts, jac = cv2.projectPoints(axis, rvecs, tvecs, K_1_opt, D_1_opt)
 
-                root_T_sensor = utilities.getAggregateTransform(data_opt['sensors']['top_right_camera']['chain'],
-                                                                collection['transforms'])
+                root_T_sensor = atom_core.atom.getAggregateTransform(data_opt['sensors']['top_right_camera']['chain'],
+                                                                     collection['transforms'])
 
                 sensor_T_chessboard = utilities.traslationRodriguesToTransform(tvecs, rvecs)
 
@@ -298,10 +301,10 @@ if __name__ == "__main__":
             for data_key, data in input_datas.items():
                 if data_key == 'data_opt':  # ---------------------------OPTIMIZATION----------------------------------
 
-                    root_T_s2 = utilities.getAggregateTransform(
+                    root_T_s2 = atom_core.atom.getAggregateTransform(
                         data_opt['sensors'][sensor_2]['chain'], data_opt['collections'][collection_key]['transforms'])
 
-                    root_T_s1 = utilities.getAggregateTransform(
+                    root_T_s1 = atom_core.atom.getAggregateTransform(
                         data_opt['sensors'][sensor_1]['chain'], data_opt['collections'][collection_key]['transforms'])
 
                     # root_T_chessboard = utilities.translationQuaternionToTransform(
