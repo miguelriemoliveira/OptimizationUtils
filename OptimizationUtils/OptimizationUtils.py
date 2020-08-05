@@ -13,7 +13,7 @@ from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 import numpy as np
 import random
-import KeyPressManager.KeyPressManager
+import KeyPressManager
 import time
 
 # ------------------------
@@ -393,7 +393,7 @@ class Optimizer:
             if self.internal_visualization:
                 self.drawResidualsFigure()  # First draw of residuals figure
                 self.drawErrorEvolutionFigure()  # First draw of error evolution figure
-                self.wm = KeyPressManager.KeyPressManager.WindowManager(self.figures)
+                self.wm = KeyPressManager.WindowManager(self.figures)
                 self.vis_counter = 0  # reset counter
                 self.vis_function_handle(self.data_models)  # call visualization function
                 self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
