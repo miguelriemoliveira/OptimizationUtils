@@ -1,8 +1,5 @@
-rospy_message_converter
-networkx
-pandas
-#image_geometry
-plyfile
-open3d-python
 scipy
-statistics
+numpy
+pandas
+matplotlib
+opencv-contrib-python

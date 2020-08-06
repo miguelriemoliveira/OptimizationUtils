@@ -3,10 +3,17 @@ A set of utilities for using the python scipy optimizer functions
 
 # Installation
 
-To install you must add the path of this python module to your PYTHON_PATH environment variable. You may run this script from the directory where your script is.
-
+You can install from source
 ```bash
-bash install.sh
+git clone https://github.com/miguelriemoliveira/OptimizationUtils.git
+cd OptimizationUtils
+python setup.py install --user
+```
+
+You can also use `pip` to install from source
+```bash
+git clone https://github.com/miguelriemoliveira/OptimizationUtils.git
+pip install OptimizationUtils
 ```
 
 # Usage
