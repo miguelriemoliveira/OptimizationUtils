@@ -34,7 +34,7 @@ import OptimizationUtils.OptimizationUtils as OptimizationUtils
 opt = OptimizationUtils.Optimizer()
 ```
 
-##### Set data models
+### Set data models
 
 One of the biggest troubles is the need to put the parameters to be optimized in a list. Often these parameters are very different, and putting them altogether in a list while having to keep track of the indices of each is a cumbersome and uninteresting task.
 
@@ -64,7 +64,7 @@ opt.addDataModel('dog', dog)
 opt.addDataModel('cat', cat)
 ```
 
-##### Define parameters to be optimized
+### Define parameters to be optimized
 
 Then, we define each of the parameters to be optimized. To do so one must define how the parameter is accessed and written from / to the data model. This is done by defining **getters** and **setters**:
 
@@ -111,7 +111,7 @@ opt.pushParamGroup(group_name='cat', data_key='cat',
                     suffix=['_weight', '_height'])
 ```
 
-##### Define the objective function
+### Define the objective function
 
 Now you write the objective function using your own data models, rather than some confusing linear array with thousands of parameters.
 
@@ -134,7 +134,7 @@ opt.setObjectiveFunction(objectiveFunction)
 
 Notice we use the argument data_models to extract the updated variables in our own data format. Then, two residuals are created in a dictionary and that dictionary is returned.
 
-##### Defining the residuals
+### Defining the residuals
 
 We must also define the residuals that are output by the objective function. For each residual we must identify which parameters  influence that residual (for sparse optimization problems):
 
@@ -146,7 +146,7 @@ params = opt.getParamsContainingPattern('height') # get all height related param
 opt.pushResidual(name='height_diference', params=params) 
 ```
  
- ##### Computing the sparse matrix
+ ### Computing the sparse matrix
  
  For sparse optimization problems, i.e. those in which not all parameters affect all residuals, a sparse matrix is used to map which parameters affect which residuals. Having such information considerably speeds up the optimization: there is no need to estimate the gradient for nonexistent parameter - residual pairs.
  
@@ -169,7 +169,7 @@ cat_height  |         0         |        1         |
 ----------------------------------------------------
 ```
 
-##### Visualizing the optimization
+### Visualizing the optimization
 
 One important aspect of monitoring an optimization procedure is the ability to visualize the procedure in real time. OptimizationUtils provides two general purpose visualizations which display the evolution of the residuals over time, as well as the evolution of total error over time. These are constructed using the information about parameters and residuals entered before.
 
@@ -180,7 +180,7 @@ Total Error vs Iterations | Residuals vs Iterations
 Besides these embedded general visualizations, you can design your own visualizations. To do this, create a function that produces the visualization you'd like. This function is called every n times the objective function is called. 
 
 
-##### Starting the optimization
+### Starting the optimization
 
 To run the optimization use:
 
