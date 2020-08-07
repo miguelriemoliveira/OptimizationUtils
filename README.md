@@ -152,6 +152,7 @@ One important aspect of monitoring an optimization procedure is the ability to v
 
 # <img align="left" width="257" height="215" src="https://github.com/miguelriemoliveira/OptimizationUtils/blob/master/docs/total_error.png?raw=true/514/431"> 
 
+Total Error vs Iterations | Residuals vs Iterations
 ------------- | -------------
 <img align="center" src="https://github.com/miguelriemoliveira/OptimizationUtils/blob/master/docs/total_error.png" width="450"/>  | <img align="center" src="https://github.com/miguelriemoliveira/OptimizationUtils/blob/master/docs/optimization_residuals.png" width="450"/>
 
