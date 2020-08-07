@@ -2,15 +2,15 @@
 A set of utilities for quickly and efficiently setup complex optimization problems. 
 
 # Table of Contents
-- [OptimizationUtils](#optimizationutils)
+
 - [How to setup an optimization problem](#how-to-setup-an-optimization-problem)
-        * [Set data models](#set-data-models)
-        * [Define parameters to be optimized](#define-parameters-to-be-optimized)
-        * [Define the objective function](#define-the-objective-function)
-        * [Defining the residuals](#defining-the-residuals)
-        * [Computing the sparse matrix](#computing-the-sparse-matrix)
-        * [Visualizing the optimization](#visualizing-the-optimization)
-        * [Starting the optimization](#starting-the-optimization)
+    + [Set data models](#set-data-models)
+    + [Define parameters to be optimized](#define-parameters-to-be-optimized)
+    + [Define the objective function](#define-the-objective-function)
+    + [Defining the residuals](#defining-the-residuals)
+    + [Computing the sparse matrix](#computing-the-sparse-matrix)
+    + [Visualizing the optimization](#visualizing-the-optimization)
+    + [Starting the optimization](#starting-the-optimization)
 - [Installation](#installation)
 - [Examples](#examples)
     + [Color Correction using an OC dataset](#color-correction-using-an-oc-dataset)
@@ -23,7 +23,6 @@ A set of utilities for quickly and efficiently setup complex optimization proble
     + [Calibration results visualization](#calibration-results-visualization)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
-
 
 # How to setup an optimization problem
 
