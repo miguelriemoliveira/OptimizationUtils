@@ -14,8 +14,8 @@ import math
 import numpy as np
 from functools import partial
 import matplotlib.pyplot as plt
-import KeyPressManager.KeyPressManager
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
+import OptimizationUtils.KeyPressManager as KeyPressManager
 
 # -------------------------------------------------------------------------------
 # --- FUNCTIONS

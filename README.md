@@ -1,5 +1,148 @@
 # OptimizationUtils
-A set of utilities for using the python scipy optimizer functions
+A set of utilities for quickly and efficiently setup complex optimization problems. 
+
+
+# How to setup an optimization problem
+
+The goal of OptimizationUtils is to facilitate the configuration of an optimization problem. The system works by declaring an optimizer class and them proceeding to configure the optimizer before starting up the optimization. To instantiate an optimizer:
+
+```python 
+import OptimizationUtils.OptimizationUtils as OptimizationUtils
+opt = OptimizationUtils.Optimizer()
+```
+
+##### Set data models
+
+One of the biggest troubles is the need to put the parameters to be optimized in a list. Often these parameters are very different, and putting them altogether in a list while having to keep track of the indices of each is a cumbersome and uninteresting task.
+
+OptimizationUtils solves this by allowing you to **use your own data structures as optimization parameters**. This is achieved by maintaining an internal mapping between some of the variables in your data structures (to which we refer as **data models**) and a list based representation of the parameters which is given to the optimizer. 
+
+Suppose you have an instance of a class, containing two variables that you want to optimize:
+
+```python 
+Class Dog:  # declare a class dog
+    __init__(weight, height):
+        self._weight = weight
+        self._height = height
+
+dog = Dog()  # instantiate a dog
+```
+
+and that you have two other variables that are also to be optimized, but this time are contained in a dictionary:
+
+```python 
+cat = {'weight': 3.2, 'height': 0.1}
+```
+
+to use these variables you have to provide both data models to the optimizer:
+
+```python 
+opt.addDataModel('dog', dog)
+opt.addDataModel('cat', cat)
+```
+
+##### Define parameters to be optimized
+
+Then, we define each of the parameters to be optimized. To do so one must define how the parameter is accessed and written from / to the data model. This is done by defining **getters** and **setters**:
+
+```python 
+def getDogWeightOrHeight(data, property):
+    if property is 'weight':
+        return data.weight
+    elif property is 'height':
+        return data.height
+
+def setDogWeightOrHeight(data, value, property):
+    if property is 'weight':
+        data.weight = value
+    elif property is 'height':
+        data.height = value
+```
+
+and with this the parameters dog weight and dog height can be defined:
+
+```python 
+from functools import partial
+opt.pushParamScalar(group_name='dog_weight', data_key='dog',
+                    getter=partial(getDogWeightOrHeight, property='weight'), 
+                    setter=partial(setDogWeightOrHeight, property='weight'))
+
+opt.pushParamScalar(group_name='dog_height', data_key='dog',
+                    getter=partial(getDogWeightOrHeight, property='height'), 
+                    setter=partial(setDogWeightOrHeight, property='height'))
+```
+
+It is also possible to define groups of parameters, which are parameters that share the same getter and setter. One typical example of a group of parameters is a pose, which contains variables for hte translation and rotation components. Lets define a group of parameters for the cat: 
+
+```python 
+def getCatWeightAndHeight(data):
+    return [data['weight'], data['height']]
+
+def setCatWeightAndHeight(data, values):
+    data['weight'] = values[0]
+    data['height'] = values[1]
+
+opt.pushParamGroup(group_name='cat', data_key='cat',
+                    getter=getCatWeightAndHeight, 
+                    setter=setCatWeightAndHeight,
+                    suffix=['_weight', '_height'])
+```
+
+##### Define the objective function
+
+The good thing is that you can, rather than using the linearized parameters, write the objective function using your own data models. OptimizationUtils will update the values contained in your own data models by copying from the parameter vector being optimized. This greatly facilitates the writing of the objective function, provided you are any good at defining easy to use data structures, that's on you. 
+
+Suppose that you have zero clue about the biometric of cats and dogs and aim to have a dog and a cat that weight the same, and stand at the same height.  I know, I known, those sound a bit eccentric or even ridiculous, but hey, those are your whims, not ours, so don't complain. Having these goals in mind you could write the following objective function:
+
+```python 
+def objectiveFunction(data_models):
+    dog = data_models['dog']
+    cat = data_models['cat']
+    residuals = {} 
+
+    residuals['weight_diference'] = dog.weight - cat['weight']
+    residuals['height_diference'] = dog.height - cat['height']
+    return residuals
+
+opt.setObjectiveFunction(objectiveFunction)
+```
+
+Notice we use the argument data_models to extract the updated variables in our data format. Then, two residuals are created in a dictionary and that dictionary is returned.
+
+##### Defining the residuals
+
+We must also define the residuals that are output by the objective function. For each residual we must identify which parameters  influence that residual (for sparse optimization problems):
+
+```python 
+params = opt.getParamsContainingPattern('weight') # get all weight related parameters
+opt.pushResidual(name='weight_diference', params=params) 
+
+params = opt.getParamsContainingPattern('height') # get all height related parameters
+opt.pushResidual(name='height_diference', params=params) 
+```
+ 
+ ##### Computing the sparse matrix
+ 
+ For sparse optimization problems, i.e. those in which not all parameters affect all residuals, a sparse matrix is used to map which parameters affect which residuals. Having such information considerably speeds up the optimization: there is no need to estimate the gradient for nonexistent parameter - residual pairs.
+ 
+ Having defined the parameters and residuals, the sparse matrix is computed automatically. Notice that for large and complex optimization problems computing this matrix is not straightforward:
+
+```python 
+opt.computeSparseMatrix()
+```
+
+which, for our dog - cat problem would return this:
+
+```bash
+            |              residuals               | 
+parameters  |  weight_diference | height_diference | 
+----------------------------------------------------
+dog_weight  |         1         |        0         |
+dog_height  |         0         |        1         |
+cat_weight  |         1         |        0         |
+cat_height  |         0         |        1         |
+----------------------------------------------------
+```
 
 # Installation
 
@@ -16,7 +159,7 @@ git clone https://github.com/miguelriemoliveira/OptimizationUtils.git
 pip install OptimizationUtils
 ```
 
-# Usage
+# Examples
 
 There are several examples. Here is how to launch them:
 
