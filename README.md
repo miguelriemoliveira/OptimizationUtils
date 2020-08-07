@@ -1,6 +1,7 @@
 # OptimizationUtils
 A set of utilities for quickly and efficiently setup complex optimization problems. 
 
+# Table of Contents
 - [OptimizationUtils](#optimizationutils)
 - [How to setup an optimization problem](#how-to-setup-an-optimization-problem)
         * [Set data models](#set-data-models)
