@@ -22,16 +22,16 @@ Suppose you have an instance of a class, containing two variables that you want 
 ```python 
 Class Dog:  # declare a class dog
     __init__(weight, height):
-        self._weight = weight
-        self._height = height
+        self.weight = weight
+        self.height = height
 
-dog = Dog()  # instantiate a dog
+dog = Dog(weigth=5.4, height=0.2)  # instantiate a large dog
 ```
 
 and that you have two other variables that are also to be optimized, but this time are contained in a dictionary:
 
 ```python 
-cat = {'weight': 3.2, 'height': 0.1}
+cat = {'weight': 3.2, 'height': 0.1} # define a tiny cat using a dictionary
 ```
 
 to use these variables you have to provide both data models to the optimizer:
@@ -59,7 +59,7 @@ def setDogWeightOrHeight(data, value, property):
         data.height = value
 ```
 
-and with this the parameters dog weight and dog height can be defined:
+now the parameters dog weight and dog height can be defined:
 
 ```python 
 from functools import partial
@@ -72,7 +72,7 @@ opt.pushParamScalar(group_name='dog_height', data_key='dog',
                     setter=partial(setDogWeightOrHeight, property='height'))
 ```
 
-It is also possible to define groups of parameters, which are parameters that share the same getter and setter. One typical example of a group of parameters is a pose, which contains variables for hte translation and rotation components. Lets define a group of parameters for the cat: 
+It is also possible to define groups of parameters, which are parameters that share the same getter and setter. One typical example of a group of parameters is a pose, which contains variables for the translation and rotation components. Lets define a group of parameters for the cat: 
 
 ```python 
 def getCatWeightAndHeight(data):
@@ -90,9 +90,11 @@ opt.pushParamGroup(group_name='cat', data_key='cat',
 
 ##### Define the objective function
 
-The good thing is that you can, rather than using the linearized parameters, write the objective function using your own data models. OptimizationUtils will update the values contained in your own data models by copying from the parameter vector being optimized. This greatly facilitates the writing of the objective function, provided you are any good at defining easy to use data structures, that's on you. 
+Now you write the objective function using your own data models, rather than some confusing linear array with thousands of parameters.
 
-Suppose that you have zero clue about the biometric of cats and dogs and aim to have a dog and a cat that weight the same, and stand at the same height.  I know, I known, those sound a bit eccentric or even ridiculous, but hey, those are your whims, not ours, so don't complain. Having these goals in mind you could write the following objective function:
+This is possible because OptimizationUtils updates the values contained in your own data models by copying from the parameter vector being optimized. This greatly facilitates the writing of the objective function, provided you are any good at defining easy to use data structures, that's on you. 
+
+Suppose that you have zero clue about the biometric of cats and dogs and aim to have a dog and a cat that weight the same, and stand at the same height.  I know, I known, those sound a bit eccentric or even ridiculous, but hey, those are your whims, not ours, so don't complain. Having this goal in mind you could write the following objective function:
 
 ```python 
 def objectiveFunction(data_models):
@@ -107,7 +109,7 @@ def objectiveFunction(data_models):
 opt.setObjectiveFunction(objectiveFunction)
 ```
 
-Notice we use the argument data_models to extract the updated variables in our data format. Then, two residuals are created in a dictionary and that dictionary is returned.
+Notice we use the argument data_models to extract the updated variables in our own data format. Then, two residuals are created in a dictionary and that dictionary is returned.
 
 ##### Defining the residuals
 
@@ -143,6 +145,26 @@ cat_weight  |         1         |        0         |
 cat_height  |         0         |        1         |
 ----------------------------------------------------
 ```
+
+##### Visualizing the optimization
+
+One important aspect of monitoring an optimization procedure is the ability to visualize the procedure in real time. OptimizationUtils provides two general purpose visualizations which display the evolution of the residuals over time, as well as the evolution of total error over time. These are constructed using the information about parameters and residuals entered before.
+
+# <img align="left" width="257" height="215" src="https://github.com/lardemua/atom/blob/master/docs/logo2.png?raw=true/514/431"> ATOM Calibration 
+
+Besides these embedded general visualizations, you can design your own visualizations. To do this, create a function that produces the visualization you'd like. This function is called every n times the objective function is called. 
+
+
+##### Starting the optimization
+
+To run the optimization use:
+
+```python 
+opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 
+                        'xtol': 1e-6, 'gtol':1e-6, 'diff_step': None})
+```
+
+The optimization is a least squares optimization implemented in [scypy](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html). The possible options are listen in the function's page.
 
 # Installation
 
