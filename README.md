@@ -150,8 +150,6 @@ cat_height  |         0         |        1         |
 
 One important aspect of monitoring an optimization procedure is the ability to visualize the procedure in real time. OptimizationUtils provides two general purpose visualizations which display the evolution of the residuals over time, as well as the evolution of total error over time. These are constructed using the information about parameters and residuals entered before.
 
-# <img align="left" width="257" height="215" src="https://github.com/miguelriemoliveira/OptimizationUtils/blob/master/docs/total_error.png?raw=true/514/431"> 
-
 Total Error vs Iterations | Residuals vs Iterations
 ------------- | -------------
 <img align="center" src="https://github.com/miguelriemoliveira/OptimizationUtils/blob/master/docs/total_error.png" width="450"/>  | <img align="center" src="https://github.com/miguelriemoliveira/OptimizationUtils/blob/master/docs/optimization_residuals.png" width="450"/>
