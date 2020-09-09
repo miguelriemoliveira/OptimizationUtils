@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>optimization_utils</name>
+  <version>1.0.0</version>
+  <description>
+      TODO
+  </description>
+
+  <author email="mike@todo.todo">Miguel Oliveira</author>
+
+  <maintainer email="mike@todo.todo">Miguel Oliveira</maintainer>
+
+  <license>GPLv3</license>
+
+  <url type="website">https://github.com/miguelriemoliveira/OptimizationUtils</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>python-scipy</exec_depend>
+  <exec_depend>python-numpy</exec_depend>
+  <exec_depend>python-opencv</exec_depend>
+  <exec_depend>python-matplotlib</exec_depend>
+  <exec_depend>python-networkx</exec_depend>
+  <exec_depend>python-tk</exec_depend>
+  <exec_depend>python-pandas</exec_depend>
+
+  <export>
+  </export>
+</package>
