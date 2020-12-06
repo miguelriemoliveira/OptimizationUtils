@@ -160,7 +160,8 @@ if __name__ == "__main__":
     print(type(handle_plot))
     print((handle_plot))
 
-    wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+    wm = KeyPressManager.WindowManager(fig)
     if wm.waitForKey(0., verbose=False):
         exit(0)
 
@@ -190,7 +191,7 @@ if __name__ == "__main__":
         handle_plot[0].set_ydata(y)
 
 
-        wm = KeyPressManager.KeyPressManager.WindowManager(fig)
+        wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
 
