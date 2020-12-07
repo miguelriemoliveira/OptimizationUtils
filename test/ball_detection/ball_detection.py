@@ -197,7 +197,7 @@ if __name__ == "__main__":
         cv2.waitKey(20)
 
         wm = KeyPressManager.WindowManager(fig)
-        if wm.waitForKey(0.01, verbose=False):
+        if wm.waitForKey(0.01, verbose=False)=='x':
             exit(0)
 
     opt.setVisualizationFunction(visualizationFunction, True)
@@ -218,6 +218,6 @@ if __name__ == "__main__":
     opt.startOptimization(
         optimization_options={'x_scale': 'jac', 'ftol': 1e-4, 'xtol': 1e-4, 'gtol': 1e-4, 'diff_step': 1e-4})
 
-    # wm = KeyPressManager.KeyPressManager.WindowManager()
-    if wm.waitForKey():
+    wm = KeyPressManager.WindowManager(fig)
+    if wm.waitForKey(0.01, verbose=False) == 'x':
         exit(0)
