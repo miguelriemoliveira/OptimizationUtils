@@ -45,7 +45,7 @@ class Ball:
 if __name__ == "__main__":
 
 
-    image = cv2.imread('ball.png')
+    image = cv2.imread('clean_ball.jpg')
     edges = cv2.Canny(image,100,200)
     cv2.imshow('edges',edges)
     # cv2.waitKey(0)
@@ -128,7 +128,7 @@ if __name__ == "__main__":
             xs.append(x)
             ys.append(y)
             
-            ny,nx=find_nearest_white(edges,[x,y])
+            ny,nx=find_nearest_white(edges,[y,x])
             
             nxs.append(nx)
             nys.append(ny)
