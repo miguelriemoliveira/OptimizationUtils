@@ -78,7 +78,7 @@ class WindowManager:
             if key == ord('c') or self.mpl_pressed_key == 'c':
                 print('Pressed "c". Continuing.')
                 return False
-            elif key == ord('q') or self.mpl_pressed_key == 'q':
+            elif key == ord('w') or self.mpl_pressed_key == 'w':
                 print('Pressed "q". Aborting.')
                 exit(0)
             elif key == ord('x') or self.mpl_pressed_key == 'x':
