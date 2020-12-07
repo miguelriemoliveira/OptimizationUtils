@@ -170,9 +170,8 @@ if __name__ == "__main__":
     cv2.namedWindow('ball_detection')
     cv2.imshow('ball_detection',image)
     
-    # # wm = KeyPressManager.KeyPressManager.WindowManager(fig)
     wm = KeyPressManager.WindowManager(fig)
-    if wm.waitForKey(0., verbose=False):
+    if wm.waitForKey(0.01, verbose=False):
         exit(0)
 
 
@@ -197,7 +196,7 @@ if __name__ == "__main__":
         cv2.imshow('ball_detection',gui_image)
         cv2.waitKey(20)
 
-        # wm = KeyPressManager.WindowManager()
+        wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
 
