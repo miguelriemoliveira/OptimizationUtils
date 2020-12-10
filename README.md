@@ -331,3 +331,8 @@ test/sensor_pose_json_v2/results_visualization.py -json_opt_left test/sensor_pos
 You should give the final json of each one of the distinct calibration procedures. 
 Beside this, you must choose wich one is the first sensor (fs) and the second sensor (ss). 
 The points will be projected from the first sensor image (pixs) to the second sensor image (pixs), where the difference between the points will be measured.
+
+### Contributors
+@danifpdra
+
+
