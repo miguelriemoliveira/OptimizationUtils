@@ -22,10 +22,12 @@ import time
 # ------------------------
 ParamT = namedtuple('ParamT', 'param_names idx data_key getter setter bound_max bound_min')
 
+
 def tic():
     # matlab like tic and toc functions
     global startTime_for_tictoc
     startTime_for_tictoc = time.time()
+
 
 def toc():
     # matlab like tic and toc functions
@@ -34,6 +36,7 @@ def toc():
     else:
         print("Toc: start time not set")
 
+
 def tocs():
     # matlab like tic and toc functions
     if 'startTime_for_tictoc' in globals():
@@ -41,6 +44,7 @@ def tocs():
     else:
         print("Toc: start time not set")
         return None
+
 
 # ------------------------
 # FUNCTION DEFINITION
@@ -344,14 +348,14 @@ class Optimizer:
 
             for error_dict_key in error_dict.keys():  # Check if some of the retuned residuals are not configured.
                 # if error_dict_key not in self.residuals.keys():
-                if not self.residuals.has_key(error_dict_key):
-                        raise ValueError('Objective function returned dictionary with residual ' + Fore.RED +
+                if not error_dict_key in self.residuals:
+                    raise ValueError('Objective function returned dictionary with residual ' + Fore.RED +
                                      error_dict_key + Fore.RESET +
                                      ' which does not exist. Use printResiduals to check the configured residuals')
 
             for residual in self.residuals:  # residuals is an ordered dict to recover a correctly ordered list
                 # if residual not in error_dict.keys():
-                if not error_dict.has_key(residual):
+                if not residual in error_dict:
                     raise ValueError(
                         'Objective function returned dictionary which does not contain the residual ' + Fore.RED +
                         residual + Fore.RESET + '. This residual is mandatory.')
