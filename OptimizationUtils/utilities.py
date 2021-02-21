@@ -10,7 +10,7 @@ from copy import deepcopy
 
 from . import transformations
 
-import KeyPressManager
+# import KeyPressManager
 from OptimizationUtils import KeyPressManager
 import numpy as np
 import cv2
