@@ -456,6 +456,12 @@ def projectToCamera(intrinsic_matrix, distortion, width, height, pts):
     :return: a list of pixel coordinates with the same lenght as pts
     """
 
+
+    print('intrinsic_matrix=' + str(intrinsic_matrix))
+    print('distortion=' + str(distortion))
+    print('width=' + str(width))
+    print('height=' + str(height))
+    print('pts.shape=' + str(pts.shape))
     _, n_pts = pts.shape
 
     # Project the 3D points in the camera's frame to image pixels
