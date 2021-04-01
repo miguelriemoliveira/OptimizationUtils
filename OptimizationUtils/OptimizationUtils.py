@@ -7,6 +7,7 @@ from collections import namedtuple, OrderedDict
 from colorama import Fore
 from copy import deepcopy
 import pandas
+from pytictoc import TicToc
 import cv2
 from numpy import inf
 from scipy.optimize import least_squares
@@ -98,6 +99,7 @@ class Optimizer:
         self.vis_counter = 0
         self.always_visualize = False
         self.internal_visualization = True
+        self.tictoc = TicToc()
 
         print('\nInitializing optimizer...')
 
@@ -415,6 +417,7 @@ class Optimizer:
 
         # Call optimization function (finally!)
         print("Starting optimization ...")
+        self.tictoc.tic()
         self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
                                     bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
 
@@ -425,7 +428,8 @@ class Optimizer:
 
     def finalOptimizationReport(self):
         """Just print some info and show the images"""
-        print('\n-------------\nOptimization finished: ' + self.result['message'])
+        print('\n-----------------------------\n' +
+              'Optimization finished in ' + str(round(self.tictoc.tocvalue(), 5)) + ' secs: ' + self.result['message'])
 
         if self.always_visualize and self.internal_visualization:
             print('Press x to finalize ...')
