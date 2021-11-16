@@ -1,6 +1,7 @@
-# <img align="left" width="375" height="215" src="https://github.com/lardemua/atom/blob/noetic-devel/docs/atom_logo.png?raw=true/375/215"> OptimizationUtils
+# <img align="left" width="400" height="300" src="https://github.com/miguelriemoliveira/OptimizationUtils/blob/noetic-devel/docs/logo.png?raw=true/375/215"> OptimizationUtils
 
 A set of utilities for quickly and efficiently setup complex optimization problems. 
+<br/> <br/><br/><br/><br/><br/><br/><br/><br/>
 
 # Table of Contents
 
@@ -334,7 +335,17 @@ You should give the final json of each one of the distinct calibration procedure
 Beside this, you must choose wich one is the first sensor (fs) and the second sensor (ss). 
 The points will be projected from the first sensor image (pixs) to the second sensor image (pixs), where the difference between the points will be measured.
 
+### Workshop November 2021
+
+A 4 hour long workshop on OptimizationUtils took place on the 16th of November, 2021.
+
+# <img align="center" width="500" height="300" src="https://github.com/miguelriemoliveira/OptimizationUtils/blob/noetic-devel/docs/workshop_nov2021.png?raw=true/375/215">
+
 ### Contributors
-@danifpdra
+Miguel Oliveira
+
+Tiago Madeira
+
+Daniela Rato
 
 
