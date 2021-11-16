@@ -278,3 +278,6 @@ def main():
     # -----------------------------------------------------
     opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-3,'xtol': 1e-3, 'gtol': 1e-3, 'diff_step': None})
 
+
+if __name__ == '__main__':
+    main()
