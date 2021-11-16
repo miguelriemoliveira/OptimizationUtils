@@ -1,4 +1,5 @@
-# OptimizationUtils
+# <img align="left" width="375" height="215" src="https://github.com/lardemua/atom/blob/noetic-devel/docs/atom_logo.png?raw=true/375/215"> OptimizationUtils
+
 A set of utilities for quickly and efficiently setup complex optimization problems. 
 
 # Table of Contents
@@ -23,6 +24,7 @@ A set of utilities for quickly and efficiently setup complex optimization proble
     + [Calibration results visualization](#calibration-results-visualization)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
+
 
 # How to setup an optimization problem
 
