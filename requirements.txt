@@ -3,3 +3,4 @@ numpy
 pandas
 matplotlib
 opencv-contrib-python
+pytictoc

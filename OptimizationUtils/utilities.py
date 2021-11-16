@@ -62,7 +62,7 @@ def drawSquare2D(image, x, y, size, color=(0, 0, 255), thickness=1):
     """
 
     h, w, _ = image.shape
-    if x - size < 0 or x + size > w or y - size < 0 or y + size > h:
+    if x - size < 0 or x + size >= w or y - size < 0 or y + size >= h:
         # print("Cannot draw square")
         return None
 

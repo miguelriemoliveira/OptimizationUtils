@@ -149,6 +149,7 @@ class Optimizer:
     def pushParamV3(self, group_name, data_key, getter, setter, bound_max=(+inf, +inf, +inf),
                     bound_min=(-inf, -inf, -inf), suffix=['x', 'y', 'z']):
         """
+        DEPRECATED
         Pushes a new parameter group of type translation to the parameter vector.
         There will be 3 parameters, *_tx, *_ty, *_tz per translation group
         :param suffix:
