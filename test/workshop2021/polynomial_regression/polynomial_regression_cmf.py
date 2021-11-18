@@ -3,44 +3,22 @@
 import argparse
 import random
 import sys
-
 import colorama
 import matplotlib.pyplot as plt
 import pickle
-
 import numpy as np
 from functools import partial
+from sklearn.metrics import mean_squared_error as mse
+from sklearn.metrics import mean_absolute_error as mae
+import OptimizationUtils.KeyPressManager as KeyPressManager
+import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
 
-# Use a line model
-# y = m x + b
-import OptimizationUtils.KeyPressManager
-
-
-class LineModel():
-    def __init__(self, m, b):
-        self.m = m
-        self.b = b
-
-    def getY(self, x):
-        if type(self.m) is list:
-            m = self.m[0]
-        else:
-            m = self.m
-
-        if type(self.b) is list:
-            b = self.b[0]
-        else:
-            b = self.b
-
-        return m * x + b
-
-    def getYs(self, xs):
-        return [self.getY(item) for item in xs]
 
 
 class ParabolaModel():
-    # y = a * (x - b)** 2 + c
+    # TODO add a polinomyal degree as parameter
+    # y = a * (x)** 2 + b*x +c
     def __init__(self, a, b, c):
         self.a = a
         self.b = b
@@ -72,30 +50,41 @@ def main():
     # -----------------------------------------------------
     # Command line arguments
     parser = argparse.ArgumentParser(description='Regression example 1')
-    parser.add_argument('-i', '--input', type=str, default='points.pkl', help='Filename to read.')
+    parser.add_argument('-inp', '--input_numpy', type=str,required=True, help='Filename to read the data points JIH observations (numpy).')
     args = vars(parser.parse_args())
     print(args)
 
     # -----------------------------------------------------
     # Load file with data points
-    print('Loading file to ' + str(args['input']))
-    with open(args['input'], 'rb') as file_handle:
-        points = pickle.load(file_handle)
+    print('Loading file to ' + str(args['input_numpy']))        
+    with open(args['input_numpy'], 'rb') as file_handle:
+        jih = np.load(file_handle)
+    
+    jih_b = jih[0,:,:]
+    
+    # Convert histogram into observations
+    tgt_colors = []
+    src_colors = []
+    for tgt_color in range(jih_b.shape[1]):
+        for src_color in range(jih_b.shape[0]):
+            if jih_b[src_color, tgt_color] > 0:
+                src_colors.extend(
+                    [src_color] * jih_b[src_color, tgt_color])  # create observations from histogram
+                tgt_colors.extend(
+                    [tgt_color] * jih_b[src_color, tgt_color])  # create observations from histogram
+            
 
-    # print(points)
+    xs_obs = tgt_colors
+    ys_obs = src_colors
 
-    # Create line model
-    line_model = LineModel(1, 0.5)
-    best_line_model = LineModel(1, 0.5)
-    total_best_error = sys.float_info.max
-
+    
     # Create parabola model
-    parabola_model = ParabolaModel(1, 0.5, 1)
-    best_parabola_model = ParabolaModel(1, 0.5, 0)
+    parabola_model = ParabolaModel(1/100, 125, 0)
+    initial_parabola_model = ParabolaModel(1/100, 125, 0)
 
     # initialize optimizer
-    import OptimizationUtils.OptimizationUtils as OptimizationUtils
     opt = OptimizationUtils.Optimizer()
+
 
     # -----------------------------------------------------
     # Visualization
@@ -105,68 +94,36 @@ def main():
     ax = fig.gca()
     ax.plot(0, 0)
     ax.grid()
-    ax.axis([-5, 5, -5, 5])
-
+    ax.axis([0, 255, 0, 255])
+    
+    
     # draw observations
-    xs_observations_left = [item['x'] for item in points if item['x'] < 0]
-    ys_observations_left = [item['y'] for item in points if item['x'] < 0]
-    ax.plot(xs_observations_left, ys_observations_left, 'bo')
 
-    xs_observations_right = [item['x'] for item in points if item['x'] >= 0]
-    ys_observations_right = [item['y'] for item in points if item['x'] >= 0]
-    ax.plot(xs_observations_right, ys_observations_right, 'co')
-
-    handle_error_anchors_left = ax.plot(xs_observations_left, ys_observations_left, '.r')
-
-    # draw line model
-    xs_left = list(np.linspace(-5, 0, 100))
-    ys = line_model.getYs(xs_left)
-    handle_model_left_plot = ax.plot(xs_left, ys, '-.k')
-
+    ax.plot(xs_obs, ys_obs, 'bo')
+    
+    
     # draw parabola model
-    xs_right = list(np.linspace(0, 5, 100))
-    ys = parabola_model.getYs(xs_right)
-    handle_model_right_plot = ax.plot(xs_right, ys, '-.k')
+    xs = list(np.linspace(0, 255, 1000))
+    ys = parabola_model.getYs(xs)
+    handle_model_plot = ax.plot(xs, ys, '-g')
 
-    # draw best line model
-    handle_best_model_plot = ax.plot(xs_observations_left, best_line_model.getYs(xs_observations_left), '-m')
-
-    # draw best line model
-    handle_best_model_plot_right = ax.plot(xs_right, best_parabola_model.getYs(xs_right), '-r')
+    # draw best parabola model
+    # TODO Professor used xs_obs
+    handle_best_model_plot = ax.plot(xs, initial_parabola_model.getYs(xs), '--k')
 
     plt.draw()
     plt.waitforbuttonpress(1)
-
+    
     # Add data models
-    opt.addDataModel('line_model', line_model)
     opt.addDataModel('parabola_model', parabola_model)
 
     # -----------------------------------------------------
     # Define parameters
     # -----------------------------------------------------
 
-    # Line parameters
-    def getterLine(data, prop):
-        if prop == 'm':
-            return [data.m]
-        elif prop == 'b':
-            return [data.b]
-
-    def setterLine(data, value, prop):
-        if prop == 'm':
-            data.m = value
-        elif prop == 'b':
-            data.b = value
-
-    opt.pushParamScalar(group_name='line_m', data_key='line_model',
-                        getter=partial(getterLine, prop='m'),
-                        setter=partial(setterLine, prop='m'))
-    opt.pushParamScalar(group_name='line_b', data_key='line_model',
-                        getter=partial(getterLine, prop='b'),
-                        setter=partial(setterLine, prop='b'))
-
     # Parabola parameters
     def getterParabola(data, prop):
+        # data is our class instance
         if prop == 'a':
             return [data.a]
         elif prop == 'b':
@@ -193,52 +150,44 @@ def main():
                         setter=partial(setterParabola, prop='c'))
 
     opt.printParameters()
-
+    
+    
     # -----------------------------------------------------
     # Define objective function
     # -----------------------------------------------------
     def objectiveFunction(data_models):
         # retrieve data models
-        line_model = data_models['line_model']
         parabola_model = data_models['parabola_model']
 
         # Initialize the residuals
         # residuals = {} # TODO lets try it with dictionaries also
-        errors = []
+        #errors = []
+        residuals = []
         # errors = {}
 
         # Compute observations from model
-        ys_observations_from_model_left = line_model.getYs(xs_observations_left)
-        ys_observations_from_model_right = parabola_model.getYs(xs_observations_right)
+        ys_obs_from_model = parabola_model.getYs(xs_obs)
 
         # Compute error
-        # errors from the line model
-        for y_o, y_ofm in zip(ys_observations_left, ys_observations_from_model_left):
-            error = abs(y_o - y_ofm)
-            errors.append(error)
+        # errors from the parabola --> (ys_obs, ys_obs_from_model)
+        for y_o, y_ofm in zip(ys_obs, ys_obs_from_model):
+            residual = abs(y_o - y_ofm)
+            residuals.append(residual)
 
-        # errors from the parabola
-        for y_o, y_ofm in zip(ys_observations_right, ys_observations_from_model_right):
-            error = abs(y_o - y_ofm)
-            errors.append(error)
-
-        return errors
-
+        
+        return residuals
+    
     opt.setObjectiveFunction(objectiveFunction)
 
     # -----------------------------------------------------
     # Define residuals
     # -----------------------------------------------------
-    # params = opt.getParamsContainingPattern('weight')  # get all weight related parameters
 
-    for idx, x in enumerate(xs_observations_left):
-        opt.pushResidual(name='line_r' + str(idx), params=['line_m', 'line_b'])
-
-    for idx, x in enumerate(xs_observations_right):
+    for idx, x in enumerate(xs_obs):
         opt.pushResidual(name='parabola_r' + str(idx), params=['parabola_a', 'parabola_b', 'parabola_c'])
 
     opt.printResiduals()
-
+    
     # -----------------------------------------------------
     # Compute sparse matrix
     # -----------------------------------------------------
@@ -250,26 +199,24 @@ def main():
     # -----------------------------------------------------
     def visualizationFunction(data_models):
         # retrieve data models
-        line_model = data_models['line_model']
         parabola_model = data_models['parabola_model']
 
         print('Visualization function called ...')
-        print('m=' + str(line_model.m))
-        print('b=' + str(line_model.b))
-
-        # line visualization
-        handle_model_left_plot[0].set_ydata(line_model.getYs(xs_left))
+        print('a=' + str(parabola_model.a))
+        print('b=' + str(parabola_model.b))
+        print('c=' + str(parabola_model.c))
+        
 
         # parabola visualization
-        handle_model_right_plot[0].set_ydata(parabola_model.getYs(xs_right))
+        handle_model_plot[0].set_ydata(parabola_model.getYs(xs))
 
-        wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
+        wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
         # plt.draw()
         # plt.waitforbuttonpress(1)
 
-    opt.setVisualizationFunction(visualizationFunction, True)
+    opt.setVisualizationFunction(visualizationFunction,True)
 
 
 
@@ -277,6 +224,10 @@ def main():
     # Start optimization
     # -----------------------------------------------------
     opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-3,'xtol': 1e-3, 'gtol': 1e-3, 'diff_step': None})
+    wm = KeyPressManager.KeyPressManager.WindowManager()
+    if wm.waitForKey():
+        exit(0)
+
 
 
 if __name__ == '__main__':
