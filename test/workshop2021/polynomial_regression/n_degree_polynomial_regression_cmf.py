@@ -13,35 +13,58 @@ from sklearn.metrics import mean_absolute_error as mae
 import OptimizationUtils.KeyPressManager as KeyPressManager
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
-class thirdDegreePolynomialModel():
+
+class nDegreePolynomialModel():
     # y = a * (x**3) + b * (x**2) + c*x + d
-    def __init__(self, a, b, c, d):
-        self.a = a
-        self.b = b
-        self.c = c
-        self.d = d
+    def __init__(self, list_parameters):
+        dict_parameters = {}
+        for idx, parameter in enumerate(list_parameters):
+            dict_parameters['a{}'.format(idx)] = parameter
+
+        for parameter_key, parameter_value in dict_parameters.items():
+            setattr(self, parameter_key, parameter_value)
+
+        self.degree = len(list_parameters) - 1
+        self.parameters_names = list(dict_parameters.keys())
 
     def getY(self, x):
-        if type(self.a) is list:
-            a = self.a[0]
-        else:
-            a = self.a
-        if type(self.b) is list:
-            b = self.b[0]
-        else:
-            b = self.b
-        if type(self.c) is list:
-            c = self.c[0]
-        else:
-            c = self.c
-        if type(self.d) is list:
-            d = self.d[0]
-        else:
-            d = self.d
-        return a * (x**3) + b * (x**2) + c*x + d
 
+        final_parameters = []
+        for att in self.parameters_names:
+            if type(getattr(self, att)) is list:
+                final_parameters.append(getattr(self, att)[0])
+            else:
+                final_parameters.append(getattr(self, att))
+
+        y = 0
+        y_previous = 0
+
+        for idx, final_parameter in enumerate(final_parameters):
+            y_previous += final_parameter * (x-1) ** (self.degree - idx)
+
+        for idx, final_parameter in enumerate(final_parameters):
+            y += final_parameter * x ** (self.degree - idx)
+
+        return y
+
+        # if y > y_previous:
+        #     return y
+        # else:
+        #     return y_previous
 
     def getYs(self, xs):
+        # ys_old = [self.getY(item) for item in xs]
+        # ys = []
+        # for idx, y_old in enumerate(ys_old):
+        #     if idx == 0:
+        #         ys.append(y_old)
+        #     elif y_old < ys[-1]:
+        #         ys.append(ys[-1])
+        #     else:
+        #         ys.append(y_old)
+        #
+        # return ys
+
         return [self.getY(item) for item in xs]
 
 
@@ -52,18 +75,19 @@ def main():
     # -----------------------------------------------------
     # Command line arguments
     parser = argparse.ArgumentParser(description='Regression example 1')
-    parser.add_argument('-inp', '--input_numpy', type=str,required=True, help='Filename to read the data points JIH observations (numpy).')
+    parser.add_argument('-inp', '--input_numpy', type=str, required=True,
+                        help='Filename to read the data points JIH observations (numpy).')
     args = vars(parser.parse_args())
     print(args)
 
     # -----------------------------------------------------
     # Load file with data points
-    print('Loading file to ' + str(args['input_numpy']))        
+    print('Loading file to ' + str(args['input_numpy']))
     with open(args['input_numpy'], 'rb') as file_handle:
         jih = np.load(file_handle)
-    
+
     jih_b = jih[0, :, :]
-    
+
     # Convert histogram into observations
     tgt_colors = []
     src_colors = []
@@ -74,90 +98,96 @@ def main():
                     [src_color] * jih_b[src_color, tgt_color])  # create observations from histogram
                 tgt_colors.extend(
                     [tgt_color] * jih_b[src_color, tgt_color])  # create observations from histogram
-            
 
     xs_obs = tgt_colors
     ys_obs = src_colors
 
-    
-    # Create Third Degree Polynomial model
-    third_degree_polynomial_model = thirdDegreePolynomialModel(-5, 1, -3, 140)
-    initial_third_degree_polynomial_model = thirdDegreePolynomialModel(-5, 1, -3, 140)
+    # Create n Degree Polynomial model
+    n_degree_polynomial_model = nDegreePolynomialModel([1, 1, 1, 1])
+    # n_degree_polynomial_model = nDegreePolynomialModel([-0.000027, 0.013832, -1.829113, 128.440552])
+    initial_n_degree_polynomial_model = nDegreePolynomialModel([1, 1, 1, 1])
+    # initial_n_degree_polynomial_model = nDegreePolynomialModel([-0.000027, 0.013832, -1.829113, 128.440552])
+    xs = np.linspace(0, 255, 256)
+    print(len(xs))
 
+    print(n_degree_polynomial_model.getY(0))
+    print(n_degree_polynomial_model.getY(-1))
+    print(n_degree_polynomial_model.getY(-2))
+    print(n_degree_polynomial_model.getY(1))
+    print(n_degree_polynomial_model.getY(2))
+    print(len(n_degree_polynomial_model.getYs(xs)))
+    print(n_degree_polynomial_model.parameters_names)
+
+
+    # exit(0)
     # initialize optimizer
     opt = OptimizationUtils.Optimizer()
-    
+
     # Add data models
-    opt.addDataModel('third_degree_polynomial_model', third_degree_polynomial_model)
+    opt.addDataModel('n_degree_polynomial_model', n_degree_polynomial_model)
 
     # -----------------------------------------------------
     # Define parameters
     # -----------------------------------------------------
 
     # Parabola parameters
-    def getterThirdDegreePolynomial(data, prop):
+    def getternDegreePolynomial(data, prop):
         # data is our class instance
-        if prop == 'a':
-            return [data.a]
-        elif prop == 'b':
-            return [data.b]
-        elif prop == 'c':
-            return [data.c]
-        elif prop == 'd':
-            return [data.d]
 
-    def setterThirdDegreePolynomial(data, value, prop):
-        if prop == 'a':
-            data.a = value
-        elif prop == 'b':
-            data.b = value
-        elif prop == 'c':
-            data.c = value
-        elif prop == 'd':
-            data.d = value
+        for parameters_name in n_degree_polynomial_model.parameters_names:
+            if prop == parameters_name:
+                return [getattr(data, parameters_name)]
 
-    for param in 'abcd':
-        opt.pushParamVector(group_name='3rd_polynomial_' + param, data_key='third_degree_polynomial_model',
-                            getter=partial(getterThirdDegreePolynomial, prop=param),
-                            setter=partial(setterThirdDegreePolynomial, prop=param),
+    def setternDegreePolynomial(data, value, prop):
+
+        for parameters_name in n_degree_polynomial_model.parameters_names:
+            if prop == parameters_name:
+                setattr(data, parameters_name, value)
+
+    for parameters_name in n_degree_polynomial_model.parameters_names:
+        opt.pushParamVector(group_name='{}_polynomial_{}'.format(n_degree_polynomial_model.degree, parameters_name),
+                            data_key='n_degree_polynomial_model',
+                            getter=partial(getternDegreePolynomial, prop=parameters_name),
+                            setter=partial(setternDegreePolynomial, prop=parameters_name),
                             suffix=[''])
 
     opt.printParameters()
 
-    
     # -----------------------------------------------------
     # Define objective function
     # -----------------------------------------------------
     def objectiveFunction(data_models):
         # retrieve data models
-        third_degree_polynomial_model = data_models['third_degree_polynomial_model']
+        n_degree_polynomial_model = data_models['n_degree_polynomial_model']
 
         # Initialize the residuals
         residuals = {}
 
         # Compute observations from model
-        ys_obs_from_model = third_degree_polynomial_model.getYs(xs_obs)
+        ys_obs_from_model = n_degree_polynomial_model.getYs(xs_obs)
 
         # Compute error
         # errors from the parabola --> (ys_obs, ys_obs_from_model)
         for idx, (y_o, y_ofm) in enumerate(zip(ys_obs, ys_obs_from_model)):
-            residual = (y_o - y_ofm)**2
-            residuals['3rd_polynomial_r' + str(idx)] = residual
+            residual = (y_o - y_ofm) ** 2
+            # residual = abs(y_o - y_ofm)
+            residuals['{}_polynomial_r'.format(n_degree_polynomial_model.degree) + str(idx)] = residual
 
-        
         return residuals
-    
+
     opt.setObjectiveFunction(objectiveFunction)
 
     # -----------------------------------------------------
     # Define residuals
     # -----------------------------------------------------
+    params = ['{}_polynomial_'.format(n_degree_polynomial_model.degree) + parameters_name for parameters_name in
+              n_degree_polynomial_model.parameters_names]
 
     for idx, x in enumerate(xs_obs):
-        opt.pushResidual(name='3rd_polynomial_r' + str(idx), params=['3rd_polynomial_a', '3rd_polynomial_b', '3rd_polynomial_c', '3rd_polynomial_d'])
+        opt.pushResidual(name='{}_polynomial_r'.format(n_degree_polynomial_model.degree) + str(idx), params=params)
 
     opt.printResiduals()
-    
+
     # -----------------------------------------------------
     # Compute sparse matrix
     # -----------------------------------------------------
@@ -179,13 +209,14 @@ def main():
     ax.plot(xs_obs, ys_obs, 'bo')
 
     # draw parabola model
-    xs = list(np.linspace(0, 255, 1000))
-    ys = third_degree_polynomial_model.getYs(xs)
+    xs = list(np.linspace(0, 255, 256))
+    print(xs)
+    ys = n_degree_polynomial_model.getYs(xs)
     handle_model_plot = ax.plot(xs, ys, '-g')
 
     # draw best parabola model
     # TODO Professor used xs_obs
-    handle_best_model_plot = ax.plot(xs, initial_third_degree_polynomial_model.getYs(xs), '--k')
+    handle_best_model_plot = ax.plot(xs, initial_n_degree_polynomial_model.getYs(xs), '--k')
 
     wm = KeyPressManager.WindowManager(fig)
     if wm.waitForKey(0., verbose=False):
@@ -196,15 +227,15 @@ def main():
     # -----------------------------------------------------
     def visualizationFunction(data_models):
         # retrieve data models
-        third_degree_polynomial_model = data_models['third_degree_polynomial_model']
+        n_degree_polynomial_model = data_models['n_degree_polynomial_model']
         # print('Visualization function called ...')
         # print('a=' + str(parabola_model.a))
         # print('b=' + str(parabola_model.b))
         # print('c=' + str(parabola_model.c))
+        # opt.printParameters()
 
-
-        # parabola visualization
-        handle_model_plot[0].set_ydata(third_degree_polynomial_model.getYs(xs))
+        # n_degree_polynomial_model visualization
+        handle_model_plot[0].set_ydata(n_degree_polynomial_model.getYs(xs))
 
         wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
@@ -212,29 +243,30 @@ def main():
         # plt.draw()
         # plt.waitforbuttonpress(1)
 
-    opt.setVisualizationFunction(visualizationFunction,True)
-
-
+    opt.setVisualizationFunction(visualizationFunction, True)
 
     # -----------------------------------------------------
     # Start optimization
     # -----------------------------------------------------
-    opt.startOptimization(optimization_options={'x_scale': 'jac', 'ftol': 1e-3,'xtol': 1e-3, 'gtol': 1e-3, 'diff_step': None})
+    opt.startOptimization(
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-3, 'xtol': 1e-3, 'gtol': 1e-3, 'diff_step': None})
     opt.printParameters()
 
     # -----------------------------------------------------
-    # Create cmf
+    # Create cmf and save figure
     # -----------------------------------------------------
     # Given a target color (x value), the function returns source color (y value).
     xs_cmf = list(np.linspace(0, 255, 256).astype(int))
-    ys_cmf = third_degree_polynomial_model.getYs(xs_cmf)
+    ys_cmf = n_degree_polynomial_model.getYs(xs_cmf)
     ys_cmf = [int(max(0, min(round(y_cmf), 255))) for y_cmf in ys_cmf]  # round, undersaturate and oversaturate
     polynomial_cmf = {'cmf': {'x': xs_cmf, 'y': ys_cmf}}
+
+    filename = '{}_polynomial'.format(n_degree_polynomial_model.degree)
+    fig.savefig(filename)
 
     wm = KeyPressManager.KeyPressManager.WindowManager()
     if wm.waitForKey():
         exit(0)
-
 
 
 if __name__ == '__main__':
