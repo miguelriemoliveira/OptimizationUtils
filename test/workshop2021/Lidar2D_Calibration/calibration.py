@@ -70,9 +70,10 @@ def main():
     ax.plot(0, 0)
     ax.grid()
     ax.axis([-20, 20, -20, 20])
-    handle_left_laser = ax.plot(left_xs, left_ys, 'bo')
-    handle_initial_right_laser = ax.plot(right_xs, right_ys, 'go')
-    handle_right_laser = ax.plot(right_xs, right_ys, 'ro')
+    handle_left_laser = ax.plot(left_xs, left_ys, 'bo', label='Left LIDAR data')
+    handle_initial_right_laser = ax.plot(right_xs, right_ys, 'go', label='Right LIDAR data before calibration')
+    handle_right_laser = ax.plot(right_xs, right_ys, 'ro', label='Right LIDAR data after calibration')
+    ax.legend()
     plt.draw()
     plt.waitforbuttonpress(1)
 
@@ -130,7 +131,6 @@ def main():
         counter = 0
         # Compute error
         # errors from the laser model
-        # for x, x_m, y, y_m in zip(left_xs, right_xs_model, left_ys, right_ys_model):
         for idx, x in enumerate(left_xs):
             y = left_ys[idx]
             error_min = sys.float_info.max
@@ -166,11 +166,11 @@ def main():
     def visualizationFunction(data_models):
         # retrieve data models
         laser_model = data_models['laser_model']
-
-        print('Visualization function called ...')
-        print('tx=' + str(laser_model.tx))
-        print('ty=' + str(laser_model.ty))
-        print('ang=' + str(laser_model.ang))
+        #
+        # print('Visualization function called ...')
+        # print('tx=' + str(laser_model.tx))
+        # print('ty=' + str(laser_model.ty))
+        # print('ang=' + str(laser_model.ang))
 
         right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
 
@@ -189,7 +189,12 @@ def main():
     # -----------------------------------------------------
     opt.startOptimization(
         optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-6, 'diff_step': None})
+    opt.printParameters()
 
+
+    wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
+    if wm.waitForKey(0.01, verbose=False):
+        exit(0)
 
 if __name__ == "__main__":
     main()
