@@ -36,20 +36,12 @@ class nDegreePolynomialModel():
                 final_parameters.append(getattr(self, att))
 
         y = 0
-        y_previous = 0
-
-        for idx, final_parameter in enumerate(final_parameters):
-            y_previous += final_parameter * (x-1) ** (self.degree - idx)
-
+     
         for idx, final_parameter in enumerate(final_parameters):
             y += final_parameter * x ** (self.degree - idx)
 
         return y
 
-        # if y > y_previous:
-        #     return y
-        # else:
-        #     return y_previous
 
     def getYs(self, xs, mi = False):
         
@@ -83,6 +75,7 @@ def main():
                         help='Filename to read the data points JIH observations (numpy).')
     parser.add_argument('-mi', '--monotonically_increasing', action='store_true', default=False,
                         help='Force function to be monotonically increasing')
+    parser.add_argument('-deg', '--degree', type=int, required=True, help = 'Degree of the polynomial regression')
     args = vars(parser.parse_args())
     print(args)
 
@@ -109,19 +102,14 @@ def main():
     ys_obs = src_colors
 
     # Create n Degree Polynomial model
-    n_degree_polynomial_model = nDegreePolynomialModel([1, 1, 1, 1])
+    n_degree_polynomial_model = nDegreePolynomialModel([1] * (args['degree'] + 1))
     # n_degree_polynomial_model = nDegreePolynomialModel([-0.000027, 0.013832, -1.829113, 128.440552])
-    initial_n_degree_polynomial_model = nDegreePolynomialModel([1, 1, 1, 1])
+    initial_n_degree_polynomial_model = nDegreePolynomialModel([1] * (args['degree'] + 1))
     # initial_n_degree_polynomial_model = nDegreePolynomialModel([-0.000027, 0.013832, -1.829113, 128.440552])
     xs = np.linspace(0, 255, 256)
     print(len(xs))
 
-    # print(n_degree_polynomial_model.getY(0))
-    # print(n_degree_polynomial_model.getY(-1))
-    # print(n_degree_polynomial_model.getY(-2))
-    # print(n_degree_polynomial_model.getY(1))
-    # print(n_degree_polynomial_model.getY(2))
-    # print(len(n_degree_polynomial_model.getYs(xs)))
+
     print(n_degree_polynomial_model.parameters_names)
 
 
