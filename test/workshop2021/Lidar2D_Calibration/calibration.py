@@ -71,6 +71,7 @@ def main():
     ax.grid()
     ax.axis([-20, 20, -20, 20])
     handle_left_laser = ax.plot(left_xs, left_ys, 'bo')
+    handle_initial_right_laser = ax.plot(right_xs, right_ys, 'go')
     handle_right_laser = ax.plot(right_xs, right_ys, 'ro')
     plt.draw()
     plt.waitforbuttonpress(1)
