@@ -42,7 +42,7 @@ class LaserModel():
         x_out = out_matrix[0]
         y_out = out_matrix[1]
 
-        return round(x_out[0],2), round(y_out[0],2)
+        return x_out[0], y_out[0]
 
     def getCoords(self, xs, ys):
         x_ol = []
@@ -140,7 +140,6 @@ def main():
                 if error < error_min:
                     error_min = error
             errors.append(error_min)
-        print(errors)
         return errors
 
     opt.setObjectiveFunction(objectiveFunction)
@@ -188,7 +187,7 @@ def main():
     # Start optimization
     # -----------------------------------------------------
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-3, 'xtol': 1e-3, 'gtol': 1e-3, 'diff_step': None})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-6, 'diff_step': None})
 
 
 if __name__ == "__main__":
