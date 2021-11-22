@@ -15,7 +15,6 @@ import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
 
 class nDegreePolynomialModel():
-    # y = a * (x**3) + b * (x**2) + c*x + d
     def __init__(self, list_parameters):
         dict_parameters = {}
         for idx, parameter in enumerate(list_parameters):
@@ -52,20 +51,25 @@ class nDegreePolynomialModel():
         # else:
         #     return y_previous
 
-    def getYs(self, xs):
-        # ys_old = [self.getY(item) for item in xs]
-        # ys = []
-        # for idx, y_old in enumerate(ys_old):
-        #     if idx == 0:
-        #         ys.append(y_old)
-        #     elif y_old < ys[-1]:
-        #         ys.append(ys[-1])
-        #     else:
-        #         ys.append(y_old)
-        #
-        # return ys
+    def getYs(self, xs, mi = False):
+        
+        ys_old = [self.getY(item) for item in xs]
+        if mi:
+            
+            ys = []
+            for idx, y_old in enumerate(ys_old):
+                if idx == 0:
+                    ys.append(y_old)
+                elif y_old < ys[-1]:
+                    ys.append(ys[-1])
+                else:
+                    ys.append(y_old)
+            
+            return ys
+        else:
+            return ys_old
 
-        return [self.getY(item) for item in xs]
+        
 
 
 def main():
@@ -77,6 +81,8 @@ def main():
     parser = argparse.ArgumentParser(description='Regression example 1')
     parser.add_argument('-inp', '--input_numpy', type=str, required=True,
                         help='Filename to read the data points JIH observations (numpy).')
+    parser.add_argument('-mi', '--monotonically_increasing', action='store_true', default=False,
+                        help='Force function to be monotonically increasing')
     args = vars(parser.parse_args())
     print(args)
 
@@ -110,12 +116,12 @@ def main():
     xs = np.linspace(0, 255, 256)
     print(len(xs))
 
-    print(n_degree_polynomial_model.getY(0))
-    print(n_degree_polynomial_model.getY(-1))
-    print(n_degree_polynomial_model.getY(-2))
-    print(n_degree_polynomial_model.getY(1))
-    print(n_degree_polynomial_model.getY(2))
-    print(len(n_degree_polynomial_model.getYs(xs)))
+    # print(n_degree_polynomial_model.getY(0))
+    # print(n_degree_polynomial_model.getY(-1))
+    # print(n_degree_polynomial_model.getY(-2))
+    # print(n_degree_polynomial_model.getY(1))
+    # print(n_degree_polynomial_model.getY(2))
+    # print(len(n_degree_polynomial_model.getYs(xs)))
     print(n_degree_polynomial_model.parameters_names)
 
 
@@ -164,7 +170,7 @@ def main():
         residuals = {}
 
         # Compute observations from model
-        ys_obs_from_model = n_degree_polynomial_model.getYs(xs_obs)
+        ys_obs_from_model = n_degree_polynomial_model.getYs(xs_obs, args['monotonically_increasing'])
 
         # Compute error
         # errors from the parabola --> (ys_obs, ys_obs_from_model)
@@ -216,7 +222,7 @@ def main():
 
     # draw best parabola model
     # TODO Professor used xs_obs
-    handle_best_model_plot = ax.plot(xs, initial_n_degree_polynomial_model.getYs(xs), '--k')
+    handle_best_model_plot = ax.plot(xs, initial_n_degree_polynomial_model.getYs(xs,args['monotonically_increasing']), '--k')
 
     wm = KeyPressManager.WindowManager(fig)
     if wm.waitForKey(0., verbose=False):
@@ -235,7 +241,7 @@ def main():
         # opt.printParameters()
 
         # n_degree_polynomial_model visualization
-        handle_model_plot[0].set_ydata(n_degree_polynomial_model.getYs(xs))
+        handle_model_plot[0].set_ydata(n_degree_polynomial_model.getYs(xs,args['monotonically_increasing']))
 
         wm = KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
@@ -257,7 +263,7 @@ def main():
     # -----------------------------------------------------
     # Given a target color (x value), the function returns source color (y value).
     xs_cmf = list(np.linspace(0, 255, 256).astype(int))
-    ys_cmf = n_degree_polynomial_model.getYs(xs_cmf)
+    ys_cmf = n_degree_polynomial_model.getYs(xs_cmf,args['monotonically_increasing'])
     ys_cmf = [int(max(0, min(round(y_cmf), 255))) for y_cmf in ys_cmf]  # round, undersaturate and oversaturate
     polynomial_cmf = {'cmf': {'x': xs_cmf, 'y': ys_cmf}}
 
