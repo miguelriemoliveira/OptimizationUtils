@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import math
 import numpy as np
 from functools import partial
+import sys
 
 
 class LaserModel():
@@ -38,13 +39,20 @@ class LaserModel():
 
         out_matrix = np.matmul(matrix, in_matrix)
 
-        x_out = out_matrix[1]
-        y_out = out_matrix[2]
+        x_out = out_matrix[0]
+        y_out = out_matrix[1]
 
         return x_out, y_out
 
     def getCoords(self, xs, ys):
-        return [self.getCoord(x, y) for x in xs for y in ys]
+        x_ol = []
+        y_ol = []
+        for idx, y in enumerate(ys):
+            x = xs[idx]
+            (x_o, y_o) = self.getCoord(x, y)
+            x_ol.append(x_o)
+            y_ol.append(y_o)
+        return x_ol, y_ol
 
 
 def main():
@@ -118,12 +126,20 @@ def main():
         # Compute observations from model
         right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
 
+        counter = 0
         # Compute error
         # errors from the laser model
-        for x, x_m, y, y_m in zip(right_xs, right_xs_model, right_ys, right_ys_model):
-            error = abs(x - x_m) + abs(y - y_m)
-            errors.append(error)
-
+        # for x, x_m, y, y_m in zip(left_xs, right_xs_model, left_ys, right_ys_model):
+        for idx, x in enumerate(left_xs):
+            y = left_ys[idx]
+            error_min = sys.float_info.max
+            for idx2, x_m in enumerate(right_xs_model):
+                y_m = right_ys_model[idx2]
+                counter += 1
+                error = abs(x - x_m) + abs(y - y_m)
+                if error < error_min:
+                    error_min = error
+            errors.append(error_min)
         return errors
 
     opt.setObjectiveFunction(objectiveFunction)
@@ -156,6 +172,9 @@ def main():
         print('ang=' + str(laser_model.ang))
 
         right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
+
+        print(right_xs_model)
+        print(right_ys_model)
 
         # laser visualization
         handle_right_laser[0].set_xdata(right_xs_model)
