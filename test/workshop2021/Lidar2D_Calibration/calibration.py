@@ -7,6 +7,7 @@ import math
 import numpy as np
 from functools import partial
 import sys
+import argparse
 
 
 class LaserModel():
@@ -60,8 +61,14 @@ def main():
     laser_model = LaserModel(0, 0, -2*math.pi/3)
     best_laser_model = LaserModel(0, 0, 0)
 
+    # Command line arguments
+    parser = argparse.ArgumentParser(description='LIDAR calibration using OptimizationUtils')
+    parser.add_argument('-j', '--json', type=str, required=True,
+                        help='.json file to read the data points.')
+    args = vars(parser.parse_args())
+
     # Calling json_reader functions
-    data_left, data_right = jsonImporter('data/data_collected.json')
+    data_left, data_right = jsonImporter(args['json'])
     left_xs, left_ys, right_xs, right_ys = dataViewer(data_left, data_right)
 
     # Initializing and viewing the plot
@@ -193,7 +200,6 @@ def main():
     tx = getterLaser(laser_model, 'tx')
     ty = getterLaser(laser_model, 'ty')
     ang = getterLaser(laser_model, 'ang')
-    print(tx, ty, ang)
 
     wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
     if wm.waitForKey(0.01, verbose=False):
