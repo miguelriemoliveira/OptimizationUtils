@@ -190,7 +190,10 @@ def main():
     opt.startOptimization(
         optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-6, 'diff_step': None})
     opt.printParameters()
-
+    tx = getterLaser(laser_model, 'tx')
+    ty = getterLaser(laser_model, 'ty')
+    ang = getterLaser(laser_model, 'ang')
+    print(tx, ty, ang)
 
     wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
     if wm.waitForKey(0.01, verbose=False):
