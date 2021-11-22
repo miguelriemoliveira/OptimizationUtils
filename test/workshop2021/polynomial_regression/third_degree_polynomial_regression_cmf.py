@@ -13,7 +13,6 @@ from sklearn.metrics import mean_absolute_error as mae
 import OptimizationUtils.KeyPressManager as KeyPressManager
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
-
 class thirdDegreePolynomialModel():
     # y = a * (x**3) + b * (x**2) + c*x + d
     def __init__(self, a, b, c, d):
