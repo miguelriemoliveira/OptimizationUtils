@@ -57,7 +57,7 @@ class LaserModel():
 
 def main():
     # Initiating module
-    laser_model = LaserModel(0, 0, 0)
+    laser_model = LaserModel(0, 0, -2*math.pi/3)
     best_laser_model = LaserModel(0, 0, 0)
 
     # Calling json_reader functions
