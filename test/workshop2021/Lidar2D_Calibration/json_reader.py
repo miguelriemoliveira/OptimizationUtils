@@ -73,14 +73,14 @@ def dataViewer(data_left, data_right):
     for laser_range in left_ranges:
         x, y = pol2cart(laser_range, angle_left)
         angle_left += incangle_l
-        left_xs.append(x)
-        left_ys.append(y)
+        left_xs.append(round(x,2))
+        left_ys.append(round(y,2))
 
     for laser_range in right_ranges:
         x, y = pol2cart(laser_range, angle_right)
         angle_right += incangle_r
-        right_xs.append(x)
-        right_ys.append(y)
+        right_xs.append(round(x,2))
+        right_ys.append(round(y,2))
 
     return left_xs, left_ys, right_xs, right_ys
 
