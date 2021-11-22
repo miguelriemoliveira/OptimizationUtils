@@ -42,7 +42,7 @@ class LaserModel():
         x_out = out_matrix[0]
         y_out = out_matrix[1]
 
-        return x_out, y_out
+        return round(x_out[0],2), round(y_out[0],2)
 
     def getCoords(self, xs, ys):
         x_ol = []
@@ -140,6 +140,7 @@ def main():
                 if error < error_min:
                     error_min = error
             errors.append(error_min)
+        print(errors)
         return errors
 
     opt.setObjectiveFunction(objectiveFunction)
@@ -172,9 +173,6 @@ def main():
         print('ang=' + str(laser_model.ang))
 
         right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
-
-        print(right_xs_model)
-        print(right_ys_model)
 
         # laser visualization
         handle_right_laser[0].set_xdata(right_xs_model)
