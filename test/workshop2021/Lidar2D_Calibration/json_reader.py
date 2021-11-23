@@ -61,15 +61,19 @@ def dataTreatment(data_left, data_right):
 
     # Retrieving data from the dictionary
     minangle_l = data_left['angle_min']
+    maxangle_l = data_left['angle_max']
     incangle_l = data_left['angle_increment']
     minangle_r = data_right['angle_min']
+    maxangle_r = data_right['angle_max']
     incangle_r = data_right['angle_increment']
     left_ranges = data_left['ranges']
     right_ranges = data_right['ranges']
 
     # Defining variables
     angle_left = minangle_l
-    angle_right = minangle_r
+    angle_right = maxangle_r
+    minangleav_l = minangle_l + math.pi/4
+    maxangleav_r = maxangle_r - math.pi/4
     left_xs = []
     left_ys = []
     right_xs = []
@@ -77,15 +81,17 @@ def dataTreatment(data_left, data_right):
 
     # Converting from polar coordinates to cartesian coordinates
     for laser_range in left_ranges:
-        x, y = pol2cart(laser_range, angle_left)
+        if angle_left >= minangleav_l:
+            x, y = pol2cart(laser_range, angle_left)
+            left_xs.append(x)
+            left_ys.append(y)
         angle_left += incangle_l
-        left_xs.append(round(x,2))
-        left_ys.append(round(y,2))
 
     for laser_range in right_ranges:
-        x, y = pol2cart(laser_range, angle_right)
-        angle_right += incangle_r
-        right_xs.append(round(x,2))
-        right_ys.append(round(y,2))
+        if angle_right <= maxangleav_r:
+            x, y = pol2cart(laser_range, angle_right)
+            right_xs.append(x)
+            right_ys.append(y)
+        angle_right -= incangle_r
 
     return left_xs, left_ys, right_xs, right_ys

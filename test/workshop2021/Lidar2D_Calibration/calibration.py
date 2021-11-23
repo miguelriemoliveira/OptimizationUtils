@@ -85,8 +85,7 @@ def main():
         left_xs, left_ys, right_xs, right_ys = dataTreatment(data_left, data_right)
 
         # Initiating module
-        laser_model = LaserModel(0, 0, -2 * math.pi / 3)
-        best_laser_model = LaserModel(0, 0, 0)
+        laser_model = LaserModel(0, 0, math.pi/4)
 
         # Initializing and viewing the plot
         fig = plt.figure()
@@ -212,7 +211,7 @@ def main():
         # Start optimization
         # -----------------------------------------------------
         opt.startOptimization(
-            optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1-6, 'gtol': 1-6, 'diff_step': None})
+            optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-6, 'diff_step': None})
         opt.printParameters()
         tx = getterLaser(laser_model, 'tx')
         ty = getterLaser(laser_model, 'ty')
