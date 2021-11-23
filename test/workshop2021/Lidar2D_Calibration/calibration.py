@@ -8,6 +8,7 @@ import numpy as np
 from functools import partial
 import sys
 import argparse
+from statistics import mean
 
 
 class LaserModel():
@@ -57,153 +58,172 @@ class LaserModel():
 
 
 def main():
-    # Initiating module
-    laser_model = LaserModel(0, 0, -2*math.pi/3)
-    best_laser_model = LaserModel(0, 0, 0)
-
     # Command line arguments
     parser = argparse.ArgumentParser(description='LIDAR calibration using OptimizationUtils')
     parser.add_argument('-j', '--json', type=str, required=True,
                         help='.json file to read the data points.')
     args = vars(parser.parse_args())
 
-    # Calling json_reader functions
-    data_left, data_right = jsonImporter(args['json'])
-    left_xs, left_ys, right_xs, right_ys = dataViewer(data_left, data_right)
+    # Defining lists
+    txs = []
+    tys = []
+    angs = []
 
-    # Initializing and viewing the plot
-    fig = plt.figure()
-    ax = fig.gca()
-    ax.plot(0, 0)
-    ax.grid()
-    ax.axis([-20, 20, -20, 20])
-    handle_left_laser = ax.plot(left_xs, left_ys, 'bo', label='Left LIDAR data')
-    handle_initial_right_laser = ax.plot(right_xs, right_ys, 'go', label='Right LIDAR data before calibration')
-    handle_right_laser = ax.plot(right_xs, right_ys, 'ro', label='Right LIDAR data after calibration')
-    ax.legend()
-    plt.draw()
-    plt.waitforbuttonpress(1)
+    # Importing json
+    data = jsonImporter(args['json'])
 
-    opt = OptimizationUtils.Optimizer()
+    # Retrieving number of collections
+    cols = data['collections']
 
-    # Add data models
-    opt.addDataModel('laser_model', laser_model)
+    # Running the program for each of the collections
+    for col in cols:
+        # Closing all previous figure
+        plt.close('all')
 
-    # -----------------------------------------------------
-    # Define parameters
-    # -----------------------------------------------------
+        # Diving the data into left and right LIDAR
+        data_left, data_right = divideDict(data, col)
+        left_xs, left_ys, right_xs, right_ys = dataTreatment(data_left, data_right)
 
-    # Laser parameters
-    def getterLaser(data, prop):
-        if prop == 'tx':
-            return [data.tx]
-        elif prop == 'ty':
-            return [data.ty]
-        elif prop == 'ang':
-            return [data.ang]
+        # Initiating module
+        laser_model = LaserModel(0, 0, -2 * math.pi / 3)
+        best_laser_model = LaserModel(0, 0, 0)
 
-    def setterLaser(data, value, prop):
-        if prop == 'tx':
-            data.tx = value
-        elif prop == 'ty':
-            data.ty = value
-        elif prop == 'ang':
-            data.ang = value
+        # Initializing and viewing the plot
+        fig = plt.figure()
+        ax = fig.gca()
+        ax.plot(0, 0)
+        ax.grid()
+        ax.axis([-20, 20, -20, 20])
+        handle_left_laser = ax.plot(left_xs, left_ys, 'bo', label='Left LIDAR data')
+        handle_initial_right_laser = ax.plot(right_xs, right_ys, 'go', label='Right LIDAR data before calibration')
+        handle_right_laser = ax.plot(right_xs, right_ys, 'ro', label='Right LIDAR data after calibration')
+        ax.legend()
+        plt.draw()
+        plt.waitforbuttonpress(1)
 
-    opt.pushParamScalar(group_name='laser_tx', data_key='laser_model',
-                        getter=partial(getterLaser, prop='tx'),
-                        setter=partial(setterLaser, prop='tx'))
-    opt.pushParamScalar(group_name='laser_ty', data_key='laser_model',
-                        getter=partial(getterLaser, prop='ty'),
-                        setter=partial(setterLaser, prop='ty'))
-    opt.pushParamScalar(group_name='laser_ang', data_key='laser_model',
-                        getter=partial(getterLaser, prop='ang'),
-                        setter=partial(setterLaser, prop='ang'))
+        opt = OptimizationUtils.Optimizer()
 
-    opt.printParameters()
+        # Add data models
+        opt.addDataModel('laser_model', laser_model)
 
-    # -----------------------------------------------------
-    # Define objective function
-    # -----------------------------------------------------
-    def objectiveFunction(data_models):
-        # retrieve data models
-        laser_model = data_models['laser_model']
+        # -----------------------------------------------------
+        # Define parameters
+        # -----------------------------------------------------
 
-        # Initialize the residuals
-        errors = []
+        # Laser parameters
+        def getterLaser(data, prop):
+            if prop == 'tx':
+                return [data.tx]
+            elif prop == 'ty':
+                return [data.ty]
+            elif prop == 'ang':
+                return [data.ang]
 
-        # Compute observations from model
-        right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
+        def setterLaser(data, value, prop):
+            if prop == 'tx':
+                data.tx = value
+            elif prop == 'ty':
+                data.ty = value
+            elif prop == 'ang':
+                data.ang = value
 
-        counter = 0
-        # Compute error
-        # errors from the laser model
-        for idx, x in enumerate(left_xs):
-            y = left_ys[idx]
-            error_min = sys.float_info.max
-            for idx2, x_m in enumerate(right_xs_model):
-                y_m = right_ys_model[idx2]
-                counter += 1
-                error = abs(x - x_m) + abs(y - y_m)
-                if error < error_min:
-                    error_min = error
-            errors.append(error_min)
-        return errors
+        opt.pushParamScalar(group_name='laser_tx', data_key='laser_model',
+                            getter=partial(getterLaser, prop='tx'),
+                            setter=partial(setterLaser, prop='tx'))
+        opt.pushParamScalar(group_name='laser_ty', data_key='laser_model',
+                            getter=partial(getterLaser, prop='ty'),
+                            setter=partial(setterLaser, prop='ty'))
+        opt.pushParamScalar(group_name='laser_ang', data_key='laser_model',
+                            getter=partial(getterLaser, prop='ang'),
+                            setter=partial(setterLaser, prop='ang'))
 
-    opt.setObjectiveFunction(objectiveFunction)
+        opt.printParameters()
 
-    # -----------------------------------------------------
-    # Define residuals
-    # -----------------------------------------------------
+        # -----------------------------------------------------
+        # Define objective function
+        # -----------------------------------------------------
+        def objectiveFunction(data_models):
+            # retrieve data models
+            laser_model = data_models['laser_model']
 
-    for idx, x in enumerate(right_xs):
-        opt.pushResidual(name='laser_r' + str(idx), params=['laser_tx', 'laser_ty', 'laser_ang'])
+            # Initialize the residuals
+            errors = []
 
-    opt.printResiduals()
+            # Compute observations from model
+            right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
 
-    # -----------------------------------------------------
-    # Compute sparse matrix
-    # -----------------------------------------------------
-    opt.computeSparseMatrix()
-    opt.printSparseMatrix()
+            counter = 0
+            # Compute error
+            # errors from the laser model
+            for idx, x in enumerate(left_xs):
+                y = left_ys[idx]
+                error_min = sys.float_info.max
+                for idx2, x_m in enumerate(right_xs_model):
+                    y_m = right_ys_model[idx2]
+                    counter += 1
+                    error = abs(x - x_m) + abs(y - y_m)
+                    if error < error_min:
+                        error_min = error
+                errors.append(error_min)
+            return errors
 
-    # -----------------------------------------------------
-    # Define visualization function
-    # -----------------------------------------------------
-    def visualizationFunction(data_models):
-        # retrieve data models
-        laser_model = data_models['laser_model']
-        #
-        # print('Visualization function called ...')
-        # print('tx=' + str(laser_model.tx))
-        # print('ty=' + str(laser_model.ty))
-        # print('ang=' + str(laser_model.ang))
+        opt.setObjectiveFunction(objectiveFunction)
 
-        right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
+        # -----------------------------------------------------
+        # Define residuals
+        # -----------------------------------------------------
 
-        # laser visualization
-        handle_right_laser[0].set_xdata(right_xs_model)
-        handle_right_laser[0].set_ydata(right_ys_model)
+        for idx, x in enumerate(right_xs):
+            opt.pushResidual(name='laser_r' + str(idx), params=['laser_tx', 'laser_ty', 'laser_ang'])
 
+        opt.printResiduals()
+
+        # -----------------------------------------------------
+        # Compute sparse matrix
+        # -----------------------------------------------------
+        opt.computeSparseMatrix()
+        opt.printSparseMatrix()
+
+        # -----------------------------------------------------
+        # Define visualization function
+        # -----------------------------------------------------
+        def visualizationFunction(data_models):
+            # retrieve data models
+            laser_model = data_models['laser_model']
+            #
+            # print('Visualization function called ...')
+            # print('tx=' + str(laser_model.tx))
+            # print('ty=' + str(laser_model.ty))
+            # print('ang=' + str(laser_model.ang))
+
+            right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
+
+            # laser visualization
+            handle_right_laser[0].set_xdata(right_xs_model)
+            handle_right_laser[0].set_ydata(right_ys_model)
+
+            wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
+            if wm.waitForKey(0.01, verbose=False):
+                exit(0)
+
+        opt.setVisualizationFunction(visualizationFunction, True)
+
+        # -----------------------------------------------------
+        # Start optimization
+        # -----------------------------------------------------
+        opt.startOptimization(
+            optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1-6, 'gtol': 1-6, 'diff_step': None})
+        opt.printParameters()
+        tx = getterLaser(laser_model, 'tx')
+        ty = getterLaser(laser_model, 'ty')
+        ang = getterLaser(laser_model, 'ang')
+        txs.append(tx[0][0])
+        tys.append(ty[0][0])
+        angs.append(ang[0][0])
         wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
-
-    opt.setVisualizationFunction(visualizationFunction, True)
-
-    # -----------------------------------------------------
-    # Start optimization
-    # -----------------------------------------------------
-    opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-6, 'diff_step': None})
-    opt.printParameters()
-    tx = getterLaser(laser_model, 'tx')
-    ty = getterLaser(laser_model, 'ty')
-    ang = getterLaser(laser_model, 'ang')
-
-    wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
-    if wm.waitForKey(0.01, verbose=False):
-        exit(0)
+    print('The values for calibration are:\n tx: ' + str(mean(txs))+ ';\n ty: ' + str(mean(tys)) + ';\n ang: ' + str(mean(angs)))
 
 if __name__ == "__main__":
     main()
