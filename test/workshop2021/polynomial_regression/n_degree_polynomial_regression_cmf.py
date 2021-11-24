@@ -16,15 +16,13 @@ import OptimizationUtils.OptimizationUtils as OptimizationUtils
 
 class nDegreePolynomialModel():
     def __init__(self, list_parameters):
-        dict_parameters = {}
+        self.parameters_names = []
         for idx, parameter in enumerate(list_parameters):
-            dict_parameters['a{}'.format(idx)] = parameter
-
-        for parameter_key, parameter_value in dict_parameters.items():
-            setattr(self, parameter_key, parameter_value)
+            setattr(self, 'a{}'.format(idx), parameter)
+            self.parameters_names.append('a{}'.format(idx))
 
         self.degree = len(list_parameters) - 1
-        self.parameters_names = list(dict_parameters.keys())
+        
 
     def getY(self, x):
 
@@ -36,7 +34,6 @@ class nDegreePolynomialModel():
                 final_parameters.append(getattr(self, att))
 
         y = 0
-     
         for idx, final_parameter in enumerate(final_parameters):
             y += final_parameter * x ** (self.degree - idx)
 
@@ -62,7 +59,6 @@ class nDegreePolynomialModel():
             return ys_old
 
         
-
 
 def main():
     # -----------------------------------------------------
@@ -100,20 +96,16 @@ def main():
 
     xs_obs = tgt_colors
     ys_obs = src_colors
-
+    
     # Create n Degree Polynomial model
-    n_degree_polynomial_model = nDegreePolynomialModel([1] * (args['degree'] + 1))
+    n_degree_polynomial_model = nDegreePolynomialModel([0] * args['degree'] + [100])
+    # n_degree_polynomial_model = nDegreePolynomialModel([1,1,1,1,1])
+    
     # n_degree_polynomial_model = nDegreePolynomialModel([-0.000027, 0.013832, -1.829113, 128.440552])
-    initial_n_degree_polynomial_model = nDegreePolynomialModel([1] * (args['degree'] + 1))
+    initial_n_degree_polynomial_model = nDegreePolynomialModel([0] * args['degree'] + [100])
     # initial_n_degree_polynomial_model = nDegreePolynomialModel([-0.000027, 0.013832, -1.829113, 128.440552])
-    xs = np.linspace(0, 255, 256)
-    print(len(xs))
-
-
-    print(n_degree_polynomial_model.parameters_names)
-
-
-    # exit(0)
+    
+    
     # initialize optimizer
     opt = OptimizationUtils.Optimizer()
 
@@ -123,29 +115,32 @@ def main():
     # -----------------------------------------------------
     # Define parameters
     # -----------------------------------------------------
-
+    
     # Parabola parameters
     def getternDegreePolynomial(data, prop):
-        # data is our class instance
+        # data is our class instance        
+        return [getattr(data, prop)]
 
-        for parameters_name in n_degree_polynomial_model.parameters_names:
-            if prop == parameters_name:
-                return [getattr(data, parameters_name)]
+        
+        # for parameters_name in n_degree_polynomial_model.parameters_names:
+        #     if prop == parameters_name:
+        #         return [getattr(data, parameters_name)]
 
     def setternDegreePolynomial(data, value, prop):
-
-        for parameters_name in n_degree_polynomial_model.parameters_names:
-            if prop == parameters_name:
-                setattr(data, parameters_name, value)
+        setattr(data, prop, value)
+        
+        # for parameters_name in n_degree_polynomial_model.parameters_names:
+        #     if prop == parameters_name:
+        #         setattr(data, parameters_name, value)
 
     for parameters_name in n_degree_polynomial_model.parameters_names:
-        opt.pushParamVector(group_name='{}_polynomial_{}'.format(n_degree_polynomial_model.degree, parameters_name),
+        opt.pushParamScalar(group_name='{}_polynomial_{}'.format(n_degree_polynomial_model.degree, parameters_name),
                             data_key='n_degree_polynomial_model',
                             getter=partial(getternDegreePolynomial, prop=parameters_name),
-                            setter=partial(setternDegreePolynomial, prop=parameters_name),
-                            suffix=[''])
+                            setter=partial(setternDegreePolynomial, prop=parameters_name))
 
     opt.printParameters()
+
 
     # -----------------------------------------------------
     # Define objective function
@@ -165,7 +160,7 @@ def main():
         for idx, (y_o, y_ofm) in enumerate(zip(ys_obs, ys_obs_from_model)):
             residual = (y_o - y_ofm) ** 2
             # residual = abs(y_o - y_ofm)
-            residuals['{}_polynomial_r'.format(n_degree_polynomial_model.degree) + str(idx)] = residual
+            residuals['{}_polynomial_r{}'.format(n_degree_polynomial_model.degree, idx)] = residual
 
         return residuals
 
@@ -176,9 +171,9 @@ def main():
     # -----------------------------------------------------
     params = ['{}_polynomial_'.format(n_degree_polynomial_model.degree) + parameters_name for parameters_name in
               n_degree_polynomial_model.parameters_names]
-
+    
     for idx, x in enumerate(xs_obs):
-        opt.pushResidual(name='{}_polynomial_r'.format(n_degree_polynomial_model.degree) + str(idx), params=params)
+        opt.pushResidual(name='{}_polynomial_r{}'.format(n_degree_polynomial_model.degree, idx), params=params)
 
     opt.printResiduals()
 
@@ -204,7 +199,6 @@ def main():
 
     # draw parabola model
     xs = list(np.linspace(0, 255, 256))
-    print(xs)
     ys = n_degree_polynomial_model.getYs(xs)
     handle_model_plot = ax.plot(xs, ys, '-g')
 
@@ -222,11 +216,7 @@ def main():
     def visualizationFunction(data_models):
         # retrieve data models
         n_degree_polynomial_model = data_models['n_degree_polynomial_model']
-        # print('Visualization function called ...')
-        # print('a=' + str(parabola_model.a))
-        # print('b=' + str(parabola_model.b))
-        # print('c=' + str(parabola_model.c))
-        # opt.printParameters()
+
 
         # n_degree_polynomial_model visualization
         handle_model_plot[0].set_ydata(n_degree_polynomial_model.getYs(xs,args['monotonically_increasing']))
@@ -243,7 +233,7 @@ def main():
     # Start optimization
     # -----------------------------------------------------
     opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-3, 'xtol': 1e-3, 'gtol': 1e-3, 'diff_step': None})
+        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-6, 'diff_step': None})
     opt.printParameters()
 
     # -----------------------------------------------------
