@@ -7,7 +7,8 @@ import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
-
+import OptimizationUtils.OptimizationUtils
+from json_reader import *
 
 def jsonImporter(path):
     """
@@ -210,13 +211,13 @@ def main():
         # Visualization
         # line left
         plt.setp(handle_model_left_plot, data=(xs_left, line_model.getYs(xs_left)))  # update the line draw
-        plt.setp(handle_best_model_plot_left, data=(xs_left, best_line_model_left.getYs(xs_left)))  # update the best line draw
-        plt.setp(handle_error_anchors_left, data=(xs_observations_left, ys_observations_from_model_left))  # update the anchor erros left model
+        # plt.setp(handle_best_model_plot_left, data=(xs_left, best_line_model_left.getYs(xs_left)))  # update the best line draw
+        # plt.setp(handle_error_anchors_left, data=(xs_observations_left, ys_observations_from_model_left))  # update the anchor erros left model
 
         # line right
         plt.setp(handle_model_right_plot, data=(xs_right, line_model.getYs(xs_right)))  # update the line draw
-        plt.setp(handle_best_model_plot_right, data=(xs_right, best_line_model_right.getYs(xs_right)))  # update the best line draw
-        plt.setp(handle_error_anchors_right, data=(xs_observations_right, ys_observations_from_model_right))  # update the anchor erros left model
+        # plt.setp(handle_best_model_plot_right, data=(xs_right, best_line_model_right.getYs(xs_right)))  # update the best line draw
+        # plt.setp(handle_error_anchors_right, data=(xs_observations_right, ys_observations_from_model_right))  # update the anchor erros left model
 
         plt.draw()
         key = plt.waitforbuttonpress(0.05)

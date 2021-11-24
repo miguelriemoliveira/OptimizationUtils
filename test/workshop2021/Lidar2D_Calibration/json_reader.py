@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 def jsonImporter(path):
     """
-    Imports .json file and divides the data into the one from the left LIDAR and the right LIDAR
+    Imports .json file 
     Args:
         path: String
 
@@ -18,11 +18,18 @@ def jsonImporter(path):
     # Opening JSON file
     f = open(path, )
     data = json.load(f)
+    return data
 
+
+def divideDict(data, col):
+    """
+    Divides the data into the one from the left LIDAR and the right LIDAR
+    """
+    
     # Dividing the dictionary in two
-    data_left = data['collections']['0']['data']['left_laser']
-    data_right = data['collections']['0']['data']['right_laser']
-
+    data_left = data['collections'][col]['data']['left_laser']
+    data_right = data['collections'][col]['data']['right_laser']
+    
     return data_left, data_right
 
 
@@ -41,9 +48,9 @@ def pol2cart(rho, phi):
     return x, y
 
 
-def dataViewer(data_left, data_right):
+def dataTreatment(data_left, data_right):
     """
-    From the data of both LIDARs, plots them to give a visual aid
+    From the data of both LIDARs, saves them on two lists of tuples
     Args:
         data_left: Dict
         data_right: Dict
@@ -52,18 +59,21 @@ def dataViewer(data_left, data_right):
 
     """
 
-
     # Retrieving data from the dictionary
     minangle_l = data_left['angle_min']
+    maxangle_l = data_left['angle_max']
     incangle_l = data_left['angle_increment']
     minangle_r = data_right['angle_min']
+    maxangle_r = data_right['angle_max']
     incangle_r = data_right['angle_increment']
     left_ranges = data_left['ranges']
     right_ranges = data_right['ranges']
 
     # Defining variables
     angle_left = minangle_l
-    angle_right = minangle_r
+    angle_right = maxangle_r
+    minangleav_l = minangle_l + math.pi/4
+    maxangleav_r = maxangle_r - math.pi/4
     left_xs = []
     left_ys = []
     right_xs = []
@@ -71,31 +81,17 @@ def dataViewer(data_left, data_right):
 
     # Converting from polar coordinates to cartesian coordinates
     for laser_range in left_ranges:
-        x, y = pol2cart(laser_range, angle_left)
+        if angle_left >= minangleav_l:
+            x, y = pol2cart(laser_range, angle_left)
+            left_xs.append(x)
+            left_ys.append(y)
         angle_left += incangle_l
-        left_xs.append(round(x,2))
-        left_ys.append(round(y,2))
 
     for laser_range in right_ranges:
-        x, y = pol2cart(laser_range, angle_right)
-        angle_right += incangle_r
-        right_xs.append(round(x,2))
-        right_ys.append(round(y,2))
+        if angle_right <= maxangleav_r:
+            x, y = pol2cart(laser_range, angle_right)
+            right_xs.append(x)
+            right_ys.append(y)
+        angle_right -= incangle_r
 
     return left_xs, left_ys, right_xs, right_ys
-
-def main():
-    # Retrieve info from dictionary and plot it
-    data_left, data_right = jsonImporter('data/data_collected.json')
-    left_xs, left_ys, right_xs, right_ys = dataViewer(data_left, data_right)
-    # Initializing and viewing the plot
-    plt.plot(0, 0)
-    plt.grid()
-    plt.axis([-20, 20, -20, 20])
-
-    plt.plot(left_xs, left_ys, 'bo')
-    plt.plot(right_xs, right_ys, 'ro')
-    plt.show()
-
-if __name__ == "__main__":
-    main()
