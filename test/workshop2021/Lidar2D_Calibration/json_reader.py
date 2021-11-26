@@ -72,26 +72,38 @@ def dataTreatment(data_left, data_right):
     # Defining variables
     angle_left = minangle_l
     angle_right = maxangle_r
-    minangleav_l = minangle_l + math.pi/4
-    maxangleav_r = maxangle_r - math.pi/4
+    minangleav_l = 0
+    maxangleav_r = 0
     left_xs = []
     left_ys = []
     right_xs = []
     right_ys = []
+    not_left_xs = []
+    not_left_ys = []
+    not_right_xs = []
+    not_right_ys = []
 
     # Converting from polar coordinates to cartesian coordinates
     for laser_range in left_ranges:
-        if angle_left >= minangleav_l:
-            x, y = pol2cart(laser_range, angle_left)
+        x, y = pol2cart(rho=laser_range, phi=angle_left)
+        if angle_left <= minangleav_l:
             left_xs.append(x)
             left_ys.append(y)
+        else:
+            not_left_xs.append(x)
+            not_left_ys.append(y)
+
         angle_left += incangle_l
 
+
     for laser_range in right_ranges:
-        if angle_right <= maxangleav_r:
-            x, y = pol2cart(laser_range, angle_right)
+        x, y = pol2cart(rho=laser_range, phi=angle_right)
+        if angle_right >= maxangleav_r:
             right_xs.append(x)
             right_ys.append(y)
+        else:
+            not_right_xs.append(x)
+            not_right_ys.append(y)
         angle_right -= incangle_r
 
-    return left_xs, left_ys, right_xs, right_ys
+    return left_xs, left_ys, right_xs, right_ys, not_left_xs, not_left_ys, not_right_xs, not_right_ys

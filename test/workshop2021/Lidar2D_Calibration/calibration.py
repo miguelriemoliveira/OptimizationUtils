@@ -82,23 +82,29 @@ def main():
 
         # Diving the data into left and right LIDAR
         data_left, data_right = divideDict(data, col)
-        left_xs, left_ys, right_xs, right_ys = dataTreatment(data_left, data_right)
+        left_xs, left_ys, right_xs, right_ys, not_left_xs, not_left_ys, not_right_xs, not_right_ys = \
+            dataTreatment(data_left, data_right)
 
         # Initiating module
-        laser_model = LaserModel(0, 0, math.pi/4)
+        laser_model = LaserModel(0, 0, math.pi/3)
 
         # Initializing and viewing the plot
         fig = plt.figure()
         ax = fig.gca()
         ax.plot(0, 0)
         ax.grid()
-        ax.axis([-20, 20, -20, 20])
-        handle_left_laser = ax.plot(left_xs, left_ys, 'bo', label='Left LIDAR data')
-        handle_initial_right_laser = ax.plot(right_xs, right_ys, 'go', label='Right LIDAR data before calibration')
-        handle_right_laser = ax.plot(right_xs, right_ys, 'ro', label='Right LIDAR data after calibration')
+        # ax.axis([-20, 20, -20, 20])
+        ax.axis([-5, 5, -5, 5])
+        handle_left_laser = ax.plot(left_ys, left_xs, 'b+', label='Left LIDAR data')
+        handle_not_left_laser = ax.plot(not_left_ys, not_left_xs, 'bo', markersize=2, label='Left LIDAR data not considered')
+        handle_initial_right_laser = ax.plot(right_ys, right_xs, 'g+', label='Right LIDAR data before calibration')
+        handle_not_right_laser = ax.plot(not_right_ys, not_right_xs, 'go', markersize=2, label='Right LIDAR data not considered')
+
+        handle_right_laser = ax.plot(right_ys, right_xs, 'rx', label='Right LIDAR data after calibration')
         ax.legend()
+        ax.invert_xaxis()
         plt.draw()
-        plt.waitforbuttonpress(1)
+        plt.waitforbuttonpress(0)
 
         opt = OptimizationUtils.Optimizer()
 
@@ -222,7 +228,7 @@ def main():
         wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
-    print('The values for calibration are:\n tx: ' + str(mean(txs))+ ';\n ty: ' + str(mean(tys)) + ';\n ang: ' + str(mean(angs)))
+    print('The values for calibration are:\n tx: ' + str(-mean(txs))+ ';\n ty: ' + str(-mean(tys)) + ';\n ang: ' + str(-mean(angs)))
 
 if __name__ == "__main__":
     main()
