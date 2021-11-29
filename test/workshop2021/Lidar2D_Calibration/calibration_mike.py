@@ -14,7 +14,6 @@ from rospy_message_converter import message_converter
 from std_msgs.msg import String
 
 
-
 class LaserModel():
     def __init__(self, tx, ty, ang):
         self.tx = tx
@@ -64,42 +63,84 @@ class LaserModel():
 
 
 def main():
-    dictionary_right={}
+    dictionary_right = {}
     dictionary_left = {}
     # Command line arguments
     parser = argparse.ArgumentParser(description='LIDAR calibration using OptimizationUtils')
     parser.add_argument('-j', '--json', type=str, required=True,
                         help='.json file to read the data points.')
     args = vars(parser.parse_args())
-    # # print(args['json'])
-    # # message = String(data = args['json'])
-    # bag = rosbag.Bag(args['json'])
-    #
-    # for topic, msg, t in bag.read_messages(topics=['/left_scan']):
-    #
-    #   dictionary_left.update(message_converter.convert_ros_message_to_dictionary(msg))
-    #
-    # for topic, msg, t in bag.read_messages(topics=['/right_scan']):
-    #
-    #   dictionary_right.update(message_converter.convert_ros_message_to_dictionary(msg))
-    #
-    # bag.close()
-    #
-    # json_object_left = json.dumps(dictionary_left)
-    # json_object_right = json.dumps(dictionary_right)
-    # Defining lists
-    txs = []
-    tys = []
-    angs = []
     print(args['json'])
+
     # Importing json
     data = jsonImporter(args['json'])
 
-    #
-    # # Retrieving number of collections
-    cols = data['collections']
+    # Retrieving number of collections
+    # use only collection 0
+
+    collection = data['collections']['0']
+
+    left_laser_msg = collection['data']['left_laser']
+    right_laser_msg = collection['data']['right_laser']
+
+    # Compute cartesian coordinates left laser
+    left_laser_msg['xs'] = []
+    left_laser_msg['ys'] = []
+    left_laser_msg['xs_filtered'] = []
+    left_laser_msg['ys_filtered'] = []
+    theta_min = - math.pi
+    theta_max = 0
+    for idx, range in enumerate(left_laser_msg['ranges']):
+        if range > 0:  # valid measurement
+            theta = left_laser_msg['angle_min'] + idx * left_laser_msg['angle_increment']
+            x = range * math.cos(theta)
+            y = range * math.sin(theta)
+            left_laser_msg['xs'].append(x)
+            left_laser_msg['ys'].append(y)
+            if theta > theta_min and theta < theta_max:
+                left_laser_msg['xs_filtered'].append(x)
+                left_laser_msg['ys_filtered'].append(y)
+
+    # Compute cartesian coordinates left laser
+    right_laser_msg['xs'] = []
+    right_laser_msg['ys'] = []
+    right_laser_msg['xs_filtered'] = []
+    right_laser_msg['ys_filtered'] = []
+    theta_min = 0
+    theta_max = math.pi
+    for idx, range in enumerate(right_laser_msg['ranges']):
+        if range > 0:  # valid measurement
+            theta = right_laser_msg['angle_min'] + idx * right_laser_msg['angle_increment']
+            x = range * math.cos(theta)
+            y = range * math.sin(theta)
+            right_laser_msg['xs'].append(x)
+            right_laser_msg['ys'].append(y)
+            if theta > theta_min and theta < theta_max:
+                right_laser_msg['xs_filtered'].append(x)
+                right_laser_msg['ys_filtered'].append(y)
+
+
+    # Create figure
+    fig = plt.figure()
+    ax = fig.gca()
+    ax.plot(0, 0)
+    ax.grid()
+    ax.axis([-5, 5, -5, 5])
+    handle_left_laser = ax.plot(left_laser_msg['xs'], left_laser_msg['ys'], '.', label='Left LIDAR data', color=(0.5,0.1,0.1))
+    handle_left_laser_filtered = ax.plot(left_laser_msg['xs_filtered'], left_laser_msg['ys_filtered'], 'o', label='left filtered',
+                                         color=(1,0,0), markerfacecolor='none')
+
+    handle_right_laser = ax.plot(right_laser_msg['xs'], right_laser_msg['ys'], '.', label='Left LIDAR data', color=(0.1,0.5,0.1))
+    handle_right_laser_filtered = ax.plot(right_laser_msg['xs_filtered'], right_laser_msg['ys_filtered'], 'o', label='right filtered',
+                                         color=(0,1,0), markerfacecolor='none')
+
+    plt.show()
+    exit(0)
+
+    # ----------------------------------------------------
 
     # Running the program for each of the collections
+    cols = data['collections']
     for col in cols:
         # Closing all previous figure
         plt.close('all')
@@ -110,7 +151,7 @@ def main():
             dataTreatment(data_left, data_right)
 
         # Initiating module
-        laser_model = LaserModel(0, 0, math.pi/4)
+        laser_model = LaserModel(0, 0, math.pi / 4)
 
         # Initializing and viewing the plot
         fig = plt.figure()
@@ -120,9 +161,11 @@ def main():
         # ax.axis([-20, 20, -20, 20])
         ax.axis([-5, 5, -5, 5])
         handle_left_laser = ax.plot(left_ys, left_xs, 'b+', label='Left LIDAR data')
-        handle_not_left_laser = ax.plot(not_left_ys, not_left_xs, 'bo', markersize=2, label='Left LIDAR data not considered')
+        handle_not_left_laser = ax.plot(not_left_ys, not_left_xs, 'bo', markersize=2,
+                                        label='Left LIDAR data not considered')
         handle_initial_right_laser = ax.plot(right_ys, right_xs, 'g+', label='Right LIDAR data before calibration')
-        handle_not_right_laser = ax.plot(not_right_ys, not_right_xs, 'go', markersize=2, label='Right LIDAR data not considered')
+        handle_not_right_laser = ax.plot(not_right_ys, not_right_xs, 'go', markersize=2,
+                                         label='Right LIDAR data not considered')
 
         handle_right_laser = ax.plot(right_ys, right_xs, 'rx', label='Right LIDAR data after calibration')
         ax.legend()
@@ -136,7 +179,7 @@ def main():
         ax1.axis([-5, 5, -5, 5])
         handle_left_laser1 = ax1.plot(left_ys, left_xs, 'b+', label='Left LIDAR data')
         handle_not_left_laser1 = ax1.plot(not_left_ys, not_left_xs, 'o', markersize=2,
-                                        label='Left LIDAR data not considered', color=(0.2,0.2,0.2))
+                                          label='Left LIDAR data not considered', color=(0.2, 0.2, 0.2))
         ax1.invert_xaxis()
         ax1.legend()
 
@@ -148,7 +191,7 @@ def main():
         ax2.axis([-5, 5, -5, 5])
         handle_right_laser1 = ax2.plot(right_ys, right_xs, 'b+', label='Right LIDAR data')
         handle_not_right_laser1 = ax2.plot(not_right_ys, not_right_xs, 'o', markersize=2,
-                                        label='Right LIDAR data not considered', color=(0.2,0.2,0.2))
+                                           label='Right LIDAR data not considered', color=(0.2, 0.2, 0.2))
         ax2.invert_xaxis()
         ax2.legend()
 
@@ -280,7 +323,9 @@ def main():
         wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
-    print('The values for calibration are:\n tx: ' + str(-mean(txs))+ ';\n ty: ' + str(-mean(tys)) + ';\n ang: ' + str(-mean(angs)))
+    print('The values for calibration are:\n tx: ' + str(-mean(txs)) + ';\n ty: ' + str(-mean(tys)) + ';\n ang: ' + str(
+        -mean(angs)))
+
 
 if __name__ == "__main__":
     main()

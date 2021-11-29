@@ -72,8 +72,8 @@ def dataTreatment(data_left, data_right):
     # Defining variables
     angle_left = minangle_l
     angle_right = maxangle_r
-    minangleav_l = 0
-    maxangleav_r = 0
+    minangleav_l = maxangle_l
+    maxangleav_r = minangle_r
     left_xs = []
     left_ys = []
     right_xs = []
