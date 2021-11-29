@@ -85,6 +85,8 @@ def dataTreatment(data_left, data_right):
 
     # Converting from polar coordinates to cartesian coordinates
     for laser_range in left_ranges:
+        if laser_range <= 0:
+            continue
         x, y = pol2cart(rho=laser_range, phi=angle_left)
         if angle_left <= minangleav_l:
             left_xs.append(x)
@@ -97,6 +99,8 @@ def dataTreatment(data_left, data_right):
 
 
     for laser_range in right_ranges:
+        if laser_range <= 0:
+            continue
         x, y = pol2cart(rho=laser_range, phi=angle_right)
         if angle_right >= maxangleav_r:
             right_xs.append(x)

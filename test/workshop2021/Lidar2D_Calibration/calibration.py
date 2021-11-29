@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import rosbag
 import OptimizationUtils.OptimizationUtils as OptimizationUtils
 from json_reader import *
 import matplotlib.pyplot as plt
@@ -9,6 +10,9 @@ from functools import partial
 import sys
 import argparse
 from statistics import mean
+from rospy_message_converter import message_converter
+from std_msgs.msg import String
+
 
 
 class LaserModel():
@@ -39,6 +43,8 @@ class LaserModel():
 
         in_matrix = np.array([[x], [y], [1]])
 
+        # print(matrix)
+        # exit()
         out_matrix = np.matmul(matrix, in_matrix)
 
         x_out = out_matrix[0]
@@ -58,21 +64,39 @@ class LaserModel():
 
 
 def main():
+    dictionary_right={}
+    dictionary_left = {}
     # Command line arguments
     parser = argparse.ArgumentParser(description='LIDAR calibration using OptimizationUtils')
     parser.add_argument('-j', '--json', type=str, required=True,
                         help='.json file to read the data points.')
     args = vars(parser.parse_args())
-
+    # # print(args['json'])
+    # # message = String(data = args['json'])
+    # bag = rosbag.Bag(args['json'])
+    #
+    # for topic, msg, t in bag.read_messages(topics=['/left_scan']):
+    #
+    #   dictionary_left.update(message_converter.convert_ros_message_to_dictionary(msg))
+    #
+    # for topic, msg, t in bag.read_messages(topics=['/right_scan']):
+    #
+    #   dictionary_right.update(message_converter.convert_ros_message_to_dictionary(msg))
+    #
+    # bag.close()
+    #
+    # json_object_left = json.dumps(dictionary_left)
+    # json_object_right = json.dumps(dictionary_right)
     # Defining lists
     txs = []
     tys = []
     angs = []
-
+    print(args['json'])
     # Importing json
     data = jsonImporter(args['json'])
 
-    # Retrieving number of collections
+    #
+    # # Retrieving number of collections
     cols = data['collections']
 
     # Running the program for each of the collections
@@ -86,7 +110,7 @@ def main():
             dataTreatment(data_left, data_right)
 
         # Initiating module
-        laser_model = LaserModel(0, 0, math.pi/3)
+        laser_model = LaserModel(0, 0, math.pi/4)
 
         # Initializing and viewing the plot
         fig = plt.figure()
@@ -94,7 +118,7 @@ def main():
         ax.plot(0, 0)
         ax.grid()
         # ax.axis([-20, 20, -20, 20])
-        ax.axis([-5, 5, -5, 5])
+        ax.axis([-8, 8, -8, 8])
         handle_left_laser = ax.plot(left_ys, left_xs, 'b+', label='Left LIDAR data')
         handle_not_left_laser = ax.plot(not_left_ys, not_left_xs, 'bo', markersize=2, label='Left LIDAR data not considered')
         handle_initial_right_laser = ax.plot(right_ys, right_xs, 'g+', label='Right LIDAR data before calibration')

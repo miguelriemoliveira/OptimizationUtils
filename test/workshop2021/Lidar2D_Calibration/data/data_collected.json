@@ -4,7 +4,7 @@
     "calibration_pattern": {
       "border_size": 0.5,
       "dimension": {
-          "x": 9, 
+          "x": 9,
           "y":6
       },
       "pattern_type": "chessboard",
