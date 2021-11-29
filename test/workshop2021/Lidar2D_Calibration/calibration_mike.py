@@ -14,6 +14,40 @@ from rospy_message_converter import message_converter
 from std_msgs.msg import String
 
 
+# -----------------------------------------------------
+# Define visualization function
+# -----------------------------------------------------
+def visualizationFunction(data_models):
+    # retrieve data models
+    # laser_model = data_models['laser_model']
+    collection = data_models['collection']
+    left_laser_msg = collection['data']['left_laser']
+    right_laser_msg = collection['data']['right_laser']
+    graphics = data_models['graphics']
+    # print('Visualization function called ...')
+
+    # update right transf laser visualization
+    graphics['right_laser_transf'][0].set_xdata(right_laser_msg['xs_transf'])
+    graphics['right_laser_transf'][0].set_ydata(right_laser_msg['ys_transf'])
+
+    graphics['right_laser_filtered_transf'][0].set_xdata(right_laser_msg['xs_filtered_transf'])
+    graphics['right_laser_filtered_transf'][0].set_ydata(right_laser_msg['ys_filtered_transf'])
+
+    for left_x, left_y, closest_right_x, closest_right_y, handle in zip(left_laser_msg['xs_filtered'],
+                                                                        left_laser_msg['ys_filtered'],
+                                                                        left_laser_msg['closest_points_x'],
+                                                                        left_laser_msg['closest_points_y'],
+                                                                        graphics['closest_points']):
+        xs = [left_x, closest_right_x]
+        ys = [left_y, closest_right_y]
+        handle[0].set_xdata(xs)
+        handle[0].set_ydata(ys)
+
+    wm = OptimizationUtils.KeyPressManager.WindowManager(graphics['fig'])
+    if wm.waitForKey(0.01, verbose=False):
+        exit(0)
+
+
 class LaserModel():
     def __init__(self, tx, ty, ang):
         self.tx = tx
@@ -89,7 +123,8 @@ def main():
     left_laser_msg['xs_filtered'] = []
     left_laser_msg['ys_filtered'] = []
     theta_min = - math.pi
-    theta_max = 0
+    # theta_max = 0
+    theta_max = math.pi
     for idx, range in enumerate(left_laser_msg['ranges']):
         if range > 0:  # valid measurement
             theta = left_laser_msg['angle_min'] + idx * left_laser_msg['angle_increment']
@@ -106,7 +141,8 @@ def main():
     right_laser_msg['ys'] = []
     right_laser_msg['xs_filtered'] = []
     right_laser_msg['ys_filtered'] = []
-    theta_min = 0
+    # theta_min = 0
+    theta_min = -math.pi
     theta_max = math.pi
     for idx, range in enumerate(right_laser_msg['ranges']):
         if range > 0:  # valid measurement
@@ -119,130 +155,109 @@ def main():
                 right_laser_msg['xs_filtered'].append(x)
                 right_laser_msg['ys_filtered'].append(y)
 
+    # Initiating module
+    right_laser_msg['laser_model'] = LaserModel(0, -0.7, -math.pi / 1.7)  # reasonably accurate first guess
+    # right_laser_msg['laser_model'] = LaserModel(0, -0.7, math.pi / 1.7) # inaccurate first guess
+
+    right_laser_msg['xs_transf'], right_laser_msg['ys_transf'] = right_laser_msg['laser_model'].getCoords(
+        right_laser_msg['xs'], right_laser_msg['ys'])
+    right_laser_msg['xs_filtered_transf'], right_laser_msg['ys_filtered_transf'] = \
+        right_laser_msg['laser_model'].getCoords(right_laser_msg['xs_filtered'], right_laser_msg['ys_filtered'])
 
     # Create figure
-    fig = plt.figure()
-    ax = fig.gca()
+    graphics = {}
+    graphics['fig'] = plt.figure()
+    ax = graphics['fig'].gca()
     ax.plot(0, 0)
     ax.grid()
     ax.axis([-5, 5, -5, 5])
-    handle_left_laser = ax.plot(left_laser_msg['xs'], left_laser_msg['ys'], '.', label='Left LIDAR data', color=(0.5,0.1,0.1))
-    handle_left_laser_filtered = ax.plot(left_laser_msg['xs_filtered'], left_laser_msg['ys_filtered'], 'o', label='left filtered',
-                                         color=(1,0,0), markerfacecolor='none')
+    graphics['left_laser'] = ax.plot(left_laser_msg['xs'], left_laser_msg['ys'], '.', label='Left LIDAR data',
+                                     color=(0.5, 0.1, 0.1))
+    graphics['left_laser_filtered'] = ax.plot(left_laser_msg['xs_filtered'], left_laser_msg['ys_filtered'], 'o',
+                                              label='left filtered', markersize=15,
+                                              color=(1, 0, 0), markerfacecolor='none')
 
-    handle_right_laser = ax.plot(right_laser_msg['xs'], right_laser_msg['ys'], '.', label='Left LIDAR data', color=(0.1,0.5,0.1))
-    handle_right_laser_filtered = ax.plot(right_laser_msg['xs_filtered'], right_laser_msg['ys_filtered'], 'o', label='right filtered',
-                                         color=(0,1,0), markerfacecolor='none')
+    graphics['right_laser'] = ax.plot(right_laser_msg['xs'], right_laser_msg['ys'], '.', label='Right LIDAR data',
+                                      color=(0.1, 0.5, 0.1))
+    graphics['right_laser_filtered'] = ax.plot(right_laser_msg['xs_filtered'], right_laser_msg['ys_filtered'], 'o',
+                                               label='right filtered',
+                                               color=(0, 1, 0), markerfacecolor='none')
 
+    graphics['right_laser_transf'] = ax.plot(right_laser_msg['xs_transf'], right_laser_msg['ys_transf'], '.',
+                                             label='right transf', color=(0.1, 0.1, 0.5))
+    graphics['right_laser_filtered_transf'] = ax.plot(right_laser_msg['xs_filtered_transf'],
+                                                      right_laser_msg['ys_filtered_transf'], 'o',
+                                                      label='right filtered transf', color=(0, 0, 1),
+                                                      markerfacecolor='none')
+    graphics['closest_points'] = []
+    for left_x, left_y in zip(left_laser_msg['xs_filtered'], left_laser_msg['ys_filtered']):
+        xs = [left_x, 0]
+        ys = [left_y, 0]
+        graphics['closest_points'].append(ax.plot(xs, ys, '-.', color=(1., 1., 0.0)))
 
     ax.legend()
-    plt.show()
+    plt.draw()
     plt.waitforbuttonpress(0)
     # exit(0)
 
     # ----------------------------------------------------
 
-    # Running the program for each of the collections
-
-    # Closing all previous figure
-    # plt.close('all')
-
-    left_xs = left_laser_msg['xs_filtered']
-    left_ys = left_laser_msg['ys_filtered']
-    right_xs = right_laser_msg['xs_filtered']
-    right_ys = right_laser_msg['ys_filtered']
-
-    # not_left_xs = left_laser_msg['xs']
-    # not_left_ys = left_laser_msg['ys_filtered']
-    # not_right_xs = right_laser_msg['xs_filtered']
-    # not_right_ys = right_laser_msg['ys_filtered']
-
-    # Initiating module
-    laser_model = LaserModel(0, 0, math.pi / 4)
-
-    # # Initializing and viewing the plot
-    # fig = plt.figure()
-    # ax = fig.gca()
-    # ax.plot(0, 0)
-    # ax.grid()
-    # # ax.axis([-20, 20, -20, 20])
-    # ax.axis([-5, 5, -5, 5])
-    # handle_left_laser = ax.plot(left_ys, left_xs, 'b+', label='Left LIDAR data')
-    # handle_not_left_laser = ax.plot(not_left_ys, not_left_xs, 'bo', markersize=2,
-    #                                 label='Left LIDAR data not considered')
-    # handle_initial_right_laser = ax.plot(right_ys, right_xs, 'g+', label='Right LIDAR data before calibration')
-    # handle_not_right_laser = ax.plot(not_right_ys, not_right_xs, 'go', markersize=2,
-    #                                  label='Right LIDAR data not considered')
-    #
-    # handle_right_laser = ax.plot(right_ys, right_xs, 'rx', label='Right LIDAR data after calibration')
-    # ax.legend()
-    # ax.invert_xaxis()
-    #
-    # # Partial lidar draws
-    # fig1 = plt.figure()
-    # ax1 = fig1.gca()
-    # ax1.plot(0, 0)
-    # ax1.grid()
-    # ax1.axis([-5, 5, -5, 5])
-    # handle_left_laser1 = ax1.plot(left_ys, left_xs, 'b+', label='Left LIDAR data')
-    # handle_not_left_laser1 = ax1.plot(not_left_ys, not_left_xs, 'o', markersize=2,
-    #                                   label='Left LIDAR data not considered', color=(0.2, 0.2, 0.2))
-    # ax1.invert_xaxis()
-    # ax1.legend()
-    #
-    # # Partial lidar draws
-    # fig2 = plt.figure()
-    # ax2 = fig2.gca()
-    # ax2.plot(0, 0)
-    # ax2.grid()
-    # ax2.axis([-5, 5, -5, 5])
-    # handle_right_laser1 = ax2.plot(right_ys, right_xs, 'b+', label='Right LIDAR data')
-    # handle_not_right_laser1 = ax2.plot(not_right_ys, not_right_xs, 'o', markersize=2,
-    #                                    label='Right LIDAR data not considered', color=(0.2, 0.2, 0.2))
-    # ax2.invert_xaxis()
-    # ax2.legend()
-    #
-    # # plt.draw()
-    # plt.show()
-
-
-    # exit(0)
+    # left_xs = left_laser_msg['xs_filtered']
+    # left_ys = left_laser_msg['ys_filtered']
+    # right_xs = right_laser_msg['xs_filtered']
+    # right_ys = right_laser_msg['ys_filtered']
 
     opt = OptimizationUtils.Optimizer()
 
     # Add data models
-    opt.addDataModel('laser_model', laser_model)
+    # opt.addDataModel('laser_model', laser_model)
+    opt.addDataModel('collection', collection)
+    opt.addDataModel('graphics', graphics)
 
     # -----------------------------------------------------
     # Define parameters
     # -----------------------------------------------------
 
     # Laser parameters
-    def getterLaser(data, prop):
-        if prop == 'tx':
-            return [data.tx]
-        elif prop == 'ty':
-            return [data.ty]
-        elif prop == 'ang':
-            return [data.ang]
+    # def getterLaser(collection, prop):
+    #     if prop == 'tx':
+    #         return [collection['data']['right_laser']['laser_model'].tx]
+    #     elif prop == 'ty':
+    #         return [collection['data']['right_laser']['laser_model'].ty]
+    #     elif prop == 'ang':
+    #         return [collection['data']['right_laser']['laser_model'].ang]
+    #
+    # def setterLaser(collection, value, prop):
+    #     if prop == 'tx':
+    #         collection['data']['right_laser']['laser_model'].tx = value
+    #     elif prop == 'ty':
+    #         collection['data']['right_laser']['laser_model'].ty = value
+    #     elif prop == 'ang':
+    #         collection['data']['right_laser']['laser_model'].ang = value
+    #
+    # opt.pushParamScalar(group_name='laser_tx', data_key='collection',
+    #                     getter=partial(getterLaser, prop='tx'),
+    #                     setter=partial(setterLaser, prop='tx'))
+    # opt.pushParamScalar(group_name='laser_ty', data_key='collection',
+    #                     getter=partial(getterLaser, prop='ty'),
+    #                     setter=partial(setterLaser, prop='ty'))
+    # opt.pushParamScalar(group_name='laser_ang', data_key='collection',
+    #                     getter=partial(getterLaser, prop='ang'),
+    #                     setter=partial(setterLaser, prop='ang'))
 
-    def setterLaser(data, value, prop):
-        if prop == 'tx':
-            data.tx = value
-        elif prop == 'ty':
-            data.ty = value
-        elif prop == 'ang':
-            data.ang = value
+    def getterPose(collection):
+        return [collection['data']['right_laser']['laser_model'].tx,
+                collection['data']['right_laser']['laser_model'].ty,
+                collection['data']['right_laser']['laser_model'].ang]
 
-    opt.pushParamScalar(group_name='laser_tx', data_key='laser_model',
-                        getter=partial(getterLaser, prop='tx'),
-                        setter=partial(setterLaser, prop='tx'))
-    opt.pushParamScalar(group_name='laser_ty', data_key='laser_model',
-                        getter=partial(getterLaser, prop='ty'),
-                        setter=partial(setterLaser, prop='ty'))
-    opt.pushParamScalar(group_name='laser_ang', data_key='laser_model',
-                        getter=partial(getterLaser, prop='ang'),
-                        setter=partial(setterLaser, prop='ang'))
+    def setterLaser(collection, values):
+        collection['data']['right_laser']['laser_model'].tx = values[0]
+        collection['data']['right_laser']['laser_model'].ty = values[1]
+        collection['data']['right_laser']['laser_model'].ang = values[2]
+
+    opt.pushParamVector(group_name='laser_', data_key='collection',
+                        getter=getterPose,
+                        setter=setterLaser, suffix=['tx', 'ty', 'ang'])
 
     opt.printParameters()
 
@@ -251,27 +266,61 @@ def main():
     # -----------------------------------------------------
     def objectiveFunction(data_models):
         # retrieve data models
-        laser_model = data_models['laser_model']
+        # laser_model = data_models['laser_model']
+        collection = data_models['collection']
+        left_laser_msg = collection['data']['left_laser']
+        right_laser_msg = collection['data']['right_laser']
 
         # Initialize the residuals
         errors = []
 
         # Compute observations from model
-        right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
 
+        right_laser_msg['xs_transf'], right_laser_msg['ys_transf'] = right_laser_msg['laser_model'].getCoords(
+            right_laser_msg['xs'], right_laser_msg['ys'])
+
+        right_laser_msg['xs_filtered_transf'], right_laser_msg['ys_filtered_transf'] = right_laser_msg[
+            'laser_model'].getCoords(right_laser_msg['xs_filtered'], right_laser_msg['ys_filtered'])
+
+        # right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
+        error_threshold = 1.0
         counter = 0
+        left_laser_msg['closest_points_x'] = []
+        left_laser_msg['closest_points_y'] = []
         # Compute error
-        # errors from the laser model
-        for idx, x in enumerate(left_xs):
-            y = left_ys[idx]
+        for left_x, left_y in zip(left_laser_msg['xs_filtered'], left_laser_msg['ys_filtered']):
             error_min = sys.float_info.max
-            for idx2, x_m in enumerate(right_xs_model):
-                y_m = right_ys_model[idx2]
-                counter += 1
-                error = abs(x - x_m) + abs(y - y_m)
+            min_x, min_y = 0, 0
+
+            for right_x, right_y in zip(right_laser_msg['xs_filtered_transf'], right_laser_msg['ys_filtered_transf']):
+
+                error = math.sqrt((left_x - right_x) ** 2 + (left_y - right_y) ** 2)
                 if error < error_min:
                     error_min = error
-            errors.append(error_min)
+                    min_x = right_x
+                    min_y = right_y
+                    # TODO save index of right minimum for each left
+
+            if error_min < error_threshold:
+                errors.append(error_min)
+                left_laser_msg['closest_points_x'].append(min_x)
+                left_laser_msg['closest_points_y'].append(min_y)
+            else:
+                left_laser_msg['closest_points_x'].append(left_x)
+                left_laser_msg['closest_points_y'].append(left_y)
+                errors.append(0)
+
+            # errors from the laser model
+        # for idx, x in enumerate(left_xs):
+        #     y = left_ys[idx]
+        #     error_min = sys.float_info.max
+        #     for idx2, x_m in enumerate(right_xs_model):
+        #         y_m = right_ys_model[idx2]
+        #         counter += 1
+        #         error = abs(x - x_m) + abs(y - y_m)
+        #         if error < error_min:
+        #             error_min = error
+        #     errors.append(error_min)
         return errors
 
     opt.setObjectiveFunction(objectiveFunction)
@@ -279,9 +328,9 @@ def main():
     # -----------------------------------------------------
     # Define residuals
     # -----------------------------------------------------
-
-    for idx, x in enumerate(left_xs):
-        opt.pushResidual(name='laser_r' + str(idx), params=['laser_tx', 'laser_ty', 'laser_ang'])
+    params = opt.getParameters()
+    for idx, _ in enumerate(left_laser_msg['xs_filtered']):
+        opt.pushResidual(name='laser_r' + str(idx), params=params)
 
     opt.printResiduals()
 
@@ -291,28 +340,6 @@ def main():
     opt.computeSparseMatrix()
     opt.printSparseMatrix()
 
-    # -----------------------------------------------------
-    # Define visualization function
-    # -----------------------------------------------------
-    def visualizationFunction(data_models):
-        # retrieve data models
-        laser_model = data_models['laser_model']
-        #
-        # print('Visualization function called ...')
-        # print('tx=' + str(laser_model.tx))
-        # print('ty=' + str(laser_model.ty))
-        # print('ang=' + str(laser_model.ang))
-
-        right_xs_model, right_ys_model = laser_model.getCoords(right_xs, right_ys)
-
-        # laser visualization
-        handle_right_laser[0].set_xdata(right_xs_model)
-        handle_right_laser[0].set_ydata(right_ys_model)
-
-        wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
-        if wm.waitForKey(0.01, verbose=False):
-            exit(0)
-
     opt.setVisualizationFunction(visualizationFunction, True)
 
     # -----------------------------------------------------
@@ -321,12 +348,6 @@ def main():
     opt.startOptimization(
         optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-6, 'diff_step': None})
     opt.printParameters()
-    tx = getterLaser(laser_model, 'tx')
-    ty = getterLaser(laser_model, 'ty')
-    ang = getterLaser(laser_model, 'ang')
-    wm = OptimizationUtils.KeyPressManager.WindowManager(fig)
-    if wm.waitForKey(0.01, verbose=False):
-        exit(0)
 
 
 if __name__ == "__main__":
