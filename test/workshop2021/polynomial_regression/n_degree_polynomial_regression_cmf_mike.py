@@ -24,7 +24,7 @@ class nDegreePolynomialModel():
     def getY(self, x):
         y = 0
         for idx, parameter in enumerate(self.parameters):
-            y += parameter * x ** (idx)
+            y += parameter * math.pow(x, idx)
         return y
 
     def getYs(self, xs):
@@ -67,17 +67,16 @@ def main():
     xs_obs = tgt_colors
     ys_obs = src_colors
 
+    # subsample xs_obs and ys_obs
+    subsample = 1
+    xs_obs = xs_obs[::subsample]
+    ys_obs = ys_obs[::subsample]
+
     # Create n Degree Polynomial model
     n_degree_polynomial_model = nDegreePolynomialModel([100] + [0] * args['degree'] )
-    # n_degree_polynomial_model = nDegreePolynomialModel([1,1,1,1,1])
-
-    # n_degree_polynomial_model = nDegreePolynomialModel([-0.000027, 0.013832, -1.829113, 128.440552])
-    initial_n_degree_polynomial_model = nDegreePolynomialModel([0] * args['degree'] + [100])
-    # initial_n_degree_polynomial_model = nDegreePolynomialModel([-0.000027, 0.013832, -1.829113, 128.440552])
 
     # initialize optimizer
     opt = OptimizationUtils.Optimizer()
-
     # Add data models
     opt.addDataModel('n_degree_polynomial_model', n_degree_polynomial_model)
 
@@ -170,7 +169,7 @@ def main():
     handle_model_plot = ax.plot(xs, ys, '-g')
 
     wm = KeyPressManager.WindowManager(fig)
-    if wm.waitForKey(0., verbose=False):
+    if wm.waitForKey(0.1, verbose=False):
         exit(0)
 
     # -----------------------------------------------------
@@ -183,7 +182,8 @@ def main():
         # n_degree_polynomial_model visualization
         handle_model_plot[0].set_ydata(n_degree_polynomial_model.getYs(xs))
 
-        wm = KeyPressManager.WindowManager(fig)
+        # opt.printParameters()
+        # opt.printResiduals()
         if wm.waitForKey(0.01, verbose=False):
             exit(0)
         # plt.draw()
@@ -194,8 +194,12 @@ def main():
     # -----------------------------------------------------
     # Start optimization
     # -----------------------------------------------------
-    opt.startOptimization(
-        optimization_options={'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-6, 'diff_step': None})
+    # optimization_options = {'x_scale': 'jac', 'ftol': 1e-6, 'xtol': 1e-6, 'gtol': 1e-6, 'diff_step': 1e-15}
+    x_scale = [1/math.pow(100, item) for item in range(0,n_degree_polynomial_model.degree+1)]
+    print(opt.x0)
+    print(x_scale)
+    optimization_options = {'x_scale': x_scale, 'ftol': 1e-16, 'xtol': 1e-25, 'gtol': 1e-6, 'diff_step': 1e-15}
+    opt.startOptimization(optimization_options=optimization_options)
     opt.printParameters()
 
     # -----------------------------------------------------
