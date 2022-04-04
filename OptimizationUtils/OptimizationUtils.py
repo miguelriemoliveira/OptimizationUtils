@@ -571,19 +571,19 @@ class Optimizer:
             values_in_data = group.getter(self.data_models[group.data_key])
             for i, param_name in enumerate(group.param_names):
                 rows.append(param_name)
-                table.append([group_name, self.x0[group.idx[i]], x[group.idx[i]], values_in_data[i]])
+                table.append([group_name, self.x0[group.idx[i]], x[group.idx[i]], values_in_data[i], group.bound_min[i], group.bound_max[i] ])
 
         if text is None:
             print('\nParameters:')
         else:
             print(text)
 
-        df = pandas.DataFrame(table, rows, ['Group', 'x0', 'x', 'data'])
+        df = pandas.DataFrame(table, rows, ['Group', 'x0', 'x', 'data', 'Min', 'Max'])
         if flg_simple:
             # https://medium.com/dunder-data/selecting-subsets-of-data-in-pandas-6fcd0170be9c
             print(df[['x']])
         else:
-            print(df)
+            print(df.to_string())
 
     def printModelsInfo(self):
         """ Prints information about the currently configured models """
