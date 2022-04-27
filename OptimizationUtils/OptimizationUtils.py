@@ -446,15 +446,23 @@ class Optimizer:
         optimization_options_tmp = deepcopy(optimization_options)  # copy options to avoid interference
         optimization_options_tmp['max_nfev'] = 1  # set maximum iterations to 1
         self.data_models['status']['num_function_calls'] = 0
+        x_backup = deepcopy(self.x)  # store a copy of the original parameter values
+
         _ = least_squares(self.internalObjectiveFunction, self.x, verbose=0, jac_sparsity=self.sparse_matrix,
                           method='trf', args=(), **optimization_options_tmp)
+
+        # Store number of function calls per iteration
         self.data_models['status']['num_function_calls_per_iteration'] = \
             self.data_models['status']['num_function_calls']
+
+        # Reset variables to start a clean optimization next
         self.data_models['status']['num_function_calls'] = 0
         self.data_models['status']['num_iterations'] = 0
+        self.x = x_backup
+        self.fromXToData()
 
-        print('One optimizer iteration has ' +
-              str(self.data_models['status']['num_function_calls_per_iteration']) + ' function calls.')
+        print('One optimizer iteration has ' + str(self.data_models['status']['num_function_calls_per_iteration']) +
+              ' function calls.')
 
     def finalOptimizationReport(self):
         """Just print some info and show the images"""
