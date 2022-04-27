@@ -1,22 +1,24 @@
 # -------------------------------------------------------------------------------
 # --- IMPORTS (standard, then third party, then my own modules)
 # -------------------------------------------------------------------------------
-import matplotlib
 import pprint
+import random
+import time
 from collections import namedtuple, OrderedDict
-from colorama import Fore
 from copy import deepcopy
+
+import matplotlib
 import pandas
-from pytictoc import TicToc
 import cv2
+import numpy as np
+from colorama import Fore, Style
+from pytictoc import TicToc
 from numpy import inf
 from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
-import numpy as np
-import random
+
 # import KeyPressManager
 from OptimizationUtils import KeyPressManager
-import time
 
 # ------------------------
 # DATA STRUCTURES   ##
@@ -69,7 +71,7 @@ def addArguments(ap):
 # CLASS
 # -------------------------------------------------------------------------------
 
-data_models = []
+# data_models = []
 
 
 class Optimizer:
@@ -80,7 +82,8 @@ class Optimizer:
         """
 
         self.data_models = {}  # a dict with a set of variables or structures to be used by the objective function
-        self.groups = OrderedDict()  # groups of params an ordered dict where key={name} and value = namedtuple('ParamT')
+        # groups of params an ordered dict where key={name} and value = namedtuple('ParamT')
+        self.groups = OrderedDict()
 
         self.x = []  # a list of floats (the actual parameters)
         self.x0 = []  # the initial value of the parameters
@@ -93,10 +96,13 @@ class Optimizer:
         # self.visualization_function = None
         self.first_call_of_objective_function = True
 
+        self.data_models['status'] = {'is_iteration': False, 'num_iterations': 0, 'num_function_calls': 0,
+                                      'num_function_calls_per_iteration': None, }
+        # used to assess how many auxiliary iterations are called before each core iteration #https://github.com/miguelriemoliveira/OptimizationUtils/issues/68
+
         # Visualization stuff
         self.vis_function_handle = None  # to contain a handle to the visualization function
-        self.vis_niterations = 0
-        self.vis_counter = 0
+        self.vis_niterations = 1  # call visualization function every nth iterations.
         self.always_visualize = False
         self.internal_visualization = True
         self.tictoc = TicToc()
@@ -297,17 +303,26 @@ class Optimizer:
 
         :param x: the parameters vector
         """
+        self.data_models['status']['num_function_calls'] += 1
+
+        self.data_models['status']['is_iteration'] = False
+        if not self.data_models['status']['num_function_calls_per_iteration'] is None:
+            if self.data_models['status']['num_function_calls'] % \
+                    self.data_models['status']['num_function_calls_per_iteration'] == 0:
+                # print(Fore.RED + 'THIS IS A CORE iteration!' + Style.RESET_ALL)
+                self.data_models['status']['is_iteration'] = True
+                self.data_models['status']['num_iterations'] += 1
+
         self.x = x  # setup x parameters.
         self.fromXToData()  # Copy from parameters to data models.
-        errors = self.errorDictToList(
-            self.objective_function(self.data_models))  # Call objective func. with updated data models.
+        # Call objective func. with updated data models.
+        errors = self.errorDictToList(self.objective_function(self.data_models))
 
         # self.printParameters()
         # self.printResiduals(errors)
 
         # Visualization: skip if counter does not exceed blackout interval
-        if self.always_visualize and self.vis_counter >= self.vis_niterations:
-            self.vis_counter = 0  # reset counter
+        if self.always_visualize and self.data_models['status']['num_iterations'] % self.vis_niterations == 0:
             self.vis_function_handle(self.data_models)  # call visualization function
 
             if self.internal_visualization:
@@ -335,9 +350,6 @@ class Optimizer:
             # Printing information
             # self.printParameters(flg_simple=True)
             # self.printResiduals(errors)
-
-        else:
-            self.vis_counter += 1
 
         return errors
 
@@ -396,13 +408,14 @@ class Optimizer:
             bounds_max.extend(bound_max)
             bounds_min.extend(bound_min)
 
+        self.getNumberOfFunctionCallsPerIteration(optimization_options)
+
         if self.always_visualize:
 
             if self.internal_visualization:
                 self.drawResidualsFigure()  # First draw of residuals figure
                 self.drawErrorEvolutionFigure()  # First draw of error evolution figure
                 self.wm = KeyPressManager.WindowManager(self.figures)
-                self.vis_counter = 0  # reset counter
                 self.vis_function_handle(self.data_models)  # call visualization function
                 self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
                 self.ax.relim()  # recompute new limits
@@ -426,6 +439,22 @@ class Optimizer:
         self.fromXToData(self.xf)
 
         self.finalOptimizationReport()  # print an informative report
+
+    def getNumberOfFunctionCallsPerIteration(self, optimization_options):
+
+        # Count number of function calls for each optimizer iteration
+        optimization_options_tmp = deepcopy(optimization_options)  # copy options to avoid interference
+        optimization_options_tmp['max_nfev'] = 1  # set maximum iterations to 1
+        self.data_models['status']['num_function_calls'] = 0
+        _ = least_squares(self.internalObjectiveFunction, self.x, verbose=0, jac_sparsity=self.sparse_matrix,
+                          method='trf', args=(), **optimization_options_tmp)
+        self.data_models['status']['num_function_calls_per_iteration'] = \
+            self.data_models['status']['num_function_calls']
+        self.data_models['status']['num_function_calls'] = 0
+        self.data_models['status']['num_iterations'] = 0
+
+        print('One optimizer iteration has ' +
+              str(self.data_models['status']['num_function_calls_per_iteration']) + ' function calls.')
 
     def finalOptimizationReport(self):
         """Just print some info and show the images"""
@@ -571,7 +600,12 @@ class Optimizer:
             values_in_data = group.getter(self.data_models[group.data_key])
             for i, param_name in enumerate(group.param_names):
                 rows.append(param_name)
-                table.append([group_name, self.x0[group.idx[i]], x[group.idx[i]], values_in_data[i], group.bound_min[i], group.bound_max[i] ])
+                table.append(
+                    [group_name, self.x0[group.idx[i]],
+                     x[group.idx[i]],
+                     values_in_data[i],
+                     group.bound_min[i],
+                     group.bound_max[i]])
 
         if text is None:
             print('\nParameters:')
