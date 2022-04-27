@@ -102,8 +102,7 @@ class Optimizer:
 
         # Visualization stuff
         self.vis_function_handle = None  # to contain a handle to the visualization function
-        self.vis_niterations = 0
-        self.vis_counter = 0
+        self.vis_niterations = 1  # call visualization function every nth iterations.
         self.always_visualize = False
         self.internal_visualization = True
         self.tictoc = TicToc()
@@ -323,8 +322,7 @@ class Optimizer:
         # self.printResiduals(errors)
 
         # Visualization: skip if counter does not exceed blackout interval
-        if self.always_visualize and self.vis_counter >= self.vis_niterations:
-            self.vis_counter = 0  # reset counter
+        if self.always_visualize and self.data_models['status']['num_iterations'] % self.vis_niterations == 0:
             self.vis_function_handle(self.data_models)  # call visualization function
 
             if self.internal_visualization:
@@ -352,9 +350,6 @@ class Optimizer:
             # Printing information
             # self.printParameters(flg_simple=True)
             # self.printResiduals(errors)
-
-        else:
-            self.vis_counter += 1
 
         return errors
 
@@ -421,7 +416,6 @@ class Optimizer:
                 self.drawResidualsFigure()  # First draw of residuals figure
                 self.drawErrorEvolutionFigure()  # First draw of error evolution figure
                 self.wm = KeyPressManager.WindowManager(self.figures)
-                self.vis_counter = 0  # reset counter
                 self.vis_function_handle(self.data_models)  # call visualization function
                 self.plot_handle.set_data(range(0, len(errors)), errors)  # redraw residuals plot
                 self.ax.relim()  # recompute new limits
