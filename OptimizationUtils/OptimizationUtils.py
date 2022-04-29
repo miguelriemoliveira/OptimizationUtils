@@ -325,7 +325,7 @@ class Optimizer:
         if self.always_visualize and self.data_models['status']['num_iterations'] % self.vis_niterations == 0:
             self.vis_function_handle(self.data_models)  # call visualization function
 
-            if self.internal_visualization:
+            if self.internal_visualization and hasattr(self, 'plot_handle'):
                 # redraw residuals plot
                 self.plot_handle.set_data(range(0, len(errors)), errors)
                 self.ax.relim()  # recompute new limits
