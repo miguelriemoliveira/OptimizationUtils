@@ -18,7 +18,7 @@ from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 
 # import KeyPressManager
-from OptimizationUtils import KeyPressManager
+# from OptimizationUtils import KeyPressManager
 
 # ------------------------
 # DATA STRUCTURES   ##
@@ -29,6 +29,7 @@ ParamT = namedtuple('ParamT', 'param_names idx data_key getter setter bound_max 
 def tic():
     # matlab like tic and toc functions
     global startTime_for_tictoc
+
     startTime_for_tictoc = time.time()
 
 
