@@ -14,7 +14,7 @@ import numpy as np
 from colorama import Fore, Style
 from pytictoc import TicToc
 from numpy import inf
-from scipy.optimize import least_squares
+from scipy.optimize import least_squares, minimize
 from scipy.sparse import lil_matrix
 
 # import KeyPressManager
@@ -86,6 +86,7 @@ class Optimizer:
         # groups of params an ordered dict where key={name} and value = namedtuple('ParamT')
         self.groups = OrderedDict()
 
+        self.optimization_method = 'least_squares' # the default one
         self.x = []  # a list of floats (the actual parameters)
         self.x0 = []  # the initial value of the parameters
         self.xf = []  # the final value of the parameters
@@ -352,7 +353,11 @@ class Optimizer:
             # self.printParameters(flg_simple=True)
             # self.printResiduals(errors)
 
-        return errors
+        if self.optimization_method == 'least_squares':
+            return errors
+        elif self.optimization_method == 'bfgs': # bfgs needs a scalar as output
+            return sum(abs(error) for error in errors)
+
 
     def errorDictToList(self, errors):
 
@@ -383,13 +388,14 @@ class Optimizer:
 
         return error_list
 
-    def startOptimization(self, optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8,
+    def startOptimization(self, optimization_method='least_squares', optimization_options={'x_scale': 'jac', 'ftol': 1e-8, 'xtol': 1e-8, 'gtol': 1e-8,
                                                       'diff_step': 1e-4}):
         """ Initializes the optimization procedure.
 
         :param optimization_options: dict with options for the least squares scipy function.
         Check https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
         """
+        self.optimization_method = optimization_method
         self.x0 = deepcopy(self.x)  # store current x as initial parameter values
         self.fromXToData()  # copy from x to data models
         # Call objective func. to get initial residuals.
@@ -431,10 +437,19 @@ class Optimizer:
                                    message="Ready to start optimization: press 'c' to continue.")  # wait a bit
 
         # Call optimization function (finally!)
-        print("Starting optimization ...")
+        print("Starting " + optimization_method + " optimization ...")
         self.tictoc.tic()
-        self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix,
-                                    bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
+
+        if self.optimization_method == 'least_squares':
+            self.result = least_squares(self.internalObjectiveFunction, self.x, verbose=2, jac_sparsity=self.sparse_matrix, bounds=(bounds_min, bounds_max), method='trf', args=(), **optimization_options)
+        elif self.optimization_method == 'bfgs':
+            self.result = minimize(self.internalObjectiveFunction, self.x, args=(), method='L-BFGS-B', 
+                               jac=None, hess=None, hessp=None, bounds=None, constraints=(),
+                               tol=None, callback=None, **optimization_options)
+            # TODO include bonds bounds=(bounds_min, bounds_max)
+        else:
+            raise ValueError('Unknown optimization method ' + optimization_method)
+
 
         self.xf = deepcopy(list(self.result.x))  # Store final x values
         self.fromXToData(self.xf)
@@ -449,8 +464,17 @@ class Optimizer:
         self.data_models['status']['num_function_calls'] = 0
         x_backup = deepcopy(self.x)  # store a copy of the original parameter values
 
-        _ = least_squares(self.internalObjectiveFunction, self.x, verbose=0, jac_sparsity=self.sparse_matrix,
+
+        if self.optimization_method == 'least_squares':
+            optimization_options_tmp['max_nfev'] = 1  # set maximum iterations to 1
+            _ = least_squares(self.internalObjectiveFunction, self.x, verbose=0, jac_sparsity=self.sparse_matrix,
                           method='trf', args=(), **optimization_options_tmp)
+        elif self.optimization_method == 'bfgs':
+            optimization_options_tmp['maxiter'] = 1  # set maximum iterations to 1
+            _ = minimize(self.internalObjectiveFunction, self.x, args=(), method='L-BFGS-B', 
+                               jac=None, hess=None, hessp=None, bounds=None, constraints=(),
+                               tol=None, callback=None)
+
 
         # Store number of function calls per iteration
         self.data_models['status']['num_function_calls_per_iteration'] = \
