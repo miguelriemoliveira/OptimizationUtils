@@ -80,7 +80,7 @@ class WindowManager:
                 return False
             elif key == ord('q') or self.mpl_pressed_key == 'q':
                 print('Pressed "q". Aborting.')
-                # exit(0)
+                exit(0)
             elif key == ord('x') or self.mpl_pressed_key == 'x':
                 print('Pressed "x". Returning with code x.')
                 return 'x'
