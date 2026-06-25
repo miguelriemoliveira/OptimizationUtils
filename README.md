@@ -339,6 +339,8 @@ The points will be projected from the first sensor image (pixs) to the second se
 
 A 4 hour long workshop on OptimizationUtils took place on the 16th of November, 2021.
 
+If you want to take a look, you can do so [here](https://www.youtube.com/watch?v=h4KxCUB0wcQ&list=PLQN09mzV5mbI4h5IQt3Eu9kugSk-08mnY&index=45).
+
 # <img align="center" width="500" height="300" src="https://github.com/miguelriemoliveira/OptimizationUtils/blob/noetic-devel/docs/workshop_nov2021.png?raw=true/375/215">
 
 ### Contributors
